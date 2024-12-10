@@ -41,12 +41,12 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighbors(uint64_t n
     return neighbors;
 }
 
-std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdgeWeight(uint64_t node) const {
+std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdgeWeightAsc(uint64_t node) const {
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors = getNeighbors(node);
 
     std::sort(neighbors.begin(), neighbors.end(),
               [](const std::tuple<uint64_t, uint64_t, bool> &a, const std::tuple<uint64_t, uint64_t, bool> &b) {
-                  return std::get<1>(a) > std::get<1>(b);
+                  return std::get<1>(a) < std::get<1>(b);
               });
 
     return neighbors;

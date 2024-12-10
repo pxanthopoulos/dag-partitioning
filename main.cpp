@@ -8,12 +8,18 @@
 int main() {
 //    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/2mm_10_20_30_40.dot",
 //                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
-//    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/test/dag.dot",
-//                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
+    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/test/dag.dot",
+                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
 //    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/before.dot",
 //                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
-    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/partition-graph-1.dot",
-                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
+//    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/partition-graph-1.dot",
+//                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
+
+    ClusteringForbiddenEdges clusteringForb(graph);
+    clusteringForb.runClustering();
+
+    ClusteringCycleDetection clusteringCyc(graph);
+    clusteringCyc.runClustering();
 
     ClusteringHybrid clusteringHyb(graph);
     clusteringHyb.runClustering();

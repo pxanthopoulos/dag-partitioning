@@ -29,7 +29,8 @@ public:
 
     [[nodiscard]] std::vector<std::tuple<uint64_t, uint64_t, bool>> getNeighbors(uint64_t node) const;
 
-    [[nodiscard]] std::vector<std::tuple<uint64_t, uint64_t, bool>> getNeighborsSortedByEdgeWeight(uint64_t node) const;
+    [[nodiscard]] std::vector<std::tuple<uint64_t, uint64_t, bool>>
+    getNeighborsSortedByEdgeWeightAsc(uint64_t node) const;
 
     [[nodiscard]] bool hasCycle() const;
 

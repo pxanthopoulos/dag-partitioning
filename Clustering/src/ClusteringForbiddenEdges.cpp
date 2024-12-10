@@ -46,9 +46,9 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
 uint64_t
 ClusteringForbiddenEdges::findBestNeighbor(const std::vector<std::pair<uint64_t, uint64_t>> &validNeighbors) {
     uint64_t bestNeighborId;
-    uint64_t maxEdgeWeight = 0;
+    uint64_t maxEdgeWeight = UINT64_MAX;
     for (const auto &[validNeighborId, validNeighborEdgeWeight]: validNeighbors) {
-        if (validNeighborEdgeWeight > maxEdgeWeight) {
+        if (validNeighborEdgeWeight < maxEdgeWeight) {
             bestNeighborId = validNeighborId;
             maxEdgeWeight = validNeighborEdgeWeight;
         }

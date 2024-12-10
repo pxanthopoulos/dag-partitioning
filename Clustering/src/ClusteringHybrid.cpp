@@ -71,7 +71,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
     for (uint64_t node: topologicalOrder) {
         if (markup[node] || markdown[node]) continue;
 
-        std::vector<std::tuple<uint64_t, uint64_t, bool>> sortedNeighbors = workingGraph.getNeighborsSortedByEdgeWeight(
+        std::vector<std::tuple<uint64_t, uint64_t, bool>> sortedNeighbors = workingGraph.getNeighborsSortedByEdgeWeightAsc(
                 node);
         for (const auto &[neighborId, edgeWeight, isSuccessor]: sortedNeighbors) {
             uint64_t diff = (topLevels[node] > topLevels[neighborId]) ? (topLevels[node] - topLevels[neighborId]) : (
