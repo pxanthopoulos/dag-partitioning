@@ -4,3 +4,4 @@ cmake-build-debug/*
 **/*.dot
 **/*.png
 **/*.txt
+!**/CMakeLists.txt
