@@ -10,8 +10,7 @@
 
 class ClusteringHybrid : public ClusteringCycleDetection {
 public:
-    explicit ClusteringHybrid(const Graph &graph)
-            : Clustering(graph), ClusteringCycleDetection(graph) {}
+    explicit ClusteringHybrid(const Graph &graph);
 
     [[nodiscard]] bool checkLargeDegrees(uint64_t from, uint64_t to) const;
 

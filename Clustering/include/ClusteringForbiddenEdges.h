@@ -13,7 +13,7 @@
 
 class ClusteringForbiddenEdges : virtual public Clustering {
 public:
-    explicit ClusteringForbiddenEdges(const Graph &graph) : Clustering(graph) {}
+    explicit ClusteringForbiddenEdges(const Graph &graph);
 
     [[nodiscard]] std::vector<std::pair<uint64_t, uint64_t>>
     findValidNeighbors(uint64_t node,

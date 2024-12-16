@@ -5,6 +5,9 @@
 #include "ClusteringHybrid.h"
 #include <cmath>
 
+ClusteringHybrid::ClusteringHybrid(const Graph &graph)
+        : Clustering(graph), ClusteringCycleDetection(graph) {}
+
 bool ClusteringHybrid::checkLargeDegrees(uint64_t from, uint64_t to) const {
     auto maxDegree = (uint64_t) (sqrt((double) workingGraph.size) / 10.0);
     if (workingGraph.adj[from].size() > maxDegree) return true;

@@ -11,7 +11,7 @@
 
 class ClusteringCycleDetection : virtual public Clustering {
 public:
-    explicit ClusteringCycleDetection(const Graph &graph) : Clustering(graph) {}
+    explicit ClusteringCycleDetection(const Graph &graph);
 
     void hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize, uint64_t node, uint64_t neighborId,
                         bool isSuccessor) const;

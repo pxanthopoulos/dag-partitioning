@@ -7,6 +7,8 @@
 #include <cmath>
 #include <algorithm>
 
+ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph) : Clustering(graph) {}
+
 std::vector<std::pair<uint64_t, uint64_t>>
 ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
                                              const std::vector<std::tuple<uint64_t, uint64_t, bool>> &neighbors,

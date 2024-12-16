@@ -10,6 +10,8 @@
 #include <iostream>
 #include "llvm/ADT/STLExtras.h"
 
+ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph) : Clustering(graph) {}
+
 void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize, uint64_t node,
                                               uint64_t neighborId, bool isSuccessor) const {
     uint64_t maxNewNodeId = -1;
