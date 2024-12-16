@@ -195,20 +195,53 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
         }
     }
 
-//    assert(topologicalOrder.size() == size && "Graph is cyclic");
-    if (topologicalOrder.size() != size) {
-        std::cerr << "\n\nGRAPH IS CYCLIC, current graph in err.dot\n\n";
-
-        printToDot("/home/panagiotis/code/dag-partitioning/err.dot");
-
-        if (hasCycle()) {
-            std::cerr << "GRAPH IS INDEED CYCLIC\n\n";
-        }
-
-        assert(1 == 0);
-    }
+    assert(topologicalOrder.size() == size && "Graph is cyclic");
+//    if (topologicalOrder.size() != size) {
+//        std::cerr << "GRAPH IS CYCLIC, current graph in err.dot\n";
+//
+//        printToDot("/home/panagiotis/code/dag-partitioning/err.dot");
+//
+//        if (hasCycle()) {
+//            std::cerr << "GRAPH IS INDEED CYCLIC\n";
+//        }
+//
+//        assert(1 == 0);
+//    }
 
     return {topologicalOrder, topLevels};
+}
+
+std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseGraph) {
+    std::vector<uint64_t> distances(size, UINT64_MAX);
+
+    std::priority_queue<
+            std::pair<uint64_t, uint64_t>,
+            std::vector<std::pair<uint64_t, uint64_t>>,
+            std::greater<>
+    > pq;
+
+    distances[startNode] = 0;
+    pq.emplace(startNode, 0);
+
+    while (!pq.empty()) {
+        uint64_t currentNode = pq.top().first;
+        uint64_t currentDist = pq.top().second;
+        pq.pop();
+
+        for (const auto &edge: (reverseGraph ? revAdj[currentNode] : adj[currentNode])) {
+            uint64_t neighborId = edge.first;
+            uint64_t edgeWeight = edge.second;
+
+            uint64_t newDist = currentDist + edgeWeight;
+
+            if (newDist < distances[neighborId]) {
+                distances[neighborId] = newDist;
+                pq.emplace(neighborId, newDist);
+            }
+        }
+    }
+
+    return distances;
 }
 
 void Graph::print(llvm::raw_ostream &os) const {

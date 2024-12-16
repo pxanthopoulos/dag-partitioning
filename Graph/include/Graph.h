@@ -44,6 +44,8 @@ public:
 
     [[nodiscard]] std::pair<std::vector<uint64_t>, std::vector<uint64_t>> topologicalSortAndTopLevels() const;
 
+    [[nodiscard]] std::vector<uint64_t> distancesFromNode(uint64_t startNode, bool reverseGraph = false);
+
     void print(llvm::raw_ostream &os) const;
 
     void printToDot(const std::string &dotFilename) const;
