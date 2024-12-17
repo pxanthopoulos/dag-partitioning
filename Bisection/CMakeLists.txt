@@ -14,3 +14,4 @@ target_link_libraries(Bisection
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotch.a
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotcherr.a
 )
+add_dependencies(Bisection scotch)
