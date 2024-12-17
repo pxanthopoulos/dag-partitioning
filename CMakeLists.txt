@@ -9,7 +9,7 @@ llvm_map_components_to_libnames(llvm_libs Support Core)
 
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
-add_subdirectory(InitialPartitioning)
+add_subdirectory(Bisection)
 
 add_executable(${PROJECT_NAME} main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE Clustering Graph InitialPartitioning ${llvm_libs})
+target_link_libraries(${PROJECT_NAME} PRIVATE Clustering Graph Bisection ${llvm_libs})
