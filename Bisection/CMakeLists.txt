@@ -13,5 +13,7 @@ target_link_libraries(Bisection
         PUBLIC Graph
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotch.a
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotcherr.a
+        ${CMAKE_BINARY_DIR}/third-party/metis/lib/libmetis.a
+        ${CMAKE_BINARY_DIR}/third-party/gklib/lib/libGKlib.a
 )
-add_dependencies(Bisection scotch)
+add_dependencies(Bisection scotch metis)

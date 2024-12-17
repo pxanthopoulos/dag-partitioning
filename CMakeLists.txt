@@ -36,6 +36,45 @@ ExternalProject_Add(scotch
 )
 include_directories(${CMAKE_BINARY_DIR}/third-party/scotch/include)
 
+ExternalProject_Add(gklib
+        SOURCE_DIR ${CMAKE_SOURCE_DIR}/third-party/gklib
+        PREFIX ${CMAKE_BINARY_DIR}/third-party/gklib
+        CONFIGURE_COMMAND
+        cd <SOURCE_DIR> && make config cc=${CMAKE_C_COMPILER}
+        prefix=<INSTALL_DIR>
+        openmp=1
+        BUILD_COMMAND
+        cd <SOURCE_DIR> && make
+        INSTALL_COMMAND
+        cd <SOURCE_DIR> && make install
+        BUILD_IN_SOURCE 1
+        BUILD_BYPRODUCTS
+        <INSTALL_DIR>/lib/libGKlib.a
+)
+
+ExternalProject_Add(metis
+        DEPENDS gklib
+        SOURCE_DIR ${CMAKE_SOURCE_DIR}/third-party/metis
+        PREFIX ${CMAKE_BINARY_DIR}/third-party/metis
+        CONFIGURE_COMMAND
+        cd <SOURCE_DIR> && make config cc=${CMAKE_C_COMPILER}
+        prefix=<INSTALL_DIR>
+        gklib_path=${CMAKE_BINARY_DIR}/third-party/gklib
+        i64=1
+        r64=1
+        gdb=1
+        assert=1
+        openmp=1
+        BUILD_COMMAND
+        cd <SOURCE_DIR> && make
+        INSTALL_COMMAND
+        cd <SOURCE_DIR> && make install
+        BUILD_IN_SOURCE 1
+        BUILD_BYPRODUCTS
+        <INSTALL_DIR>/lib/libmetis.a
+)
+include_directories(${CMAKE_BINARY_DIR}/third-party/metis/include)
+
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
 add_subdirectory(Bisection)
