@@ -8,9 +8,42 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 llvm_map_components_to_libnames(llvm_libs Support Core)
 
+include(ExternalProject)
+ExternalProject_Add(scotch
+        SOURCE_DIR ${CMAKE_SOURCE_DIR}/third-party/scotch
+        PREFIX ${CMAKE_BINARY_DIR}/third-party/scotch
+        CONFIGURE_COMMAND
+        cmake -G ${CMAKE_GENERATOR}
+        -B <BINARY_DIR>
+        -S <SOURCE_DIR>
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+        -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}
+        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_PTSCOTCH=OFF
+        -DBUILD_FORTRAN=OFF
+        -DBUILD_LIBSCOTCHMETIS=OFF
+        -DSCOTCH_METIS_PREFIX=OFF
+        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+        BUILD_COMMAND
+        cmake --build <BINARY_DIR>
+        INSTALL_COMMAND
+        cmake --install <BINARY_DIR>
+        BUILD_IN_SOURCE 0
+        BUILD_BYPRODUCTS
+        <INSTALL_DIR>/lib/libscotch.a
+        <INSTALL_DIR>/lib/libscotcherr.a
+)
+include_directories(${CMAKE_BINARY_DIR}/third-party/scotch/include)
+
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
 add_subdirectory(Bisection)
 
 add_executable(${PROJECT_NAME} main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE Clustering Graph Bisection ${llvm_libs})
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        Clustering
+        Graph
+        Bisection
+        ${llvm_libs}
+)
