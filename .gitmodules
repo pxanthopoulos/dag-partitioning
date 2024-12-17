@@ -1,3 +1,6 @@
 [submodule "third-party/scotch"]
 	path = third-party/scotch
 	url = https://gitlab.inria.fr/scotch/scotch.git
+[submodule "third-party/metis"]
+	path = third-party/metis
+	url = https://github.com/KarypisLab/METIS.git
