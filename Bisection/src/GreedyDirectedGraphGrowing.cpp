@@ -26,7 +26,7 @@ struct HeapComparator {
     }
 };
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGraph() {
+std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGraph() const {
     std::vector<bool> bisection(workingGraph.size, true);
     std::vector<bool> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
@@ -144,7 +144,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
     return {bestBisection, bestEdgeCut};
 }
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseGraph() {
+std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseGraph() const {
     std::vector<bool> bisection(workingGraph.size, false);
     std::vector<bool> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
@@ -263,7 +263,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
     return {bestBisection, bestEdgeCut};
 }
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::run() {
+std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::run() const {
     std::pair<std::vector<bool>, uint64_t> bisectionNormal = runOnNormalGraph();
     std::pair<std::vector<bool>, uint64_t> bisectionReverse = runOnReverseGraph();
 

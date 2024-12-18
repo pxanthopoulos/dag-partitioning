@@ -12,11 +12,11 @@ class GreedyDirectedGraphGrowing : Bisection {
 public:
     explicit GreedyDirectedGraphGrowing(Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
 
-    std::pair<std::vector<bool>, uint64_t> runOnNormalGraph();
+    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnNormalGraph() const;
 
-    std::pair<std::vector<bool>, uint64_t> runOnReverseGraph();
+    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnReverseGraph() const;
 
-    std::pair<std::vector<bool>, uint64_t> run() override;
+    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };
 
 

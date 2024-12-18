@@ -8,7 +8,7 @@ Bisection::Bisection(Graph &graph, double upperBoundPartWeight, double lowerBoun
         : workingGraph(graph), upperBoundPartWeight(upperBoundPartWeight),
           lowerBoundPartWeight(lowerBoundPartWeight) {}
 
-bool Bisection::checkValidBisection(const std::vector<bool> &bisection) {
+bool Bisection::checkValidBisection(const std::vector<bool> &bisection) const {
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         const auto &neighbors = workingGraph.adj[i];
         for (const auto &[neighborId, _]: neighbors) {

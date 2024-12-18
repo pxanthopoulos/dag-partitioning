@@ -211,7 +211,7 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
     return {topologicalOrder, topLevels};
 }
 
-std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseGraph) {
+std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseGraph) const {
     std::vector<uint64_t> distances(size, UINT64_MAX);
 
     std::priority_queue<

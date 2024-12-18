@@ -15,9 +15,9 @@ public:
 
     explicit Bisection(Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
 
-    virtual bool checkValidBisection(const std::vector<bool> &bisection);
+    [[nodiscard]] virtual bool checkValidBisection(const std::vector<bool> &bisection) const;
 
-    virtual std::pair<std::vector<bool>, uint64_t> run() = 0;
+    [[nodiscard]] virtual std::pair<std::vector<bool>, uint64_t> run() const = 0;
 };
 
 
