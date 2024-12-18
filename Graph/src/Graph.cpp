@@ -8,7 +8,6 @@
 #include <map>
 #include <cassert>
 #include <queue>
-#include <iostream>
 
 Graph::Graph(uint64_t size)
         : size(size), adj(size), revAdj(size), nodeWeights(size, 0), totalWeight(0), inDegree(size, 0) {
@@ -196,17 +195,6 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
     }
 
     assert(topologicalOrder.size() == size && "Graph is cyclic");
-//    if (topologicalOrder.size() != size) {
-//        std::cerr << "GRAPH IS CYCLIC, current graph in err.dot\n";
-//
-//        printToDot("/home/panagiotis/code/dag-partitioning/err.dot");
-//
-//        if (hasCycle()) {
-//            std::cerr << "GRAPH IS INDEED CYCLIC\n";
-//        }
-//
-//        assert(1 == 0);
-//    }
 
     return {topologicalOrder, topLevels};
 }

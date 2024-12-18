@@ -7,13 +7,11 @@
 #include <cmath>
 #include <map>
 #include <unordered_set>
-#include <iostream>
 #include "llvm/ADT/STLExtras.h"
 
 ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph) : Clustering(graph) {}
 
-void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize, uint64_t node,
-                                              uint64_t neighborId, bool isSuccessor) const {
+void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const {
     uint64_t maxNewNodeId = -1;
     std::map<uint64_t, uint64_t> leadersToNewNodeIds;
     std::vector<std::pair<std::vector<uint64_t>, uint64_t>> newNodes(newSize);
@@ -55,16 +53,7 @@ void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leade
             newGraph.addEdge(i, to, weight);
         }
     }
-
-    if (newGraph.hasCycle()) {
-        std::cerr << "Hard check for cycle failed\n";
-        std::cerr << "Merged " << node << " with " << neighborId
-                  << (isSuccessor ? " which is a successor" : " which is a predecessor") << "\n";
-        std::cerr << node << " is in " << leadersToNewNodeIds[leaders[node]] << " and " << neighborId << " is in "
-                  << leadersToNewNodeIds[leaders[neighborId]] << "\n";
-        newGraph.printToDot("/home/panagiotis/code/dag-partitioning/after-err.dot");
-        assert(!newGraph.hasCycle() && "Hard check for cycle failed");
-    }
+    assert(!newGraph.hasCycle() && "Hard check for cycle failed");
 }
 
 uint64_t
