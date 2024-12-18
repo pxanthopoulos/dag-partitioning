@@ -24,6 +24,8 @@ ExternalProject_Add(scotch
         -DBUILD_FORTRAN=OFF
         -DBUILD_LIBSCOTCHMETIS=OFF
         -DSCOTCH_METIS_PREFIX=OFF
+        -DINTSIZE=64
+        -DIDXSIZE64=ON
         -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
         BUILD_COMMAND
         cmake --build <BINARY_DIR>
@@ -85,4 +87,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Graph
         Bisection
         ${llvm_libs}
+        m
 )
