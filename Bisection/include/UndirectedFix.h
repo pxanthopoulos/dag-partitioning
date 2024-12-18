@@ -20,9 +20,11 @@ public:
 
     [[nodiscard]] int64_t computeNumberOfEdges() const;
 
-    void graphToScotchGraph(int64_t edgeNumber, std::vector<int64_t> &nodeNeighborsOffset, std::vector<int64_t> &nodeNeighbors, std::vector<int64_t> &edgeWeights, std::vector<int64_t> &nodeWeights) const;
+    void graphToCSRFormat(int64_t edgeNumber, std::vector<int64_t> &nodeNeighborsOffset, std::vector<int64_t> &nodeNeighbors, std::vector<int64_t> &edgeWeights, std::vector<int64_t> &nodeWeights) const;
 
-    std::vector<int64_t> getUndirectedPartitionScotch();
+    [[nodiscard]] std::vector<bool> getUndirectedPartitionScotch();
+
+    [[nodiscard]] std::vector<bool> getUndirectedPartitionMetis();
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };
