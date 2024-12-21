@@ -28,6 +28,7 @@ void Graph::addEdge(uint64_t from, uint64_t to, uint64_t weight) {
 }
 
 std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighbors(uint64_t node) const {
+    assert(node < size && "node id must be smaller than graph size");
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors;
     for (const auto &[outNeighbor, edgeWeight]: adj[node]) {
         neighbors.emplace_back(outNeighbor, edgeWeight, true);
@@ -41,6 +42,7 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighbors(uint64_t n
 }
 
 std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdgeWeightAsc(uint64_t node) const {
+    assert(node < size && "node id must be smaller than graph size");
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors = getNeighbors(node);
 
     std::sort(neighbors.begin(), neighbors.end(),
@@ -52,6 +54,7 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdg
 }
 
 bool Graph::iterativeDfsHasCycle(uint64_t start) const {
+    assert(start < size && "start node id must be smaller than graph size");
     std::vector<bool> visited(size, false);
     std::vector<bool> inStack(size, false);
     std::stack<std::pair<uint64_t, size_t>> stack;
@@ -156,6 +159,7 @@ std::vector<uint64_t> Graph::computeTopLevels(const std::vector<uint64_t> &topol
     std::vector<uint64_t> topLevels(size, 0);
 
     for (uint64_t u: topologicalOrder) {
+        assert(u < size && "node id in topological order must be smaller than graph size");
         for (const auto &[v, weight]: adj[u]) {
             topLevels[v] = std::max(topLevels[v], topLevels[u] + 1);
         }
@@ -200,6 +204,7 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
 }
 
 std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseGraph) const {
+    assert(startNode < size && "start node id must be smaller than graph size");
     std::vector<uint64_t> distances(size, UINT64_MAX);
 
     std::priority_queue<
@@ -266,6 +271,7 @@ void Graph::printToDot(const std::string &dotFilename) const {
 
 Graph readDotFile(const std::string &dotFilename, const std::string &mappingFilename) {
     std::ifstream dotFile(dotFilename);
+    assert(dotFile.is_open() && "DOT file could not be opened!");
     std::string line;
     std::regex sizeRegex(R"(//\s*size\s*=\s*(\d+))");
 
@@ -302,6 +308,8 @@ Graph readDotFile(const std::string &dotFilename, const std::string &mappingFile
             nodeId++;
         }
     }
+
+    assert(g.adj.size() == graphSize && "given graph size must match the computed one");
 
     std::ofstream mapFile(mappingFilename);
     for (const auto &[name, id]: nodeMap) {

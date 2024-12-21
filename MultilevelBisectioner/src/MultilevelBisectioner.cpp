@@ -38,6 +38,7 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> MultilevelBisectioner::runCl
     }
 
     std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters = clustering->run();
+    assert(intermediateClusters.size() <= maxClusteringRounds && "maximum number of clustering rounds exceeded");
     return intermediateClusters;
 }
 
@@ -87,6 +88,10 @@ std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
     std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters = runClustering();
 
     auto [coarsestGraph, coarsestMapping] = intermediateClusters.top();
+
+    assert(coarsestGraph.size >= minClusteringVertices &&
+           "minimum number of vertices for intermediate graphs violated");
+
     std::pair<std::vector<bool>, uint64_t> bisectionInfo = runBisection(coarsestGraph);
     dummyRefinement(coarsestGraph, bisectionInfo);
     intermediateClusters.pop();
@@ -95,6 +100,8 @@ std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
     while (!intermediateClusters.empty()) {
         projectBisection(bisectionInfo, currentMapping);
         auto [intermediateGraph, intermediateMapping] = intermediateClusters.top();
+        assert(intermediateGraph.size >= minClusteringVertices &&
+               "minimum number of vertices for intermediate graphs violated");
         currentMapping = intermediateMapping;
         dummyRefinement(intermediateGraph, bisectionInfo);
         intermediateClusters.pop();
