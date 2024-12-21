@@ -17,6 +17,8 @@ public:
 
     [[nodiscard]] virtual bool checkValidBisection(const std::vector<bool> &bisection) const;
 
+    [[nodiscard]] virtual uint64_t computeEdgeCut(const std::vector<bool> &bisection) const;
+
     [[nodiscard]] virtual std::pair<std::vector<bool>, uint64_t> run() const = 0;
 };
 
