@@ -58,20 +58,20 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     }
 
     workingGraph = newGraph;
-    std::vector<uint64_t> clustering(workingGraph.size);
-    for (unsigned long &cluster: clustering) cluster = leadersToNewNodeIds[leaders[cluster]];
-    clusters.emplace_back(clustering);
+    std::vector<uint64_t> clustering(leaders.size());
+    for (uint64_t i = 0; i < clustering.size(); ++i) clustering[i] = leadersToNewNodeIds[leaders[i]];
+    intermediateGraphsAndClusters.emplace(workingGraph, clustering);
 
     if (newSize == minVertices) return false;
     return true;
 }
 
-std::vector<std::vector<uint64_t>> Clustering::run() {
+std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
     if (workingGraph.size <= minVertices) {
         std::vector<uint64_t> clustering(workingGraph.size);
         iota(clustering.begin(), clustering.end(), 0);
-        clusters.emplace_back(clustering);
-        return clusters;
+        intermediateGraphsAndClusters.emplace(workingGraph, clustering);
+        return intermediateGraphsAndClusters;
     }
     uint64_t countRounds = 0;
     while (true) {
@@ -79,5 +79,5 @@ std::vector<std::vector<uint64_t>> Clustering::run() {
         if (!updateGraphAndClusters(pair.first, pair.second)) break;
         if (countRounds++ == maxRounds) break;
     }
-    return clusters;
+    return intermediateGraphsAndClusters;
 }

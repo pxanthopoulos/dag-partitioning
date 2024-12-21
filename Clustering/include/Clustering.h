@@ -7,12 +7,13 @@
 
 
 #include "Graph.h"
+#include <stack>
 #include <vector>
 
 class Clustering {
 protected:
     Graph workingGraph;
-    std::vector<std::vector<uint64_t>> clusters;
+    std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateGraphsAndClusters;
     uint64_t maxRounds;
     uint64_t minVertices;
 
@@ -25,7 +26,7 @@ public:
 
     virtual ~Clustering() = default;
 
-    [[nodiscard]] std::vector<std::vector<uint64_t>> run();
+    [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>> run();
 };
 
 
