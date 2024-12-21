@@ -11,7 +11,7 @@
 #include "scotch.h"
 #include "metis.h"
 
-class UndirectedFix : Bisection {
+class UndirectedFix : public Bisection {
 public:
     bool useMetis;
     bool useScotch;
@@ -22,9 +22,13 @@ public:
 
     void graphToCSRFormat(int64_t edgeNumber, std::vector<int64_t> &nodeNeighborsOffset, std::vector<int64_t> &nodeNeighbors, std::vector<int64_t> &edgeWeights, std::vector<int64_t> &nodeWeights) const;
 
-    [[nodiscard]] std::vector<bool> getUndirectedPartitionScotch();
+    [[nodiscard]] std::vector<bool> getUndirectedBisectionScotch() const;
 
-    [[nodiscard]] std::vector<bool> getUndirectedPartitionMetis();
+    [[nodiscard]] std::vector<bool> getUndirectedBisectionMetis() const;
+
+    void fixAcyclicityUp(std::vector<bool> &undirectedBisection) const;
+
+    void fixAcyclicityDown(std::vector<bool> &undirectedBisection) const;
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };

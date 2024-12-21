@@ -2,8 +2,9 @@
 // Created by panagiotis on 17/12/2024.
 //
 
-#include <iostream>
 #include <cmath>
+#include <llvm/ADT/STLExtras.h>
+#include <iostream>
 #include "UndirectedFix.h"
 
 UndirectedFix::UndirectedFix(Graph &graph, double upperBoundPartWeight,
@@ -46,7 +47,7 @@ void UndirectedFix::graphToCSRFormat(int64_t edgeNumber, std::vector<int64_t> &n
     assert(pos == 2 * edgeNumber && "pos must be equal to 2 * #Edges");
 }
 
-std::vector<bool> UndirectedFix::getUndirectedPartitionScotch() {
+std::vector<bool> UndirectedFix::getUndirectedBisectionScotch() const {
     SCOTCH_Graph scotchGraph;
     SCOTCH_Strat scotchStrategy;
     SCOTCH_graphInit(&scotchGraph);
@@ -69,20 +70,20 @@ std::vector<bool> UndirectedFix::getUndirectedPartitionScotch() {
     ret = SCOTCH_stratGraphMapBuild(&scotchStrategy, SCOTCH_STRATQUALITY | SCOTCH_STRATBALANCE, 2, imbalanceRatio - 1);
     assert(ret == 0 && "scotch strategy build failed");
 
-    std::vector<int64_t> partitions(workingGraph.size);
-    ret = SCOTCH_graphPart (&scotchGraph, 2, &scotchStrategy, partitions.data());
+    std::vector<int64_t> bisectionData(workingGraph.size);
+    ret = SCOTCH_graphPart (&scotchGraph, 2, &scotchStrategy, bisectionData.data());
     assert(ret == 0 && "scotch partition failed");
 
     SCOTCH_graphExit(&scotchGraph);
     SCOTCH_stratExit(&scotchStrategy);
 
-    std::vector<bool> result(partitions.size());
-    std::transform(partitions.begin(), partitions.end(), result.begin(),
+    std::vector<bool> result(bisectionData.size());
+    std::transform(bisectionData.begin(), bisectionData.end(), result.begin(),
                    [](int64_t x) { return x != 0; });
     return result;
 }
 
-std::vector<bool> UndirectedFix::getUndirectedPartitionMetis() {
+std::vector<bool> UndirectedFix::getUndirectedBisectionMetis() const {
     int64_t options[METIS_NOPTIONS];
     METIS_SetDefaultOptions(options);
     options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_CUT;
@@ -103,18 +104,113 @@ std::vector<bool> UndirectedFix::getUndirectedPartitionMetis() {
     int64_t edgeCut;
     auto size = (int64_t)workingGraph.size;
     double targetWeights[2] = {0.5, 0.5};
-    int64_t partitions[workingGraph.size];
+    int64_t bisectionData[workingGraph.size];
 
     int ret = METIS_PartGraphKway(&size, &one, nodeNeighborsOffset.data(), nodeNeighbors.data(),
                               nodeWeights.data(), nullptr, edgeWeights.data(), &two, targetWeights,
-                              nullptr, options, &edgeCut, partitions);
+                              nullptr, options, &edgeCut, bisectionData);
     assert(ret == METIS_OK && "metis partition failed");
 
     std::vector<bool> result(size);
-    std::transform(partitions, partitions + size, result.begin(), [](int64_t x) { return x != 0; });
+    std::transform(bisectionData, bisectionData + size, result.begin(), [](int64_t x) { return x != 0; });
     return result;
 }
 
+void UndirectedFix::fixAcyclicityUp(std::vector<bool> &undirectedBisection) const {
+    std::vector<uint64_t> topologicalOrder = workingGraph.topologicalSort();
+    for (const uint64_t &nodeId : llvm::reverse(topologicalOrder)) {
+        if (!undirectedBisection[nodeId]) {
+            for (const auto &[predecessorId, edgeWeight] : workingGraph.revAdj[nodeId]) undirectedBisection[predecessorId] = false;
+        }
+    }
+}
+
+void UndirectedFix::fixAcyclicityDown(std::vector<bool> &undirectedBisection) const {
+    std::vector<uint64_t> topologicalOrder = workingGraph.topologicalSort();
+    for (const uint64_t &nodeId : topologicalOrder) {
+        if (undirectedBisection[nodeId]) {
+            for (const auto &[successorId, edgeWeight] : workingGraph.adj[nodeId]) undirectedBisection[successorId] = true;
+        }
+    }
+}
+
 std::pair<std::vector<bool>, uint64_t> UndirectedFix::run() const {
-    return {};
+    uint64_t bestEdgeCut = UINT64_MAX, edgeCut;
+    std::vector<bool> bestBisection;
+
+    if (useMetis) {
+        std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
+        std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+        std::transform(undirectedBisection.begin(), undirectedBisection.end(), reverseUndirectedBisection.begin(),
+                       [](bool x) { return !x; });
+        std::vector<bool> copy = undirectedBisection;
+
+        fixAcyclicityUp(undirectedBisection);
+        edgeCut = computeEdgeCut(undirectedBisection);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = undirectedBisection;
+        }
+
+        fixAcyclicityDown(copy);
+        edgeCut = computeEdgeCut(copy);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = copy;
+        }
+
+        copy = reverseUndirectedBisection;
+        fixAcyclicityUp(reverseUndirectedBisection);
+        edgeCut = computeEdgeCut(reverseUndirectedBisection);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = reverseUndirectedBisection;
+        }
+
+        fixAcyclicityDown(copy);
+        edgeCut = computeEdgeCut(copy);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = copy;
+        }
+    }
+    if (useScotch) {
+        std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
+        std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+        std::transform(undirectedBisection.begin(), undirectedBisection.end(), reverseUndirectedBisection.begin(),
+                       [](bool x) { return !x; });
+        std::vector<bool> copy = undirectedBisection;
+
+        fixAcyclicityUp(undirectedBisection);
+        edgeCut = computeEdgeCut(undirectedBisection);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = undirectedBisection;
+        }
+
+        fixAcyclicityDown(copy);
+        edgeCut = computeEdgeCut(copy);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = copy;
+        }
+
+        copy = reverseUndirectedBisection;
+        fixAcyclicityUp(reverseUndirectedBisection);
+        edgeCut = computeEdgeCut(reverseUndirectedBisection);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = reverseUndirectedBisection;
+        }
+
+        fixAcyclicityDown(copy);
+        edgeCut = computeEdgeCut(copy);
+        if (edgeCut < bestEdgeCut && edgeCut != 0) {
+            bestEdgeCut = edgeCut;
+            bestBisection = copy;
+        }
+    }
+    assert(bestEdgeCut != UINT64_MAX && "No valid edgeCut computed");
+    assert(checkValidBisection(bestBisection) && "Best bisection is cyclic");
+    return {bestBisection, bestEdgeCut};
 }
