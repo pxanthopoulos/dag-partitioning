@@ -15,7 +15,7 @@ private:
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnReverseGraph() const;
 
 public:
-    explicit GreedyDirectedGraphGrowing(Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
+    explicit GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };

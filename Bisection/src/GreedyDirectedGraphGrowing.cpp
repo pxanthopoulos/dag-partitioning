@@ -8,10 +8,11 @@
 #include <algorithm>
 #include <cfloat>
 
-GreedyDirectedGraphGrowing::GreedyDirectedGraphGrowing(Graph &graph, double upperBoundPartWeight,
+GreedyDirectedGraphGrowing::GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight,
                                                        double lowerBoundPartWeight) : Bisection(graph,
                                                                                                 upperBoundPartWeight,
                                                                                                 lowerBoundPartWeight) {}
+
 
 struct HeapComparator {
     bool operator()(const std::tuple<uint64_t, uint64_t, uint64_t> &a,
