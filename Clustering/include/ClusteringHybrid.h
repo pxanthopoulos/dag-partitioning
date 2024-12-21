@@ -22,6 +22,7 @@ public:
                                       std::vector<uint64_t> &numberOfBadNeighbors,
                                       std::vector<uint64_t> &leaderOfBadNeighbors) const;
 
+protected:
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const override;
 };
 

@@ -11,12 +11,10 @@
 #include "scotch.h"
 #include "metis.h"
 
-class UndirectedFix : public Bisection {
-public:
+class UndirectedFix : Bisection {
+private:
     bool useMetis;
     bool useScotch;
-
-    explicit UndirectedFix(Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight, bool useMetis, bool useScotch);
 
     [[nodiscard]] int64_t computeNumberOfEdges() const;
 
@@ -29,6 +27,9 @@ public:
     void fixAcyclicityUp(std::vector<bool> &undirectedBisection) const;
 
     void fixAcyclicityDown(std::vector<bool> &undirectedBisection) const;
+
+public:
+    explicit UndirectedFix(Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight, bool useMetis, bool useScotch);
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };

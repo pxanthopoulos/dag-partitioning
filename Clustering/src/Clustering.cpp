@@ -65,7 +65,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     return true;
 }
 
-void Clustering::runClustering() {
+void Clustering::run() {
     while (true) {
         const auto &pair = oneRoundClustering();
         if (!updateGraphAndClusters(pair.first, pair.second)) break;

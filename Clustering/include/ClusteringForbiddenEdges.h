@@ -11,10 +11,11 @@
 #include <cstdint>
 #include <utility>
 
-class ClusteringForbiddenEdges : virtual public Clustering {
+class ClusteringForbiddenEdges : public Clustering {
 public:
     explicit ClusteringForbiddenEdges(const Graph &graph);
 
+private:
     [[nodiscard]] std::vector<std::pair<uint64_t, uint64_t>>
     findValidNeighbors(uint64_t node,
                        const std::vector<std::tuple<uint64_t, uint64_t, bool>> &neighbors,
@@ -26,6 +27,7 @@ public:
 
     [[nodiscard]] static uint64_t findBestNeighbor(const std::vector<std::pair<uint64_t, uint64_t>> &);
 
+protected:
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const override;
 };
 

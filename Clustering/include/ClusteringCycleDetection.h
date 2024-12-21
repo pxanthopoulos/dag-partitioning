@@ -13,11 +13,13 @@ class ClusteringCycleDetection : virtual public Clustering {
 public:
     explicit ClusteringCycleDetection(const Graph &graph);
 
+private:
     void hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const;
 
     [[nodiscard]] static uint64_t findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels,
                                                                const std::vector<uint64_t> &leaders);
 
+protected:
     [[nodiscard]] bool detectCycle(uint64_t from, uint64_t to, const std::vector<uint64_t> &topLevels,
                                    const std::vector<uint64_t> &leaders) const;
 

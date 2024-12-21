@@ -4,7 +4,6 @@
 
 #include <cmath>
 #include <llvm/ADT/STLExtras.h>
-#include <iostream>
 #include "UndirectedFix.h"
 
 UndirectedFix::UndirectedFix(Graph &graph, double upperBoundPartWeight,
