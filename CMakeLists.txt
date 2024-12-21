@@ -80,12 +80,14 @@ include_directories(${CMAKE_BINARY_DIR}/third-party/metis/include)
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
 add_subdirectory(Bisection)
+add_subdirectory(MultilevelBisectioner)
 
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE
         Clustering
         Graph
         Bisection
+        MultilevelBisectioner
         ${llvm_libs}
         m
 )
