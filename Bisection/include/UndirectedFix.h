@@ -11,7 +11,7 @@
 #include "scotch.h"
 #include "metis.h"
 
-class UndirectedFix : Bisection {
+class UndirectedFix : public Bisection {
 private:
     bool useMetis;
     bool useScotch;

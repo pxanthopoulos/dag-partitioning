@@ -8,7 +8,7 @@
 
 #include "Bisection.h"
 
-class GreedyDirectedGraphGrowing : Bisection {
+class GreedyDirectedGraphGrowing : public Bisection {
 private:
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnNormalGraph() const;
 

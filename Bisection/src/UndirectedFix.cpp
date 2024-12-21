@@ -180,7 +180,7 @@ std::pair<std::vector<bool>, uint64_t> UndirectedFix::run() const {
         }
     }
     if (useScotch) {
-        std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
+        std::vector<bool> undirectedBisection = getUndirectedBisectionScotch();
         std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
         std::transform(undirectedBisection.begin(), undirectedBisection.end(), reverseUndirectedBisection.begin(),
                        [](bool x) { return !x; });
