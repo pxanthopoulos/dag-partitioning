@@ -7,7 +7,8 @@
 #include <cmath>
 #include <algorithm>
 
-ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices) : Clustering(graph, maxRounds, minVertices) {}
+ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
+        : Clustering(graph, maxRounds, minVertices) {}
 
 std::vector<std::pair<uint64_t, uint64_t>>
 ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
@@ -24,7 +25,8 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
     if (numberOfBadNeighbors[node] == 1) {
         uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
         if ((clusterWeights[leaderOfBadNeighbor] + workingGraph.nodeWeights[node]) >
-            (uint64_t) ceil((double) workingGraph.totalWeight * 0.1)) return {};
+            (uint64_t) ceil((double) workingGraph.totalWeight * 0.1))
+            return {};
         for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
             if (leaders[neighborId] == leaderOfBadNeighbor) return {{neighborId, edgeWeight}};
         }
@@ -85,7 +87,22 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
                                                                                        numberOfBadNeighbors,
                                                                                        leaderOfBadNeighbors);
 
-        if (validNeighbors.empty()) continue;
+        if (validNeighbors.empty()) {
+            for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
+                uint64_t diff = (topLevels[node] > topLevels[neighborId]) ? (topLevels[node] - topLevels[neighborId])
+                                                                          : (
+                                        topLevels[neighborId] - topLevels[node]);
+                if (diff > 1) continue;
+                if (numberOfBadNeighbors[neighborId] == 0) {
+                    numberOfBadNeighbors[neighborId] = 1;
+                    leaderOfBadNeighbors[neighborId] = leaders[node];
+                } else if ((numberOfBadNeighbors[neighborId] == 1) &&
+                           (leaderOfBadNeighbors[neighborId] != leaders[node])) {
+                    numberOfBadNeighbors[neighborId] = 2;
+                }
+            }
+            continue;
+        }
 
         newSize--;
         uint64_t bestNeighbor = findBestNeighbor(validNeighbors);
