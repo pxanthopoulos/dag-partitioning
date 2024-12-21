@@ -9,7 +9,7 @@
 #include <unordered_set>
 #include "llvm/ADT/STLExtras.h"
 
-ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph) : Clustering(graph) {}
+ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices) : Clustering(graph, maxRounds, minVertices) {}
 
 void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const {
     uint64_t maxNewNodeId = -1;
@@ -155,6 +155,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClu
             }
             break;
         }
+        if (newSize == minVertices) break;
     }
 
     return {leaders, newSize};

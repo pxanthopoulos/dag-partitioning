@@ -7,7 +7,7 @@
 #include <cmath>
 #include <algorithm>
 
-ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph) : Clustering(graph) {}
+ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices) : Clustering(graph, maxRounds, minVertices) {}
 
 std::vector<std::pair<uint64_t, uint64_t>>
 ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
@@ -23,6 +23,8 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
 
     if (numberOfBadNeighbors[node] == 1) {
         uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
+        if ((clusterWeights[leaderOfBadNeighbor] + workingGraph.nodeWeights[node]) >
+            (uint64_t) ceil((double) workingGraph.totalWeight * 0.1)) return {};
         for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
             if (leaders[neighborId] == leaderOfBadNeighbor) return {{neighborId, edgeWeight}};
         }
@@ -125,6 +127,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
             isNotSingleton[bestNeighbor] = true;
         }
         isNotSingleton[node] = true;
+        if (newSize == minVertices) break;
     }
 
     return {leaders, newSize};

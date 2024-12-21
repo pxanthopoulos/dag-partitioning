@@ -13,7 +13,7 @@
 
 class ClusteringForbiddenEdges : public Clustering {
 public:
-    explicit ClusteringForbiddenEdges(const Graph &graph);
+    explicit ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
 
 private:
     [[nodiscard]] std::vector<std::pair<uint64_t, uint64_t>>

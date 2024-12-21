@@ -12,18 +12,20 @@
 class Clustering {
 protected:
     Graph workingGraph;
-    std::vector<uint64_t> clusters;
+    std::vector<std::vector<uint64_t>> clusters;
+    uint64_t maxRounds;
+    uint64_t minVertices;
 
     [[nodiscard]] virtual std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const = 0;
 
     [[nodiscard]] bool updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize);
 
 public:
-    explicit Clustering(const Graph &graph);
+    explicit Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices);
 
     virtual ~Clustering() = default;
 
-    void run();
+    [[nodiscard]] std::vector<std::vector<uint64_t>> run();
 };
 
 

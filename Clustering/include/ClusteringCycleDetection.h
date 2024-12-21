@@ -11,7 +11,7 @@
 
 class ClusteringCycleDetection : virtual public Clustering {
 public:
-    explicit ClusteringCycleDetection(const Graph &graph);
+    explicit ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
 
 private:
     void hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const;

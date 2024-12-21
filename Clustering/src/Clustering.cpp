@@ -5,13 +5,11 @@
 #include "Clustering.h"
 #include <map>
 #include <unordered_set>
+#include <utility>
+#include <numeric>
 
-Clustering::Clustering(const Graph &graph) :
-        workingGraph(graph), clusters(graph.size) {
-    for (uint64_t i = 0; i < workingGraph.size; ++i) {
-        clusters[i] = i;
-    }
-}
+Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices) :
+        workingGraph(std::move(graph)), maxRounds(maxRounds), minVertices(minVertices) {}
 
 bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize) {
     assert(leaders.size() == workingGraph.size && "Leader value must be specified for all nodes");
@@ -60,14 +58,26 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     }
 
     workingGraph = newGraph;
-    for (unsigned long &cluster: clusters) cluster = leadersToNewNodeIds[leaders[cluster]];
+    std::vector<uint64_t> clustering(workingGraph.size);
+    for (unsigned long &cluster: clustering) cluster = leadersToNewNodeIds[leaders[cluster]];
+    clusters.emplace_back(clustering);
 
+    if (newSize == minVertices) return false;
     return true;
 }
 
-void Clustering::run() {
+std::vector<std::vector<uint64_t>> Clustering::run() {
+    if (workingGraph.size <= minVertices) {
+        std::vector<uint64_t> clustering(workingGraph.size);
+        iota(clustering.begin(), clustering.end(), 0);
+        clusters.emplace_back(clustering);
+        return clusters;
+    }
+    uint64_t countRounds = 0;
     while (true) {
         const auto &pair = oneRoundClustering();
         if (!updateGraphAndClusters(pair.first, pair.second)) break;
+        if (countRounds++ == maxRounds) break;
     }
+    return clusters;
 }
