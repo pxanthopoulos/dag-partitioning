@@ -23,7 +23,8 @@ private:
                        const std::vector<uint64_t> &clusterWeights,
                        const std::vector<uint64_t> &topLevels,
                        const std::vector<uint64_t> &numberOfBadNeighbors,
-                       const std::vector<uint64_t> &leaderOfBadNeighbors) const;
+                       const std::vector<uint64_t> &leaderOfBadNeighbors,
+                       const std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> &leadersToMinMaxTopValues) const;
 
     [[nodiscard]] static uint64_t findBestNeighbor(const std::vector<std::pair<uint64_t, uint64_t>> &);
 

@@ -57,10 +57,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
         }
     }
 
-    workingGraph.printToDot("/home/panagiotis/code/dag-partitioning/test/before.dot");
     workingGraph = newGraph;
-    workingGraph.printToDot("/home/panagiotis/code/dag-partitioning/test/after.dot");
-
     std::vector<uint64_t> clustering(leaders.size());
     for (uint64_t i = 0; i < clustering.size(); ++i) clustering[i] = leadersToNewNodeIds[leaders[i]];
     intermediateGraphsAndClusters.emplace(workingGraph, clustering);

@@ -17,7 +17,8 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
                                              const std::vector<uint64_t> &clusterWeights,
                                              const std::vector<uint64_t> &topLevels,
                                              const std::vector<uint64_t> &numberOfBadNeighbors,
-                                             const std::vector<uint64_t> &leaderOfBadNeighbors) const {
+                                             const std::vector<uint64_t> &leaderOfBadNeighbors,
+                                             const std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> &leadersToMinMaxTopValues) const {
     std::vector<std::pair<uint64_t, uint64_t>> validNeighbors;
 
     if (numberOfBadNeighbors[node] == 2) return {};
@@ -27,6 +28,8 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
         if ((clusterWeights[leaderOfBadNeighbor] + workingGraph.nodeWeights[node]) >
             (uint64_t) ceil((double) workingGraph.totalWeight * 0.1))
             return {};
+        auto &value = leadersToMinMaxTopValues.at(leaderOfBadNeighbor);
+        if (topLevels[node] != value.first && topLevels[node] != value.second) return {};
         for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
             if (leaders[neighborId] == leaderOfBadNeighbor) return {{neighborId, edgeWeight}};
         }
@@ -73,6 +76,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
     }
     std::vector<uint64_t> numberOfBadNeighbors(workingGraph.size, 0);
     std::vector<uint64_t> leaderOfBadNeighbors(workingGraph.size, UINT64_MAX);
+    std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>> leadersToMinMaxTopValues;
 
     const auto [topologicalOrder, topLevels] = workingGraph.topologicalSortAndTopLevels();
 
@@ -85,24 +89,10 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
                                                                                        clusterWeights,
                                                                                        topLevels,
                                                                                        numberOfBadNeighbors,
-                                                                                       leaderOfBadNeighbors);
+                                                                                       leaderOfBadNeighbors,
+                                                                                       leadersToMinMaxTopValues);
 
-        if (validNeighbors.empty()) {
-            for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
-                uint64_t diff = (topLevels[node] > topLevels[neighborId]) ? (topLevels[node] - topLevels[neighborId])
-                                                                          : (
-                                        topLevels[neighborId] - topLevels[node]);
-                if (diff > 1) continue;
-                if (numberOfBadNeighbors[neighborId] == 0) {
-                    numberOfBadNeighbors[neighborId] = 1;
-                    leaderOfBadNeighbors[neighborId] = leaders[node];
-                } else if ((numberOfBadNeighbors[neighborId] == 1) &&
-                           (leaderOfBadNeighbors[neighborId] != leaders[node])) {
-                    numberOfBadNeighbors[neighborId] = 2;
-                }
-            }
-            continue;
-        }
+        if (validNeighbors.empty()) continue;
 
         newSize--;
         uint64_t bestNeighbor = findBestNeighbor(validNeighbors);
@@ -110,9 +100,23 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
         leaders[node] = leaderOfBestNeighbor;
         clusterWeights[leaderOfBestNeighbor] += workingGraph.nodeWeights[node];
 
+        auto [it, inserted] = leadersToMinMaxTopValues.try_emplace(
+                leaderOfBestNeighbor,
+                std::min(topLevels[node], topLevels[bestNeighbor]),
+                std::max(topLevels[node], topLevels[bestNeighbor])
+        );
+
+        if (!inserted) {
+            it->second = {
+                    std::min(topLevels[node], it->second.first),
+                    std::max(topLevels[node], it->second.second)
+            };
+        }
+
         for (const auto &[neighborId, edgeWeight, isSuccessor]: neighbors) {
-            uint64_t diff = (topLevels[node] > topLevels[neighborId]) ? (topLevels[node] - topLevels[neighborId]) : (
-                    topLevels[neighborId] - topLevels[node]);
+            uint64_t diff = (topLevels[node] > topLevels[neighborId]) ? (topLevels[node] - topLevels[neighborId])
+                                                                      : (
+                                    topLevels[neighborId] - topLevels[node]);
             if (diff > 1) continue;
             if (numberOfBadNeighbors[neighborId] == 0) {
                 numberOfBadNeighbors[neighborId] = 1;
