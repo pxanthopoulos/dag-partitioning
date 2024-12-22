@@ -46,6 +46,8 @@ ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,
                 topLevels[neighborId] - topLevels[node]);
         if (diff > 1) continue;
 
+        if (numberOfBadNeighbors[neighborId] != 0) continue;
+
         validNeighbors.emplace_back(neighborId, edgeWeight);
     }
 

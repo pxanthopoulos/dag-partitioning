@@ -10,6 +10,7 @@ ClusteringHybrid::ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint6
 
 bool ClusteringHybrid::checkLargeDegrees(uint64_t from, uint64_t to) const {
     auto maxDegree = (uint64_t) (sqrt((double) workingGraph.size) / 10.0);
+    maxDegree = 0;
     if (workingGraph.adj[from].size() > maxDegree) return true;
     if (workingGraph.inDegree[to] > maxDegree) return true;
     return false;
@@ -91,14 +92,17 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
 
                 bool largeDegrees = checkLargeDegrees(node, neighborId);
 
-                if (!largeDegrees && detectCycle(node, neighborId, topLevels, leaders))
-                    continue;
-
-                if (numberOfBadNeighbors[node] == 2) continue;
-                if (numberOfBadNeighbors[node] == 1) {
-                    uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
-                    if (leaderOfNeighbor != leaderOfBadNeighbor) continue;
+                if (!largeDegrees) {
+                    if (detectCycle(node, neighborId, topLevels, leaders)) continue;
+                } else {
+                    if (numberOfBadNeighbors[node] == 2) continue;
+                    if (numberOfBadNeighbors[node] == 1) {
+                        uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
+                        if (leaderOfNeighbor != leaderOfBadNeighbor) continue;
+                    }
+                    if (numberOfBadNeighbors[neighborId] != 0) continue;
                 }
+
                 leaders[node] = leaderOfNeighbor;
                 newSize--;
                 clusterWeights[leaderOfNeighbor] += workingGraph.nodeWeights[node];
@@ -110,14 +114,17 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
 
                 bool largeDegrees = checkLargeDegrees(neighborId, node);
 
-                if (!largeDegrees && detectCycle(neighborId, node, topLevels, leaders))
-                    continue;
-
-                if (numberOfBadNeighbors[node] == 2) continue;
-                if (numberOfBadNeighbors[node] == 1) {
-                    uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
-                    if (leaderOfNeighbor != leaderOfBadNeighbor) continue;
+                if (!largeDegrees) {
+                    if (detectCycle(neighborId, node, topLevels, leaders)) continue;
+                } else {
+                    if (numberOfBadNeighbors[node] == 2) continue;
+                    if (numberOfBadNeighbors[node] == 1) {
+                        uint64_t leaderOfBadNeighbor = leaderOfBadNeighbors[node];
+                        if (leaderOfNeighbor != leaderOfBadNeighbor) continue;
+                    }
+                    if (numberOfBadNeighbors[neighborId] != 0) continue;
                 }
+
                 leaders[node] = leaderOfNeighbor;
                 newSize--;
                 clusterWeights[leaderOfNeighbor] += workingGraph.nodeWeights[node];
