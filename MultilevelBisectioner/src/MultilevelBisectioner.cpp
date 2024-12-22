@@ -86,6 +86,11 @@ void MultilevelBisectioner::dummyRefinement(const Graph &graph,
 
 std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
     std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters = runClustering();
+    if (intermediateClusters.empty()) {
+        std::pair<std::vector<bool>, uint64_t> bisectionInfo = runBisection(workingGraph);
+        dummyRefinement(workingGraph, bisectionInfo);
+        return bisectionInfo;
+    }
 
     auto [coarsestGraph, coarsestMapping] = intermediateClusters.top();
 
