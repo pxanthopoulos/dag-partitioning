@@ -5,15 +5,16 @@
 #include "ClusteringCycleDetection.h"
 #include <queue>
 #include <cmath>
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include "llvm/ADT/STLExtras.h"
 
-ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices) : Clustering(graph, maxRounds, minVertices) {}
+ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
+        : Clustering(graph, maxRounds, minVertices) {}
 
 void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const {
     uint64_t maxNewNodeId = -1;
-    std::map<uint64_t, uint64_t> leadersToNewNodeIds;
+    std::unordered_map<uint64_t, uint64_t> leadersToNewNodeIds;
     std::vector<std::pair<std::vector<uint64_t>, uint64_t>> newNodes(newSize);
     std::unordered_set<uint64_t> seenLeaders;
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {

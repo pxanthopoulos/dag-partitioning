@@ -3,7 +3,7 @@
 //
 
 #include "Clustering.h"
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <numeric>
@@ -16,7 +16,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     if (newSize == workingGraph.size) return false;
 
     uint64_t maxNewNodeId = -1;
-    std::map<uint64_t, uint64_t> leadersToNewNodeIds;
+    std::unordered_map<uint64_t, uint64_t> leadersToNewNodeIds;
     std::vector<std::pair<std::vector<uint64_t>, uint64_t>> newNodes(newSize);
     std::unordered_set<uint64_t> seenLeaders;
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {
@@ -57,7 +57,10 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
         }
     }
 
+    workingGraph.printToDot("/home/panagiotis/code/dag-partitioning/test/before.dot");
     workingGraph = newGraph;
+    workingGraph.printToDot("/home/panagiotis/code/dag-partitioning/test/after.dot");
+
     std::vector<uint64_t> clustering(leaders.size());
     for (uint64_t i = 0; i < clustering.size(); ++i) clustering[i] = leadersToNewNodeIds[leaders[i]];
     intermediateGraphsAndClusters.emplace(workingGraph, clustering);

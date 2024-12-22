@@ -5,7 +5,7 @@
 #include "Graph.h"
 #include <fstream>
 #include <regex>
-#include <map>
+#include <unordered_map>
 #include <cassert>
 #include <queue>
 
@@ -289,7 +289,7 @@ Graph readDotFile(const std::string &dotFilename, const std::string &mappingFile
 
     Graph g(graphSize);
 
-    std::map<std::string, uint64_t> nodeMap;
+    std::unordered_map<std::string, uint64_t> nodeMap;
     std::regex nodeRegex(R"(([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
     std::regex edgeRegex(R"(([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
     uint64_t nodeId = 0;
