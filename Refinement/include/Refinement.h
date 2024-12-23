@@ -18,7 +18,7 @@ private:
 
     virtual bool onePassRefinement() = 0;
 
-public:
+protected:
     Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t maxNumberOfPasses);
 
     void run();

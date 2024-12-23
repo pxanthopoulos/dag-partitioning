@@ -17,9 +17,9 @@ protected:
 
     [[nodiscard]] virtual uint64_t computeEdgeCut(const std::vector<bool> &bisection) const;
 
-public:
     Bisection(Graph graph, double upperBoundPartWeight, double lowerBoundPartWeight);
 
+public:
     virtual ~Bisection() = default;
 
     [[nodiscard]] virtual std::pair<std::vector<bool>, uint64_t> run() const = 0;
