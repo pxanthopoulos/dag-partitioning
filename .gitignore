@@ -5,3 +5,5 @@ cmake-build-debug/*
 **/*.png
 **/*.txt
 !**/CMakeLists.txt
+
+test/rand-dag
