@@ -9,7 +9,7 @@
 #include "Graph.h"
 
 class Refinement {
-private:
+protected:
     const Graph &workingGraph;
     std::vector<bool> &initialBisectionInfo;
     uint64_t maxNumberOfPasses;
@@ -18,8 +18,10 @@ private:
 
     virtual bool onePassRefinement() = 0;
 
-protected:
     Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t maxNumberOfPasses);
+
+public:
+    virtual ~Refinement() = default;
 
     void run();
 };
