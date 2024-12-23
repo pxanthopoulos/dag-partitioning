@@ -31,8 +31,8 @@ private:
     void fixAcyclicityDown(std::vector<bool> &undirectedBisection) const;
 
 public:
-    explicit UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight, bool useMetis,
-                           bool useScotch);
+    UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight, bool useMetis,
+                  bool useScotch);
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 };

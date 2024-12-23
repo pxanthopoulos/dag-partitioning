@@ -22,7 +22,7 @@ protected:
     [[nodiscard]] bool updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize);
 
 public:
-    explicit Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices);
+    Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices);
 
     virtual ~Clustering() = default;
 

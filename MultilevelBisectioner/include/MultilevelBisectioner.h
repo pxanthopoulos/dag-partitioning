@@ -31,11 +31,11 @@ private:
     BisectionMethod bisectionMethod;
     double imbalanceRatio;
 public:
-    explicit MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
-                                   uint64_t maxClusteringRounds,
-                                   uint64_t minClusteringVertices,
-                                   BisectionMethod bisectionMethod,
-                                   double imbalanceRatio);
+    MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
+                          uint64_t maxClusteringRounds,
+                          uint64_t minClusteringVertices,
+                          BisectionMethod bisectionMethod,
+                          double imbalanceRatio);
 
     [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>> runClustering() const;
 
