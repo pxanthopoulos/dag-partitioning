@@ -9,9 +9,7 @@
 #include "ClusteringCycleDetection.h"
 
 class ClusteringHybrid : public ClusteringCycleDetection {
-public:
-    ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
-
+private:
     [[nodiscard]] bool checkLargeDegrees(uint64_t from, uint64_t to) const;
 
     void bookKeepingForForbiddenEdges(const std::vector<uint64_t> &topLevels, uint64_t node,
@@ -22,8 +20,10 @@ public:
                                       std::vector<uint64_t> &numberOfBadNeighbors,
                                       std::vector<uint64_t> &leaderOfBadNeighbors) const;
 
-protected:
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const override;
+
+public:
+    ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
 };
 
 

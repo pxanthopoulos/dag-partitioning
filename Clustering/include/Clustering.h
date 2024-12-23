@@ -21,9 +21,9 @@ protected:
 
     [[nodiscard]] bool updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize);
 
-public:
     Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices);
 
+public:
     virtual ~Clustering() = default;
 
     [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>> run();

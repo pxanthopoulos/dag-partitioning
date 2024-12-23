@@ -12,9 +12,6 @@
 #include <utility>
 
 class ClusteringForbiddenEdges : public Clustering {
-public:
-    ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
-
 private:
     [[nodiscard]] std::vector<std::pair<uint64_t, uint64_t>>
     findValidNeighbors(uint64_t node,
@@ -28,8 +25,10 @@ private:
 
     [[nodiscard]] static uint64_t findBestNeighbor(const std::vector<std::pair<uint64_t, uint64_t>> &);
 
-protected:
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const override;
+
+public:
+    ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
 };
 
 

@@ -6,7 +6,7 @@
 #include <cmath>
 
 ClusteringHybrid::ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
-        : Clustering(graph, maxRounds, minVertices), ClusteringCycleDetection(graph, maxRounds, minVertices) {}
+        : ClusteringCycleDetection(graph, maxRounds, minVertices) {}
 
 bool ClusteringHybrid::checkLargeDegrees(uint64_t from, uint64_t to) const {
     auto maxDegree = (uint64_t) (sqrt((double) workingGraph.size) / 10.0);
