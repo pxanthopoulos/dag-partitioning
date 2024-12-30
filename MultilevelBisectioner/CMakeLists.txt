@@ -8,5 +8,5 @@ target_include_directories(MultilevelBisectioner
 )
 
 target_link_libraries(MultilevelBisectioner
-        PUBLIC Bisection Clustering Graph
+        PUBLIC Bisection Clustering Graph Refinement
 )

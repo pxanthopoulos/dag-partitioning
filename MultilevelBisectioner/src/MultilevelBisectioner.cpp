@@ -8,16 +8,18 @@
 #include "ClusteringHybrid.h"
 #include "GreedyDirectedGraphGrowing.h"
 #include "UndirectedFix.h"
+#include "BoundaryFM.h"
 #include <utility>
 
 MultilevelBisectioner::MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
                                              uint64_t maxClusteringRounds,
                                              uint64_t minClusteringVertices,
                                              BisectionMethod bisectionMethod,
-                                             double imbalanceRatio) :
+                                             double imbalanceRatio, RefinementMethod refinementMethod,
+                                             uint64_t refinementPasses) :
         workingGraph(std::move(graph)), clusteringMethod(clusteringMethod), maxClusteringRounds(maxClusteringRounds),
         minClusteringVertices(minClusteringVertices), bisectionMethod(bisectionMethod),
-        imbalanceRatio(imbalanceRatio) {}
+        imbalanceRatio(imbalanceRatio), refinementMethod(refinementMethod), refinementPasses(refinementPasses) {}
 
 std::stack<std::pair<Graph, std::vector<uint64_t>>> MultilevelBisectioner::runClustering() const {
     std::unique_ptr<Clustering> clustering;
@@ -80,15 +82,30 @@ void MultilevelBisectioner::projectBisection(std::pair<std::vector<bool>, uint64
     bisectionInfo.first = newBisection;
 }
 
-void MultilevelBisectioner::dummyRefinement(const Graph &graph,
-                                            std::pair<std::vector<bool>, uint64_t> &bisectionInfo) {
+void MultilevelBisectioner::runRefinement(const Graph &graph,
+                                          std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const {
+    std::unique_ptr<Refinement> refinement;
+    switch (refinementMethod) {
+        case RefinementMethod::BOUNDARYFM:
+            refinement = std::make_unique<BoundaryFM>(graph, bisectionInfo.first, refinementPasses);
+            break;
+        case RefinementMethod::BOUNDARYFMMAXLOADED:
+            throw std::invalid_argument("boundary fm max-loaded not implemented yet");
+            break;
+        case RefinementMethod::BOUNDARYKL:
+            throw std::invalid_argument("boundary kl not implemented yet");
+            break;
+        default:
+            throw std::invalid_argument("Unknown refinement type");
+    }
+    refinement->run();
 }
 
 std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
     std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters = runClustering();
     if (intermediateClusters.empty()) {
         std::pair<std::vector<bool>, uint64_t> bisectionInfo = runBisection(workingGraph);
-        dummyRefinement(workingGraph, bisectionInfo);
+        runRefinement(workingGraph, bisectionInfo);
         return bisectionInfo;
     }
 
@@ -98,7 +115,7 @@ std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
            "minimum number of vertices for intermediate graphs violated");
 
     std::pair<std::vector<bool>, uint64_t> bisectionInfo = runBisection(coarsestGraph);
-    dummyRefinement(coarsestGraph, bisectionInfo);
+    runRefinement(coarsestGraph, bisectionInfo);
     intermediateClusters.pop();
 
     auto &currentMapping = coarsestMapping;
@@ -108,11 +125,11 @@ std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::run() const {
         assert(intermediateGraph.size >= minClusteringVertices &&
                "minimum number of vertices for intermediate graphs violated");
         currentMapping = intermediateMapping;
-        dummyRefinement(intermediateGraph, bisectionInfo);
+        runRefinement(intermediateGraph, bisectionInfo);
         intermediateClusters.pop();
     }
 
     projectBisection(bisectionInfo, currentMapping);
-    dummyRefinement(workingGraph, bisectionInfo);
+    runRefinement(workingGraph, bisectionInfo);
     return bisectionInfo;
 }

@@ -22,6 +22,12 @@ enum class BisectionMethod {
     UNDIRBOTH
 };
 
+enum class RefinementMethod {
+    BOUNDARYFM,
+    BOUNDARYFMMAXLOADED,
+    BOUNDARYKL
+};
+
 class MultilevelBisectioner {
 private:
     Graph workingGraph;
@@ -30,12 +36,14 @@ private:
     uint64_t minClusteringVertices;
     BisectionMethod bisectionMethod;
     double imbalanceRatio;
+    RefinementMethod refinementMethod;
+    uint64_t refinementPasses;
 public:
     MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
                           uint64_t maxClusteringRounds,
                           uint64_t minClusteringVertices,
                           BisectionMethod bisectionMethod,
-                          double imbalanceRatio);
+                          double imbalanceRatio, RefinementMethod refinementMethod, uint64_t refinementPasses);
 
     [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>> runClustering() const;
 
@@ -44,7 +52,7 @@ public:
     static void projectBisection(std::pair<std::vector<bool>, uint64_t> &bisectionInfo,
                                  const std::vector<uint64_t> &mapping);
 
-    static void dummyRefinement(const Graph &graph, std::pair<std::vector<bool>, uint64_t> &bisectionInfo);
+    void runRefinement(const Graph &graph, std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const;
 
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const;
 };
