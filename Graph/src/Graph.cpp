@@ -237,6 +237,10 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
     return distances;
 }
 
+uint64_t Graph::maxNodeWeight() const {
+    return *std::max_element(nodeWeights.begin(), nodeWeights.end());
+}
+
 void Graph::print(llvm::raw_ostream &os) const {
     assert(adj.size() == nodeWeights.size() &&
            "Adjacency-list 2D vectors' size and nodeWeights vectors' size must be equal");

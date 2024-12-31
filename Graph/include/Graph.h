@@ -46,6 +46,8 @@ public:
 
     [[nodiscard]] std::vector<uint64_t> distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
 
+    [[nodiscard]] uint64_t maxNodeWeight() const;
+
     void print(llvm::raw_ostream &os) const;
 
     void printToDot(const std::string &dotFilename) const;
