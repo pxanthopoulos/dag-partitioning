@@ -86,7 +86,6 @@ void MultilevelBisectioner::runRefinement(const Graph &graph,
                                           std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const {
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight = imbalanceRatio * ((double) workingGraph.totalWeight / 2.0);
-    graph.printToDot("/home/panagiotis/code/dag-partitioning/test/torefine.dot");
     std::unique_ptr<Refinement> refinement;
     switch (refinementMethod) {
         case RefinementMethod::BOUNDARYFM:
