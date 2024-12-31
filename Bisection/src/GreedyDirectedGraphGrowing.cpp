@@ -42,12 +42,11 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
     std::vector<uint64_t> sources;
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
-    uint64_t maxNodeWeight = 0;
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         if (localInDegree[i] == 0) {
             sources.emplace_back(i);
         }
-        if (workingGraph.nodeWeights[i] > maxNodeWeight) maxNodeWeight = workingGraph.nodeWeights[i];
         const auto &reverseNeighbors = workingGraph.revAdj[i];
         for (const auto &[reverseNeighborId, edgeWeight]: reverseNeighbors) weightedInDegree[i] += edgeWeight;
         const auto &neighbors = workingGraph.adj[i];
@@ -160,13 +159,12 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
     std::vector<uint64_t> sinks;
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
-    uint64_t maxNodeWeight = 0;
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         localOutDegree[i] = workingGraph.adj[i].size();
         if (localOutDegree[i] == 0) {
             sinks.emplace_back(i);
         }
-        if (workingGraph.nodeWeights[i] > maxNodeWeight) maxNodeWeight = workingGraph.nodeWeights[i];
         const auto &reverseNeighbors = workingGraph.revAdj[i];
         for (const auto &[reverseNeighborId, edgeWeight]: reverseNeighbors) weightedInDegree[i] += edgeWeight;
         const auto &neighbors = workingGraph.adj[i];
