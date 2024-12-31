@@ -45,6 +45,7 @@ void Refinement::run() {
     while (countPasses < maxNumberOfPasses) {
         assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
         if (!onePassRefinement()) break;
+        countPasses++;
     }
     assert(checkBalance(workingGraph.maxNodeWeight()) && "Resulting partition is unbalanced");
 }
