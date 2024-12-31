@@ -4,9 +4,11 @@
 
 #include "Refinement.h"
 
-Refinement::Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t maxNumberOfPasses,
+Refinement::Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
+                       uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
-        : workingGraph(graph), initialBisectionInfo(initialBisectionInfo), maxNumberOfPasses(maxNumberOfPasses),
+        : workingGraph(graph), initialBisectionInfo(initialBisectionInfo), initialEdgeCut(initialEdgeCut),
+          maxNumberOfPasses(maxNumberOfPasses),
           upperBoundPartWeight(upperBoundPartWeight), lowerBoundPartWeight(lowerBoundPartWeight) {}
 
 bool Refinement::checkValidBisection() const {

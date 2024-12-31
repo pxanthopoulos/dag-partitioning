@@ -84,10 +84,15 @@ void MultilevelBisectioner::projectBisection(std::pair<std::vector<bool>, uint64
 
 void MultilevelBisectioner::runRefinement(const Graph &graph,
                                           std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const {
+    double lowerBoundPartWeight = 1.0;
+    double upperBoundPartWeight = imbalanceRatio * ((double) workingGraph.totalWeight / 2.0);
+    graph.printToDot("/home/panagiotis/code/dag-partitioning/test/torefine.dot");
     std::unique_ptr<Refinement> refinement;
     switch (refinementMethod) {
         case RefinementMethod::BOUNDARYFM:
-            refinement = std::make_unique<BoundaryFM>(graph, bisectionInfo.first, refinementPasses);
+            refinement = std::make_unique<BoundaryFM>(graph, bisectionInfo.first, bisectionInfo.second,
+                                                      refinementPasses,
+                                                      upperBoundPartWeight, lowerBoundPartWeight);
             break;
         case RefinementMethod::BOUNDARYFMMAXLOADED:
             throw std::invalid_argument("boundary fm max-loaded not implemented yet");

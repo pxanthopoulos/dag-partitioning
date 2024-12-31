@@ -12,6 +12,7 @@ class Refinement {
 protected:
     const Graph &workingGraph;
     std::vector<bool> &initialBisectionInfo;
+    uint64_t &initialEdgeCut;
     uint64_t maxNumberOfPasses;
     double upperBoundPartWeight, lowerBoundPartWeight;
 
@@ -23,7 +24,8 @@ protected:
 
     virtual bool onePassRefinement() = 0;
 
-    Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t maxNumberOfPasses,
+    Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
+               uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 
 public:
