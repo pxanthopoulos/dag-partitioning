@@ -4,6 +4,8 @@ cmake-build-debug/*
 **/*.dot
 **/*.png
 **/*.txt
+**/*.py
+**/*.csv
 !**/CMakeLists.txt
 
 test/rand-dag
