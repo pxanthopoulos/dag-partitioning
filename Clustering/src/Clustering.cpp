@@ -77,7 +77,7 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
     while (true) {
         const auto &pair = oneRoundClustering();
         if (!updateGraphAndClusters(pair.first, pair.second)) break;
-        if (countRounds++ == maxRounds) break;
+        if (++countRounds == maxRounds) break;
     }
     return intermediateGraphsAndClusters;
 }
