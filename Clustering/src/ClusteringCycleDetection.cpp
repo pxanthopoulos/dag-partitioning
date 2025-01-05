@@ -111,7 +111,7 @@ ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vec
 
         q.pop();
 
-        // Check successors - only follow edges where level difference ≤ 1
+        // Check successors - only follow edges where level difference <= 1
         for (const auto &[successorId, edgeWeight]: workingGraph.adj[u]) {
             // Skip direct edge being tested
             if (successorId == to && u == from) continue;
@@ -125,7 +125,7 @@ ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vec
             }
         }
 
-        // Check predecessors - only follow edges within same cluster and level difference ≤ 1
+        // Check predecessors - only follow edges within same cluster and level difference <= 1
         for (const auto &[predecessorId, edgeWeight]: workingGraph.revAdj[u]) {
             uint64_t diff = (topLevels[predecessorId] > minimumTopLevelInCluster) ?
                             (topLevels[predecessorId] - minimumTopLevelInCluster) :

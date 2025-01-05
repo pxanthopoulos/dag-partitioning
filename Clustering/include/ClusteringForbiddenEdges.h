@@ -21,7 +21,7 @@ private:
      * @brief Finds valid neighboring nodes that can form a cluster with the given node
      *
      * Implements the neighbor selection criteria from Theorem 4.2:
-     * 1. Top-level difference must be ≤ 1
+     * 1. Top-level difference must be <= 1
      * 2. A node cannot join a cluster if it has more than one "bad neighbor" cluster
      * 3. Total cluster weight must not exceed 10% of graph weight
      *
