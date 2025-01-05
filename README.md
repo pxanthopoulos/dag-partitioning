@@ -1,25 +1,31 @@
 # Multilevel DAG Partitioning Implementation
 
-This repository contains a C++ implementation of a multilevel algorithm for partitioning Directed Acyclic Graphs (DAGs) based on the research [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865) by Herrmann et al. The implementation focuses on minimizing edge cuts and balancing the loads of the partitions, while maintaining acyclic dependencies between partitions.
+This repository contains a C++ implementation of a multilevel algorithm for partitioning Directed Acyclic Graphs (DAGs)
+based on the research [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865) by Herrmann et al. The implementation
+focuses on minimizing edge cuts and balancing the loads of the partitions, while maintaining acyclic dependencies
+between partitions.
 
 ## Algorithm Overview
 
 The algorithm implements a multilevel approach for partitioning DAGs with three main phases:
 
-1. **Coarsening/Clustering Phase**: 
-   - Reduces the size of the input graph while preserving its essential structure
-   - Uses specialized coarsening heuristics to maintain acyclicity
-   - Creates a hierarchy of increasingly smaller graphs
+1. **Coarsening/Clustering Phase**:
+    - Reduces the size of the input graph while preserving its essential structure
+    - Uses specialized coarsening heuristics to maintain acyclicity
+    - Creates a hierarchy of increasingly smaller graphs
 
-2. **Initial Partitioning Phase**:
-   - Partitions the coarsest graph into the desired number of parts
-   - Ensures balanced partition sizes
-   - Maintains acyclic dependencies between partitions
+2. **Initial Bisectioning Phase**:
+    - Partitions the coarsest graph into 2 parts
+    - Ensures balanced partition sizes
+    - Maintains acyclic dependencies between partitions
 
 3. **Refinement Phase**:
-   - Projects the partition back through the hierarchy
-   - Refines the partition at each level
-   - Uses novel heuristics to improve the partition quality while preserving acyclicity
+    - Projects the partition back through the hierarchy
+    - Refines the partition at each level
+    - Uses novel heuristics to improve the partition quality while preserving acyclicity
+
+The core of the algorithm is a bisectioning algorithm. A recursive bisectioning scheme is employed to partition the
+graph into the required number of parts.
 
 ## Requirements
 
@@ -44,11 +50,13 @@ make
 ## Input Format
 
 The input DAG should be provided in the dot format as follows:
+
 - First line: comment of the size N of the graph (number of vertices)
 - Following N lines for vertices: *vertexname*[weight=*vertexweight*];
 - Following lines for edges: *from*->*to*[weight=*edgeweight*];
 
 Example:
+
 ```
 // size=11
 digraph cfg {
@@ -85,6 +93,7 @@ digraph cfg {
 ## Output Format
 
 The program outputs:
+
 - Partition assignments for each vertex
 - Edge cut value
 - Partition sizes
@@ -101,7 +110,7 @@ Based on the [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865):
 ## Todo
 
 - [x] Implement coarsening/clustering phase
-- [ ] Implement initial partitioning phase
+- [x] Implement initial partitioning phase
 - [ ] Implement refinement phase
 - [ ] Add comprehensive tests
 - [ ] Add benchmarking suite
