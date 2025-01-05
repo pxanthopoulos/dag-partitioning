@@ -1,10 +1,14 @@
-//
-// Created by panagiotis on 17/12/2024.
-//
+/**
+ * @file UndirectedFix.h
+ * @brief Implementation of undirected bisection with acyclicity fixing as described in Section 4.2.2
+ *
+ * This class implements a two-step approach:
+ * 1. Use standard undirected graph partitioners (METIS/Scotch) to get initial bisection
+ * 2. Fix acyclicity by propagating partition assignments up or down the graph
+ */
 
 #ifndef DAG_PARTITIONING_UNDIRECTEDFIX_H
 #define DAG_PARTITIONING_UNDIRECTEDFIX_H
-
 
 #include "Bisection.h"
 #include <stdio.h>
@@ -13,29 +17,91 @@
 
 class UndirectedFix : public Bisection {
 private:
-    bool useMetis;
-    bool useScotch;
+    bool useMetis;   // Whether to try METIS partitioning
+    bool useScotch;  // Whether to try Scotch partitioning
 
+    /**
+     * @brief Computes total number of edges in the graph
+     * @return Edge count including both forward and reverse edges
+     */
     [[nodiscard]] int64_t computeNumberOfEdges() const;
 
-    void
-    graphToCSRFormat(int64_t edgeNumber, std::vector<int64_t> &nodeNeighborsOffset, std::vector<int64_t> &nodeNeighbors,
-                     std::vector<int64_t> &edgeWeights, std::vector<int64_t> &nodeWeights) const;
+    /**
+     * @brief Converts graph to Compressed Sparse Row format for external partitioners
+     *
+     * Creates CSR representation treating the graph as undirected by combining
+     * forward and reverse edges.
+     *
+     * @param edgeNumber Total number of edges
+     * @param nodeNeighborsOffset CSR row pointers
+     * @param nodeNeighbors CSR column indices
+     * @param edgeWeights CSR edge weights
+     * @param nodeWeights Node weights
+     */
+    void graphToCSRFormat(int64_t edgeNumber,
+                          std::vector<int64_t> &nodeNeighborsOffset,
+                          std::vector<int64_t> &nodeNeighbors,
+                          std::vector<int64_t> &edgeWeights,
+                          std::vector<int64_t> &nodeWeights) const;
 
+    /**
+     * @brief Gets initial bisection using Scotch partitioner
+     * @return Boolean vector indicating partition assignment
+     */
     [[nodiscard]] std::vector<bool> getUndirectedBisectionScotch() const;
 
+    /**
+     * @brief Gets initial bisection using METIS partitioner
+     * @return Boolean vector indicating partition assignment
+     */
     [[nodiscard]] std::vector<bool> getUndirectedBisectionMetis() const;
 
+    /**
+     * @brief Fixes acyclicity by propagating partition 0 assignment upward
+     *
+     * Implements Algorithm 3 from the paper: moves ancestors of V0 vertices
+     * to V0 in reverse topological order.
+     *
+     * @param undirectedBisection Bisection to be fixed
+     */
     void fixAcyclicityUp(std::vector<bool> &undirectedBisection) const;
 
+    /**
+     * @brief Fixes acyclicity by propagating partition 1 assignment downward
+     *
+     * Implements Algorithm 4 from the paper: moves descendants of V1 vertices
+     * to V1 in topological order.
+     *
+     * @param undirectedBisection Bisection to be fixed
+     */
     void fixAcyclicityDown(std::vector<bool> &undirectedBisection) const;
 
+    /**
+     * @brief Runs the complete undirected bisection and fixing process
+     *
+     * For each partitioner enabled (METIS/Scotch):
+     * 1. Gets initial undirected bisection
+     * 2. Tries both partition assignments (P0=V0,P1=V1 and P1=V0,P0=V1)
+     * 3. Fixes acyclicity both upward and downward
+     * 4. Returns best result among all attempts
+     *
+     * @return Pair containing:
+     *         - Acyclic bisection vector
+     *         - Edge cut weight
+     */
     [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
 
 public:
-    UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight, bool useMetis,
-                  bool useScotch);
+    /**
+     * @brief Constructs the undirected fix bisection algorithm
+     * @param graph Graph to be bisected
+     * @param upperBoundPartWeight Maximum allowed partition weight
+     * @param lowerBoundPartWeight Minimum required partition weight
+     * @param useMetis Whether to try METIS partitioning
+     * @param useScotch Whether to try Scotch partitioning
+     */
+    UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
+                  bool useMetis, bool useScotch);
 };
-
 
 #endif //DAG_PARTITIONING_UNDIRECTEDFIX_H
