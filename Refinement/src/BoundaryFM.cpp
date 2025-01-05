@@ -1,21 +1,28 @@
-//
-// Created by panagiotis on 23/12/2024.
-//
+/**
+ * @file BoundaryFM.cpp
+ * @brief Implementation of boundary FM refinement for directed graphs
+ */
 
 #include "BoundaryFM.h"
 
-BoundaryFM::BoundaryFM(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
-                       uint64_t maxNumberOfPasses,
+BoundaryFM::BoundaryFM(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+                       uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
-        : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses, upperBoundPartWeight,
-                     lowerBoundPartWeight) {}
+        : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
+                     upperBoundPartWeight, lowerBoundPartWeight) {}
 
-void BoundaryFM::insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
-                                             std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                             std::vector<bool> &inHeap) const {
+void BoundaryFM::insertMovableNodesIntoHeaps(
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
+        std::vector<bool> &inHeap) const {
+
+    // Check each vertex for movability
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {
+        // If the node has already been in the heap previously, don't re-add it
         if (inHeap[nodeId]) continue;
-        if (!initialBisectionInfo[nodeId]) {
+
+        if (!initialBisectionInfo[nodeId]) {  // Node in V0
+            // Check if movable to V1: all out-neighbors must be in V1
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
                 if (!initialBisectionInfo[neighborId]) {
@@ -25,6 +32,7 @@ void BoundaryFM::insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64
             }
 
             if (movable) {
+                // Calculate gain according to equation 4.1
                 int64_t gain = 0;
                 for (const auto &[_, edgeWeight]: workingGraph.adj[nodeId]) {
                     gain += (int64_t) edgeWeight;
@@ -35,7 +43,8 @@ void BoundaryFM::insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64
                 heapV0.emplace(gain, nodeId);
                 inHeap[nodeId] = true;
             }
-        } else {
+        } else {  // Node in V1
+            // Check if movable to V0: all in-neighbors must be in V0
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
                 if (initialBisectionInfo[neighborId]) {
@@ -45,6 +54,7 @@ void BoundaryFM::insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64
             }
 
             if (movable) {
+                // Calculate gain (negative of V0->V1 gain)
                 int64_t gain = 0;
                 for (const auto &[_, edgeWeight]: workingGraph.adj[nodeId]) {
                     gain -= (int64_t) edgeWeight;
@@ -59,13 +69,17 @@ void BoundaryFM::insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64
     }
 }
 
-void BoundaryFM::insertMovableNeighborsIntoHeaps(const std::vector<bool> &initialBisectionInfo,
-                                                 std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
-                                                 std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                                 std::vector<bool> &inHeap, uint64_t movedNodeId,
-                                                 bool checkOutNeighbors) const {
-    if (checkOutNeighbors) {
+// Called after moving a node to update movable status of its neighbors (possibly insert new movable nodes)
+void BoundaryFM::insertMovableNeighborsIntoHeaps(
+        const std::vector<bool> &currentBisectionInfo,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
+        std::vector<bool> &inHeap, uint64_t movedNodeId,
+        bool checkOutNeighbors) const {
+
+    if (checkOutNeighbors) {  // Node moved V0->V1, check out-neighbors
         for (const auto &[nodeId, _]: workingGraph.adj[movedNodeId]) {
+            // If the node has already been in the heap previously, don't re-add it
             if (inHeap[nodeId] || !initialBisectionInfo[nodeId]) continue;
 
             bool movable = true;
@@ -77,6 +91,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(const std::vector<bool> &initia
             }
 
             if (movable) {
+                // Calculate gain for potential move
                 int64_t gain = 0;
                 for (const auto &[_, edgeWeight]: workingGraph.adj[nodeId]) {
                     gain -= (int64_t) edgeWeight;
@@ -88,8 +103,9 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(const std::vector<bool> &initia
                 inHeap[nodeId] = true;
             }
         }
-    } else {
+    } else {  // Node moved V1->V0, check in-neighbors
         for (const auto &[nodeId, _]: workingGraph.revAdj[movedNodeId]) {
+            // If the node has already been in the heap previously, don't re-add it
             if (inHeap[nodeId] || initialBisectionInfo[nodeId]) continue;
 
             bool movable = true;
@@ -101,6 +117,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(const std::vector<bool> &initia
             }
 
             if (movable) {
+                // Calculate gain for potential move
                 int64_t gain = 0;
                 for (const auto &[_, edgeWeight]: workingGraph.adj[nodeId]) {
                     gain += (int64_t) edgeWeight;
@@ -115,20 +132,23 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(const std::vector<bool> &initia
     }
 }
 
-bool BoundaryFM::isBalanceImprovedOrMaintained(bool moveFromV0, uint64_t movedNodeId, uint64_t maxNodeWeight,
-                                               uint64_t sizeV0, uint64_t sizeV1, bool isBalanced) {
+bool BoundaryFM::isBalanceImprovedOrMaintained(
+        bool moveFromV0, uint64_t movedNodeId, uint64_t maxNodeWeight,
+        uint64_t sizeV0, uint64_t sizeV1, bool isBalanced) {
+
+    // Calculate new partition sizes after proposed move
+    uint64_t newSizeV0 = moveFromV0 ?
+                         sizeV0 - workingGraph.nodeWeights[movedNodeId] :
+                         sizeV0 + workingGraph.nodeWeights[movedNodeId];
+    uint64_t newSizeV1 = moveFromV0 ?
+                         sizeV1 + workingGraph.nodeWeights[movedNodeId] :
+                         sizeV1 - workingGraph.nodeWeights[movedNodeId];
+
     // If the partition is already balanced, the move must maintain the balance
     // If not, the balance will be improved since we are moving from the maximum loaded part
     // But it must not become reversely unbalanced
-    uint64_t newSizeV0, newSizeV1;
-    if (moveFromV0) {
-        newSizeV0 = sizeV0 - workingGraph.nodeWeights[movedNodeId];
-        newSizeV1 = sizeV1 + workingGraph.nodeWeights[movedNodeId];
-    } else {
-        newSizeV0 = sizeV0 + workingGraph.nodeWeights[movedNodeId];
-        newSizeV1 = sizeV1 - workingGraph.nodeWeights[movedNodeId];
-    }
     if (isBalanced) {
+        // Must maintain balance within constraints
         if ((double) newSizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
             (double) newSizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
             (double) newSizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
@@ -136,6 +156,7 @@ bool BoundaryFM::isBalanceImprovedOrMaintained(bool moveFromV0, uint64_t movedNo
             return false;
         return true;
     } else {
+        // Moving from larger to smaller partition must not cause reverse imbalance
         uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
         uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
         if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
@@ -151,6 +172,7 @@ bool BoundaryFM::onePassRefinement() {
 
     std::priority_queue<std::pair<int64_t, uint64_t>> heapV0, heapV1;
 
+    // Find initially movable vertices
     insertMovableNodesIntoHeaps(heapV0, heapV1, inHeap);
 
     std::vector<std::pair<uint64_t, bool>> moveSequence;
@@ -164,12 +186,14 @@ bool BoundaryFM::onePassRefinement() {
     bool isBalanced = checkBalance(maxNodeWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
+    // Main refinement loop - make moves until no more vertices can move
     while (!heapV0.empty() || !heapV1.empty()) {
         bool moveFromV0 = false;
         uint64_t nodeId;
         int64_t gain;
         bool isV0Larger = sizeV0 > sizeV1;
 
+        // If the partition is already balanced, move from whichever part (to improve quality)
         if (isBalanced) {
             if (heapV0.empty()) {
                 std::tie(gain, nodeId) = heapV1.top();
@@ -190,7 +214,9 @@ bool BoundaryFM::onePassRefinement() {
                     heapV1.pop();
                 }
             }
-        } else {
+        }
+            // If the partition is unbalanced, move from the heavier part (to obtain balance)
+        else {
             if (isV0Larger) {
                 assert(!heapV0.empty() && "Partition is unbalanced but heavy part V0 has no movable nodes");
                 std::tie(gain, nodeId) = heapV0.top();
@@ -204,11 +230,14 @@ bool BoundaryFM::onePassRefinement() {
             }
         }
 
+        // If node already moved (or marked move to signify unmovable node), skip
         if (moved[nodeId])
             continue;
+        // If move causes unbalance or does not improve balance, skip
         if (!isBalanceImprovedOrMaintained(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1, isBalanced))
             continue;
 
+        // Tentative move
         if (moveFromV0) {
             sizeV0 -= workingGraph.nodeWeights[nodeId];
             sizeV1 += workingGraph.nodeWeights[nodeId];
@@ -222,6 +251,8 @@ bool BoundaryFM::onePassRefinement() {
         initialBisectionInfoTemp[nodeId] = moveFromV0;
         uint64_t maxPartSize = std::max(sizeV0, sizeV1);
 
+        // If partition is unbalanced, always include this move to the sequence
+        // If balanced, include move if it improves edge cut or improves balance quality
         if (!isBalanced || currentEdgeCut < bestEdgeCut || maxPartSize < minMaxPartSize) {
             bestEdgeCut = currentEdgeCut;
             bestMovePrefix = moveSequence.size();
@@ -268,10 +299,14 @@ bool BoundaryFM::onePassRefinement() {
         }
     }
 
+    // If no improvement was found, return false
     if (bestMovePrefix == 0) return false;
+
+    // Check if should keep current solution
     auto [initialSizeV0, initialSizeV1] = calculatePartSizes();
     if (initialEdgeCut < bestEdgeCut && std::max(sizeV0, sizeV1) > std::max(initialSizeV0, initialSizeV1)) return false;
 
+    // Apply best move sequence
     for (size_t i = 0; i < bestMovePrefix; ++i) {
         auto [nodeId, fromV0] = moveSequence[i];
         initialBisectionInfo[nodeId] = fromV0;
