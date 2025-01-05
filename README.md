@@ -24,7 +24,7 @@ The algorithm implements a multilevel approach for partitioning DAGs with three 
     - Refines the partition at each level
     - Uses novel heuristics to improve the partition quality while preserving acyclicity
 
-The core of the algorithm is a bisectioning algorithm. A recursive bisectioning scheme is employed to partition the
+A recursive bisectioning scheme is employed to partition the
 graph into the required number of parts.
 
 ## Requirements
