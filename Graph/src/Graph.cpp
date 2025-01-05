@@ -1,6 +1,7 @@
-//
-// Created by panagiotis on 5/12/2024.
-//
+/**
+ * @file Graph.cpp
+ * @brief Implementation of the Graph class methods
+ */
 
 #include "Graph.h"
 #include <fstream>
@@ -9,31 +10,41 @@
 #include <cassert>
 #include <queue>
 
+// Constructor initializes all data structures with given size
 Graph::Graph(uint64_t size)
         : size(size), adj(size), revAdj(size), nodeWeights(size, 0), totalWeight(0), inDegree(size, 0) {
 }
 
+// Add a node with given weight to the graph
 void Graph::addNode(uint64_t id, uint64_t weight) {
     assert(id < size && "Node ID must be smaller than graph size");
     nodeWeights[id] = weight;
     totalWeight += weight;
 }
 
+// Add a weighted edge between two nodes
 void Graph::addEdge(uint64_t from, uint64_t to, uint64_t weight) {
     assert(from < size && "Node ID `from` must be smaller than graph size");
     assert(to < size && "Node ID `to` must be smaller than graph size");
+    // Add forward edge
     adj[from].emplace_back(to, weight);
+    // Add reverse edge for backward traversal
     revAdj[to].emplace_back(from, weight);
+    // Update in-degree count
     inDegree[to]++;
 }
 
+// Get all neighbors (both incoming and outgoing) of a node
 std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighbors(uint64_t node) const {
     assert(node < size && "node id must be smaller than graph size");
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors;
+
+    // Add outgoing neighbors (marked with true)
     for (const auto &[outNeighbor, edgeWeight]: adj[node]) {
         neighbors.emplace_back(outNeighbor, edgeWeight, true);
     }
 
+    // Add incoming neighbors (marked with false)
     for (const auto &[inNeighbor, edgeWeight]: revAdj[node]) {
         neighbors.emplace_back(inNeighbor, edgeWeight, false);
     }
@@ -41,10 +52,12 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighbors(uint64_t n
     return neighbors;
 }
 
+// Get neighbors sorted by edge weight in ascending order
 std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdgeWeightAsc(uint64_t node) const {
     assert(node < size && "node id must be smaller than graph size");
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors = getNeighbors(node);
 
+    // Sort by edge weight (second element of tuple)
     std::sort(neighbors.begin(), neighbors.end(),
               [](const std::tuple<uint64_t, uint64_t, bool> &a, const std::tuple<uint64_t, uint64_t, bool> &b) {
                   return std::get<1>(a) < std::get<1>(b);
@@ -53,10 +66,11 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdg
     return neighbors;
 }
 
+// Check for cycles using iterative DFS from a start node
 bool Graph::iterativeDfsHasCycle(uint64_t start) const {
     assert(start < size && "start node id must be smaller than graph size");
     std::vector<bool> visited(size, false);
-    std::vector<bool> inStack(size, false);
+    std::vector<bool> inStack(size, false);  // Track nodes in current DFS path
     std::stack<std::pair<uint64_t, size_t>> stack;
 
     stack.emplace(start, 0);
@@ -66,29 +80,35 @@ bool Graph::iterativeDfsHasCycle(uint64_t start) const {
     while (!stack.empty()) {
         auto [node, neighborIndex] = stack.top();
 
+        // If all neighbors of current node are processed
         if (neighborIndex >= adj[node].size()) {
-            inStack[node] = false;
+            inStack[node] = false;  // Remove from current path
             stack.pop();
             continue;
         }
 
+        // Move to next neighbor
         stack.top().second++;
         uint64_t next = adj[node][neighborIndex].first;
 
         if (!visited[next]) {
+            // Process unvisited neighbor
             visited[next] = true;
             inStack[next] = true;
             stack.emplace(next, 0);
         } else if (inStack[next]) {
+            // Back edge found - cycle detected
             return true;
         }
     }
     return false;
 }
 
+// Check if the entire graph has any cycles
 bool Graph::hasCycle() const {
     std::vector<bool> visited(adj.size(), false);
 
+    // Try to find cycles starting from each unvisited node
     for (uint64_t i = 0; i < adj.size(); i++) {
         if (!visited[i] && iterativeDfsHasCycle(i)) {
             return true;
@@ -97,11 +117,13 @@ bool Graph::hasCycle() const {
     return false;
 }
 
+// Perform topological sort using Kahn's algorithm
 std::vector<uint64_t> Graph::topologicalSort() const {
     std::vector<uint64_t> topologicalOrder;
     topologicalOrder.reserve(size);
     std::vector<uint64_t> localInDegree = inDegree;
 
+    // Start with nodes having no incoming edges
     std::queue<uint64_t> q;
     for (uint64_t i = 0; i < size; i++) {
         if (localInDegree[i] == 0) {
@@ -109,11 +131,13 @@ std::vector<uint64_t> Graph::topologicalSort() const {
         }
     }
 
+    // Process nodes in topological order
     while (!q.empty()) {
         uint64_t curr = q.front();
         q.pop();
         topologicalOrder.push_back(curr);
 
+        // Update in-degrees and add new nodes with zero in-degree
         for (const auto &[next, weight]: adj[curr]) {
             localInDegree[next]--;
             if (localInDegree[next] == 0) {
@@ -123,14 +147,15 @@ std::vector<uint64_t> Graph::topologicalSort() const {
     }
 
     assert(topologicalOrder.size() == size && "Graph is cyclic");
-
     return topologicalOrder;
 }
 
+// Compute top levels (longest path lengths from roots)
 std::vector<uint64_t> Graph::computeTopLevels() const {
     std::vector<uint64_t> localInDegree = inDegree;
     std::vector<uint64_t> topLevels(size, 0);
 
+    // Start with nodes having no incoming edges
     std::queue<uint64_t> q;
     for (uint64_t i = 0; i < size; i++) {
         if (localInDegree[i] == 0) {
@@ -142,6 +167,7 @@ std::vector<uint64_t> Graph::computeTopLevels() const {
         uint64_t curr = q.front();
         q.pop();
 
+        // Update levels of neighbors
         for (const auto &[next, weight]: adj[curr]) {
             topLevels[next] = std::max(topLevels[next], topLevels[curr] + 1);
             localInDegree[next]--;
@@ -155,9 +181,11 @@ std::vector<uint64_t> Graph::computeTopLevels() const {
     return topLevels;
 }
 
+// Compute top levels using pre-computed topological order
 std::vector<uint64_t> Graph::computeTopLevels(const std::vector<uint64_t> &topologicalOrder) const {
     std::vector<uint64_t> topLevels(size, 0);
 
+    // Process nodes in topological order
     for (uint64_t u: topologicalOrder) {
         assert(u < size && "node id in topological order must be smaller than graph size");
         for (const auto &[v, weight]: adj[u]) {
@@ -168,12 +196,14 @@ std::vector<uint64_t> Graph::computeTopLevels(const std::vector<uint64_t> &topol
     return topLevels;
 }
 
+// Compute both topological sort and top levels in a single pass
 std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAndTopLevels() const {
     std::vector<uint64_t> localInDegree = inDegree;
     std::vector<uint64_t> topologicalOrder;
     std::vector<uint64_t> topLevels(size, 0);
     topologicalOrder.reserve(size);
 
+    // Initialize with nodes having no incoming edges
     std::queue<uint64_t> q;
     for (uint64_t i = 0; i < size; i++) {
         if (localInDegree[i] == 0) {
@@ -187,9 +217,9 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
         q.pop();
         topologicalOrder.push_back(curr);
 
+        // Update both top levels and in-degrees
         for (const auto &[next, weight]: adj[curr]) {
             topLevels[next] = std::max(topLevels[next], topLevels[curr] + 1);
-
             localInDegree[next]--;
             if (localInDegree[next] == 0) {
                 q.push(next);
@@ -199,14 +229,15 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>> Graph::topologicalSortAn
     }
 
     assert(topologicalOrder.size() == size && "Graph is cyclic");
-
     return {topologicalOrder, topLevels};
 }
 
+// Compute shortest paths using Dijkstra's algorithm
 std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseGraph) const {
     assert(startNode < size && "start node id must be smaller than graph size");
     std::vector<uint64_t> distances(size, UINT64_MAX);
 
+    // Priority queue for Dijkstra's algorithm
     std::priority_queue<
             std::pair<uint64_t, uint64_t>,
             std::vector<std::pair<uint64_t, uint64_t>>,
@@ -221,12 +252,14 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
         uint64_t currentDist = pq.top().second;
         pq.pop();
 
+        // Process edges in forward or reverse direction
         for (const auto &edge: (reverseGraph ? revAdj[currentNode] : adj[currentNode])) {
             uint64_t neighborId = edge.first;
             uint64_t edgeWeight = edge.second;
 
             uint64_t newDist = currentDist + edgeWeight;
 
+            // Update distance if shorter path found
             if (newDist < distances[neighborId]) {
                 distances[neighborId] = newDist;
                 pq.emplace(neighborId, newDist);
@@ -237,14 +270,18 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
     return distances;
 }
 
+// Get maximum node weight in the graph
 uint64_t Graph::maxNodeWeight() const {
     return *std::max_element(nodeWeights.begin(), nodeWeights.end());
 }
 
+// Print graph information to output stream
 void Graph::print(llvm::raw_ostream &os) const {
     assert(adj.size() == nodeWeights.size() &&
            "Adjacency-list 2D vectors' size and nodeWeights vectors' size must be equal");
     assert(size == adj.size() && "Adjacency-list 2D vectors' size must be the same as the graph size");
+
+    // Print each node's information
     for (size_t i = 0; i < size; ++i) {
         const auto &adjList = adj[i];
         uint64_t weight = nodeWeights[i];
@@ -257,14 +294,20 @@ void Graph::print(llvm::raw_ostream &os) const {
     }
 }
 
+// Export graph to DOT format file
 void Graph::printToDot(const std::string &dotFilename) const {
     std::ofstream dotFile(dotFilename);
 
+    // Write graph size as comment
     dotFile << "// size=" << size << "\n";
     dotFile << "digraph cfg {\n";
+
+    // Write node weights
     for (uint64_t i = 0; i < size; ++i) {
         dotFile << i << "[weight=" << nodeWeights[i] << "];\n";
     }
+
+    // Write edges and their weights
     for (uint64_t i = 0; i < size; ++i) {
         for (const auto &[neighborId, edgeWeight]: adj[i]) {
             dotFile << i << "->" << neighborId << "[weight=" << edgeWeight << "];\n";
@@ -273,14 +316,15 @@ void Graph::printToDot(const std::string &dotFilename) const {
     dotFile << "}\n";
 }
 
+// Read graph from DOT format file
 Graph readDotFile(const std::string &dotFilename, const std::string &mappingFilename) {
     std::ifstream dotFile(dotFilename);
     assert(dotFile.is_open() && "DOT file could not be opened!");
     std::string line;
     std::regex sizeRegex(R"(//\s*size\s*=\s*(\d+))");
 
+    // Extract graph size from comment
     uint64_t graphSize = UINT64_MAX;
-
     while (std::getline(dotFile, line)) {
         std::smatch matches;
         if (std::regex_search(line, matches, sizeRegex)) {
@@ -293,6 +337,7 @@ Graph readDotFile(const std::string &dotFilename, const std::string &mappingFile
 
     Graph g(graphSize);
 
+    // Parse nodes and edges
     std::unordered_map<std::string, uint64_t> nodeMap;
     std::regex nodeRegex(R"(([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
     std::regex edgeRegex(R"(([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
@@ -301,11 +346,13 @@ Graph readDotFile(const std::string &dotFilename, const std::string &mappingFile
     while (std::getline(dotFile, line)) {
         std::smatch matches;
         if (std::regex_search(line, matches, edgeRegex)) {
+            // Parse edge
             uint64_t from = nodeMap[matches[1].str()];
             uint64_t to = nodeMap[matches[2].str()];
             uint64_t nodeWeight = std::stoull(matches[3].str());
             g.addEdge(from, to, nodeWeight);
         } else if (std::regex_search(line, matches, nodeRegex)) {
+            // Parse node
             uint64_t edgeWeight = std::stoull(matches[2].str());
             g.addNode(nodeId, edgeWeight);
             nodeMap[matches[1].str()] = nodeId;
@@ -315,6 +362,7 @@ Graph readDotFile(const std::string &dotFilename, const std::string &mappingFile
 
     assert(g.adj.size() == graphSize && "given graph size must match the computed one");
 
+    // Write node mapping
     std::ofstream mapFile(mappingFilename);
     for (const auto &[name, id]: nodeMap) {
         mapFile << name << " -> " << id << "\n";
