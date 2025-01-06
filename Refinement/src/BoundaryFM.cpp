@@ -253,7 +253,8 @@ bool BoundaryFM::onePassRefinement() {
 
         // If partition is unbalanced, always include this move to the sequence
         // If balanced, include move if it improves edge cut or improves balance quality
-        if (!isBalanced || currentEdgeCut < bestEdgeCut || maxPartSize < minMaxPartSize) {
+        if (!isBalanced || currentEdgeCut < bestEdgeCut ||
+            (currentEdgeCut == bestEdgeCut && maxPartSize < minMaxPartSize)) {
             bestEdgeCut = currentEdgeCut;
             bestMovePrefix = moveSequence.size();
             minMaxPartSize = maxPartSize;
