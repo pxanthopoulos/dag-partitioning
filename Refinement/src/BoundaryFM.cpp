@@ -252,7 +252,7 @@ bool BoundaryFM::onePassRefinement() {
         uint64_t maxPartSize = std::max(sizeV0, sizeV1);
 
         // If partition is unbalanced, always include this move to the sequence
-        // If balanced, include move if it improves edge cut or improves balance quality
+        // If balanced, include move if it improves edge cut or improves balance quality (without worsening edge cut)
         if (!isBalanced || currentEdgeCut < bestEdgeCut ||
             (currentEdgeCut == bestEdgeCut && maxPartSize < minMaxPartSize)) {
             bestEdgeCut = currentEdgeCut;
