@@ -26,7 +26,7 @@ private:
      *
      * @return true if improvements were made in this pass
      */
-    bool onePassRefinement() override;
+    [[nodiscard]] bool onePassRefinement() override;
 
     /**
      * @brief Identifies initially movable vertices and adds them to appropriate heaps
@@ -76,9 +76,9 @@ private:
      * @param isBalanced Whether partition is currently balanced
      * @return true if move is acceptable for balance
      */
-    bool isBalanceImprovedOrMaintained(bool moveFromV0, uint64_t movedNodeId,
-                                       uint64_t maxNodeWeight, uint64_t sizeV0,
-                                       uint64_t sizeV1, bool isBalanced);
+    [[nodiscard]] bool isBalanceImprovedOrMaintained(bool moveFromV0, uint64_t movedNodeId,
+                                                     uint64_t maxNodeWeight, uint64_t sizeV0,
+                                                     uint64_t sizeV1, bool isBalanced);
 
 public:
     /**
