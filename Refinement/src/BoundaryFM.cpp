@@ -80,11 +80,11 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
     if (checkOutNeighbors) {  // Node moved V0->V1, check out-neighbors
         for (const auto &[nodeId, _]: workingGraph.adj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inHeap[nodeId] || !initialBisectionInfo[nodeId]) continue;
+            if (inHeap[nodeId] || !currentBisectionInfo[nodeId]) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (initialBisectionInfo[neighborId]) {
+                if (currentBisectionInfo[neighborId]) {
                     movable = false;
                     break;
                 }
@@ -106,11 +106,11 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
     } else {  // Node moved V1->V0, check in-neighbors
         for (const auto &[nodeId, _]: workingGraph.revAdj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inHeap[nodeId] || initialBisectionInfo[nodeId]) continue;
+            if (inHeap[nodeId] || currentBisectionInfo[nodeId]) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!initialBisectionInfo[neighborId]) {
+                if (!currentBisectionInfo[neighborId]) {
                     movable = false;
                     break;
                 }
@@ -305,7 +305,8 @@ bool BoundaryFM::onePassRefinement() {
 
     // Check if should keep current solution
     auto [initialSizeV0, initialSizeV1] = calculatePartSizes();
-    if (initialEdgeCut < bestEdgeCut && std::max(sizeV0, sizeV1) > std::max(initialSizeV0, initialSizeV1)) return false;
+    if (initialEdgeCut <= bestEdgeCut && std::max(sizeV0, sizeV1) >= std::max(initialSizeV0, initialSizeV1))
+        return false;
 
     // Apply best move sequence
     for (size_t i = 0; i < bestMovePrefix; ++i) {
