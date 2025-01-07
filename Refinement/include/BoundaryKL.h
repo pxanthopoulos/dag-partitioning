@@ -75,7 +75,7 @@ private:
      * @param sizeV1 Size of V1
      * @return Returns a tuple. The first element informs if a swappable pair was found. The other 2 elements contain the swappable pair. The last element is the gain.
      */
-    [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, uint64_t>
+    [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, int64_t>
     findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                 std::list<std::pair<int64_t, uint64_t>> &listV1,
                                 std::vector<bool> &moved, uint64_t &sizeV0,
@@ -94,7 +94,7 @@ private:
      * @param sizeV1 Size of V1
      * @return Returns a tuple. The first element informs if a swappable pair was found. The other 2 elements contain the swappable pair. The last element is the gain.
      */
-    [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, uint64_t>
+    [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, int64_t>
     findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                   std::list<std::pair<int64_t, uint64_t>> &listV1,
                                   std::vector<bool> &moved, uint64_t &sizeV0,
