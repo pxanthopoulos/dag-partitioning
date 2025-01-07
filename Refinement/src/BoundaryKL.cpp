@@ -274,8 +274,18 @@ bool BoundaryKL::onePassRefinement() {
     // Find initially movable vertices
     insertMovableNodesIntoLists(listV0, listV1, inList);
     // Lists are maintained in descending gain order to enable early exit optimizations
-    listV0.sort([](const auto &a, const auto &b) { return a.first > b.first; });
-    listV1.sort([](const auto &a, const auto &b) { return a.first > b.first; });
+    listV0.sort([](const auto &a, const auto &b) {
+        if (a.first != b.first) {
+            return a.first > b.first;
+        }
+        return a.second < b.second;  // Secondary sort criteria for equal first values
+    });
+    listV1.sort([](const auto &a, const auto &b) {
+        if (a.first != b.first) {
+            return a.first > b.first;
+        }
+        return a.second < b.second;  // Secondary sort criteria for equal first values
+    });
 
     std::vector<std::pair<uint64_t, uint64_t>> moveSequence;
     uint64_t currentEdgeCut = initialEdgeCut;
@@ -293,7 +303,7 @@ bool BoundaryKL::onePassRefinement() {
         auto [found, nodeIdV0, nodeIdV1, gain] = isBalanced
                                                  ? findBestMovablePairBalanced(listV0, listV1, moved, sizeV0, sizeV1)
                                                  : findBestMovablePairUnbalanced(listV0, listV1, moved, sizeV0, sizeV1);
-
+        if (!found) break;
 
         // Tentative move
         sizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
