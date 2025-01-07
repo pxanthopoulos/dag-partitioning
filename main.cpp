@@ -69,116 +69,80 @@ std::pair<uint64_t, uint64_t> calculatePartSizes(const std::vector<bool> &bisect
     return {sizeV0, sizeV1};
 }
 
+void printResults(const std::vector<bool> &partition, const Graph &graph,
+                  uint64_t cutSize, const std::string &methodStr) {
+    auto [sizeV0, sizeV1] = calculatePartSizes(partition, graph);
+    double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
+    imbalance = round(imbalance * 10) / 10;
+    std::cout << methodStr << "," << cutSize << "," << imbalance << "\n";
+}
+
+struct MethodCombination {
+    ClusteringMethod clustering;
+    BisectionMethod bisection;
+    RefinementMethod refinement;
+    std::string clusteringStr;
+    std::string bisectionStr;
+    std::string refinementStr;
+};
+
 int main() {
 //    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/2mm_10_20_30_40.dot",
 //                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
     Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/test/dag.dot",
                               "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
 
-//    auto pairs = generate_bisections(graph);
+    /*
+    auto pairs = generate_bisections(graph);
+    auto it = lower_bound(pairs.begin(), pairs.end(),
+                          std::make_pair(vec.second, imbalance),
+                          [](auto &a, auto &b) {
+                              if (a.first != b.first) return a.first < b.first;
+                              return a.second < b.second;
+                          });
+    long location = it - pairs.begin();
+    */
 
-    MultilevelBisectioner mb_forb_undir(graph, ClusteringMethod::FORB, 20, 1, BisectionMethod::UNDIRBOTH, 1.2,
-                                        RefinementMethod::BOUNDARYFM, 10);
-    MultilevelBisectioner mb_cyc_undir(graph, ClusteringMethod::CYC, 20, 1, BisectionMethod::UNDIRBOTH, 1.2,
-                                       RefinementMethod::BOUNDARYFM, 10);
-    MultilevelBisectioner mb_hyb_undir(graph, ClusteringMethod::HYB, 20, 1, BisectionMethod::UNDIRBOTH, 1.2,
-                                       RefinementMethod::BOUNDARYFM, 10);
+    std::vector<MethodCombination> methods = {
+            {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "FORB", "UNDIR", "FM"},
+            {ClusteringMethod::CYC, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "CYC", "UNDIR", "FM"},
+            {ClusteringMethod::HYB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "HYB", "UNDIR", "FM"},
+            {ClusteringMethod::FORB, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "FORB", "GGG", "FM"},
+            {ClusteringMethod::CYC, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "CYC", "GGG", "FM"},
+            {ClusteringMethod::HYB, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "HYB", "GGG", "FM"},
+            {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "FORB", "UNDIR", "KL"},
+            {ClusteringMethod::CYC, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "CYC", "UNDIR", "KL"},
+            {ClusteringMethod::HYB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "HYB", "UNDIR", "KL"},
+            {ClusteringMethod::FORB, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "FORB", "GGG", "KL"},
+            {ClusteringMethod::CYC, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "CYC", "GGG", "KL"},
+            {ClusteringMethod::HYB, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "HYB", "GGG", "KL"}
+    };
 
-    MultilevelBisectioner mb_forb_ggg(graph, ClusteringMethod::FORB, 20, 1, BisectionMethod::GGG, 1.2,
-                                      RefinementMethod::BOUNDARYFM, 10);
-    MultilevelBisectioner mb_cyc_ggg(graph, ClusteringMethod::CYC, 20, 1, BisectionMethod::GGG, 1.2,
-                                     RefinementMethod::BOUNDARYFM, 10);
-    MultilevelBisectioner mb_hyb_ggg(graph, ClusteringMethod::HYB, 20, 1, BisectionMethod::GGG, 1.2,
-                                     RefinementMethod::BOUNDARYFM, 10);
+    // Common parameters for all combinations
+    const int maxLevel = 20;
+    const int minSize = 1;
+    const double maxImbalance = 1.2;
+    const int maxPasses = 10;
 
-    auto vec = mb_forb_undir.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "FORB,UNDIR," << vec.second << "," << imbalance << "\n";
-    }
 
-    vec = mb_cyc_undir.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "CYC,UNDIR," << vec.second << "," << imbalance << "\n";
-    }
+    // Main testing loop
+    for (const auto &method: methods) {
+        MultilevelBisectioner bisectioner(
+                graph,
+                method.clustering,
+                maxLevel,
+                minSize,
+                method.bisection,
+                maxImbalance,
+                method.refinement,
+                maxPasses
+        );
 
-    vec = mb_hyb_undir.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "HYB,UNDIR," << vec.second << "," << imbalance << "\n";
-    }
-
-    vec = mb_forb_ggg.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "FORB,GGG," << vec.second << "," << imbalance << "\n";
-    }
-
-    vec = mb_cyc_ggg.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "CYC,GGG," << vec.second << "," << imbalance << "\n";
-    }
-
-    vec = mb_hyb_ggg.run();
-    {
-        auto [sizeV0, sizeV1] = calculatePartSizes(vec.first, graph);
-        double imbalance = ((double) std::max(sizeV0, sizeV1) / (double) graph.totalWeight) * 100;
-        imbalance = round(imbalance * 10) / 10;
-//        auto it = lower_bound(pairs.begin(), pairs.end(),
-//                              std::make_pair(vec.second, imbalance),
-//                              [](auto &a, auto &b) {
-//                                  if (a.first != b.first) return a.first < b.first;
-//                                  return a.second < b.second;
-//                              });
-//        long location = it - pairs.begin();
-        std::cout << "HYB,GGG," << vec.second << "," << imbalance << "\n";
+        auto [partition, cutSize] = bisectioner.run();
+        std::string methodStr = method.clusteringStr + "," +
+                                method.bisectionStr + "," +
+                                method.refinementStr;
+        printResults(partition, graph, cutSize, methodStr);
     }
 
     return 0;
