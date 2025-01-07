@@ -273,7 +273,7 @@ bool BoundaryFM::onePassRefinement() {
             // (if it has already been moved, we don't care if it is movable or not)
             // Then the neighbor becomes unmovable since it has one in-neighbor (the moved nodeId) that is in V1
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!moved[neighborId] && initialBisectionInfo[neighborId] && inHeap[neighborId]) {
+                if (!moved[neighborId] && initialBisectionInfoTemp[neighborId] && inHeap[neighborId]) {
                     moved[neighborId] = true;
                 }
             }
@@ -288,7 +288,7 @@ bool BoundaryFM::onePassRefinement() {
             // (if it has already been moved, we don't care if it is movable or not)
             // Then the neighbor becomes unmovable since it has one out-neighbor (the moved nodeId) that is in V0
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (!moved[neighborId] && !initialBisectionInfo[neighborId] && inHeap[neighborId]) {
+                if (!moved[neighborId] && !initialBisectionInfoTemp[neighborId] && inHeap[neighborId]) {
                     moved[neighborId] = true;
                 }
             }
