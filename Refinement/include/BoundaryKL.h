@@ -18,7 +18,11 @@ private:
     /**
      * @brief Implements one pass of boundary KL refinement
      *
-     * ??
+     * Repeatedly finds pairs of vertices (one from V0, one from V1) to swap.
+     * For balanced partitions, selects pair with highest total gain.
+     * For unbalanced partitions, selects pair that most improves balance.
+     * Each vertex can only move once per pass. At end of pass,
+     * realizes most profitable prefix of pairs.
      *
      * @return true if improvements were made in this pass
      */
@@ -43,7 +47,7 @@ private:
     /**
      * @brief Updates movable vertices after a move
      *
-     * When a vertex moves, some neighbors may become movable (added to lists)
+     * When a vertex moves, some neighbors may become movable (added to lists). The lists are kept sorted with the additions.
      *
      * @param currentBisectionInfo Current partition assignments
      * @param listV0 List for V0 vertices

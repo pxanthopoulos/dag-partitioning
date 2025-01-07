@@ -273,6 +273,7 @@ bool BoundaryKL::onePassRefinement() {
 
     // Find initially movable vertices
     insertMovableNodesIntoLists(listV0, listV1, inList);
+    // Lists are maintained in descending gain order to enable early exit optimizations
     listV0.sort([](const auto &a, const auto &b) { return a.first > b.first; });
     listV1.sort([](const auto &a, const auto &b) { return a.first > b.first; });
 
