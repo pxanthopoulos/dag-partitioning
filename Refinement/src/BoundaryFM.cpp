@@ -77,7 +77,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
         std::vector<bool> &inHeap, uint64_t movedNodeId,
         bool checkOutNeighbors) const {
 
-    if (checkOutNeighbors) {  // Node moved V0->V1, check out-neighbors
+    if (checkOutNeighbors) {  // Node moved V1->V0, check out-neighbors
         for (const auto &[nodeId, _]: workingGraph.adj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
             if (inHeap[nodeId] || !currentBisectionInfo[nodeId]) continue;
@@ -103,7 +103,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
                 inHeap[nodeId] = true;
             }
         }
-    } else {  // Node moved V1->V0, check in-neighbors
+    } else {  // Node moved V0->V1, check in-neighbors
         for (const auto &[nodeId, _]: workingGraph.revAdj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
             if (inHeap[nodeId] || currentBisectionInfo[nodeId]) continue;
