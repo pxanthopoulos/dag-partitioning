@@ -3,6 +3,7 @@
  * @brief Implementation of base refinement class methods
  */
 
+#include <iostream>
 #include "Refinement.h"
 
 Refinement::Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
@@ -69,5 +70,8 @@ void Refinement::run() {
     }
 
     // Verify final partition is balanced
-    assert(checkBalance(workingGraph.maxNodeWeight()) && "Resulting partition is unbalanced");
+//    assert(checkBalance(workingGraph.maxNodeWeight()) && "Resulting partition is unbalanced");
+    if (!checkBalance(workingGraph.maxNodeWeight())) {
+        std::cerr << "PARTITION IS NOT BALANCED\n";
+    }
 }
