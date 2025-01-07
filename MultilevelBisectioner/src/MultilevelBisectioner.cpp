@@ -10,6 +10,7 @@
 #include "GreedyDirectedGraphGrowing.h"
 #include "UndirectedFix.h"
 #include "BoundaryFM.h"
+#include "BoundaryKL.h"
 #include <utility>
 
 MultilevelBisectioner::MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
@@ -113,8 +114,13 @@ void MultilevelBisectioner::runRefinement(
                     refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
             break;
         case RefinementMethod::BOUNDARYKL:
-            throw std::invalid_argument("boundary kl not implemented yet");
+            refinement = std::make_unique<BoundaryKL>(
+                    graph, bisectionInfo.first, bisectionInfo.second,
+                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
             break;
+        case RefinementMethod::MIXED:
+            throw std::invalid_argument("mixed not implemented yet");
+            // break;
         default:
             throw std::invalid_argument("Unknown refinement type");
     }

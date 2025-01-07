@@ -38,7 +38,8 @@ enum class BisectionMethod {
  */
 enum class RefinementMethod {
     BOUNDARYFM,             // Boundary FM adaptation (Section 4.3)
-    BOUNDARYKL              // Boundary KL adaptation
+    BOUNDARYKL,             // Boundary KL adaptation
+    MIXED                   // Mixed (1 pass of KL followed by one pass of FM)
 };
 
 class MultilevelBisectioner {
