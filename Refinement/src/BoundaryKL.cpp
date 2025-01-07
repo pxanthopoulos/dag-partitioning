@@ -374,8 +374,9 @@ bool BoundaryKL::onePassRefinement() {
 
     // Apply best move sequence
     for (size_t i = 0; i < bestMovePrefix; ++i) {
-        auto [nodeId, fromV0] = moveSequence[i];
-        initialBisectionInfo[nodeId] = fromV0;
+        auto [nodeIdV0, nodeIdV1] = moveSequence[i];
+        initialBisectionInfoTemp[nodeIdV0] = true;
+        initialBisectionInfoTemp[nodeIdV1] = false;
     }
     initialEdgeCut = bestEdgeCut;
 
