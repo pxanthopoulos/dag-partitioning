@@ -13,8 +13,8 @@
 #include <list>
 #include "Refinement.h"
 
-class BoundaryKL : public Refinement {
-private:
+class BoundaryKL : virtual public Refinement {
+protected:
     /**
      * @brief Implements one pass of boundary KL refinement
      *
@@ -28,6 +28,7 @@ private:
      */
     [[nodiscard]] bool onePassRefinement() override;
 
+private:
     /**
      * @brief Identifies initially movable vertices and adds them to appropriate lists
      *

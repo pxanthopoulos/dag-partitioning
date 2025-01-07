@@ -2,6 +2,7 @@ add_library(Refinement
         src/Refinement.cpp
         src/BoundaryFM.cpp
         src/BoundaryKL.cpp
+        src/Mixed.cpp
 )
 
 target_include_directories(Refinement

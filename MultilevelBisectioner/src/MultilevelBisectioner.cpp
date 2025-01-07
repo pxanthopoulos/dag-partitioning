@@ -11,6 +11,7 @@
 #include "UndirectedFix.h"
 #include "BoundaryFM.h"
 #include "BoundaryKL.h"
+#include "Mixed.h"
 #include <utility>
 
 MultilevelBisectioner::MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
@@ -119,8 +120,10 @@ void MultilevelBisectioner::runRefinement(
                     refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
             break;
         case RefinementMethod::MIXED:
-            throw std::invalid_argument("mixed not implemented yet");
-            // break;
+            refinement = std::make_unique<Mixed>(
+                    graph, bisectionInfo.first, bisectionInfo.second,
+                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
+            break;
         default:
             throw std::invalid_argument("Unknown refinement type");
     }

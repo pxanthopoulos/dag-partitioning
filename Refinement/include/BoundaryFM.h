@@ -14,8 +14,8 @@
 #include "Refinement.h"
 #include <queue>
 
-class BoundaryFM : public Refinement {
-private:
+class BoundaryFM : virtual public Refinement {
+protected:
     /**
      * @brief Implements one pass of boundary FM refinement
      *
@@ -28,6 +28,7 @@ private:
      */
     [[nodiscard]] bool onePassRefinement() override;
 
+private:
     /**
      * @brief Identifies initially movable vertices and adds them to appropriate heaps
      *
