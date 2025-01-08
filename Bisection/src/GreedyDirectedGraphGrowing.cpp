@@ -264,7 +264,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
         const auto [_, distance, nodeId] = maxHeapPhase2.top();
         maxHeapPhase2.pop();
 
-        bisection[nodeId] = false;
+        bisection[nodeId] = true;
         currentEdgeCut -= weightedOutDegree[nodeId];
         currentEdgeCut += weightedInDegree[nodeId];
         partWeightV0 -= workingGraph.nodeWeights[nodeId];
