@@ -14,14 +14,14 @@
 #include "Mixed.h"
 #include <utility>
 
-MultilevelBisectioner::MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
+MultilevelBisectioner::MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
                                              uint64_t maxClusteringRounds,
                                              uint64_t minClusteringVertices,
                                              BisectionMethod bisectionMethod,
                                              double imbalanceRatio,
                                              RefinementMethod refinementMethod,
                                              uint64_t refinementPasses)
-        : workingGraph(std::move(graph)),
+        : workingGraph(graph),
           clusteringMethod(clusteringMethod),
           maxClusteringRounds(maxClusteringRounds),
           minClusteringVertices(minClusteringVertices),

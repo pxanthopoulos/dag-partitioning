@@ -44,7 +44,7 @@ enum class RefinementMethod {
 
 class MultilevelBisectioner {
 private:
-    Graph workingGraph;                 // Graph to be partitioned
+    const Graph &workingGraph;                // Graph to be partitioned
     ClusteringMethod clusteringMethod;  // Selected clustering strategy
     uint64_t maxClusteringRounds;       // Maximum coarsening levels
     uint64_t minClusteringVertices;     // Stop coarsening at this size
@@ -65,7 +65,7 @@ public:
      * @param refinementMethod Refinement strategy
      * @param refinementPasses Maximum refinement passes per level
      */
-    MultilevelBisectioner(Graph graph, ClusteringMethod clusteringMethod,
+    MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
                           uint64_t maxClusteringRounds,
                           uint64_t minClusteringVertices,
                           BisectionMethod bisectionMethod,
