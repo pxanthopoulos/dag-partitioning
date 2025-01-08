@@ -6,8 +6,8 @@
 #include "Bisection.h"
 #include <utility>
 
-Bisection::Bisection(Graph graph, double upperBoundPartWeight, double lowerBoundPartWeight)
-        : workingGraph(std::move(graph)), upperBoundPartWeight(upperBoundPartWeight),
+Bisection::Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight)
+        : workingGraph(graph), upperBoundPartWeight(upperBoundPartWeight),
           lowerBoundPartWeight(lowerBoundPartWeight) {}
 
 bool Bisection::checkValidBisection(const std::vector<bool> &bisection) const {

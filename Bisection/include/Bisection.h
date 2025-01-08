@@ -14,7 +14,7 @@
 
 class Bisection {
 protected:
-    Graph workingGraph;                  // Graph to be bisected
+    const Graph &workingGraph;                  // Graph to be bisected
     double upperBoundPartWeight;         // Maximum allowed weight for each partition
     double lowerBoundPartWeight;         // Minimum allowed weight for each partition
 
@@ -47,7 +47,7 @@ protected:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum required partition weight
      */
-    Bisection(Graph graph, double upperBoundPartWeight, double lowerBoundPartWeight);
+    Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
 
 public:
     /**
