@@ -118,7 +118,6 @@ std::vector<bool> UndirectedFix::getUndirectedBisectionMetis() const {
     int64_t options[METIS_NOPTIONS];
     METIS_SetDefaultOptions(options);
     options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_CUT;
-    options[METIS_OPTION_CONTIG] = 1;
     options[METIS_OPTION_NUMBERING] = 0;
 
     // Set balance constraint
