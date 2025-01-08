@@ -290,7 +290,7 @@ bool BoundaryKL::onePassRefinement() {
     std::vector<std::pair<uint64_t, uint64_t>> moveSequence;
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
-    size_t bestMovePrefix = 0;
+    uint64_t bestMovePrefix = 0;
     std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
@@ -373,7 +373,7 @@ bool BoundaryKL::onePassRefinement() {
         return false;
 
     // Apply best move sequence
-    for (size_t i = 0; i < bestMovePrefix; ++i) {
+    for (uint64_t i = 0; i < bestMovePrefix; ++i) {
         auto [nodeIdV0, nodeIdV1] = moveSequence[i];
         initialBisectionInfo[nodeIdV0] = true;
         initialBisectionInfo[nodeIdV1] = false;

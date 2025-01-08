@@ -178,7 +178,7 @@ bool BoundaryFM::onePassRefinement() {
     std::vector<std::pair<uint64_t, bool>> moveSequence;
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
-    size_t bestMovePrefix = 0;
+    uint64_t bestMovePrefix = 0;
     std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
@@ -309,7 +309,7 @@ bool BoundaryFM::onePassRefinement() {
         return false;
 
     // Apply best move sequence
-    for (size_t i = 0; i < bestMovePrefix; ++i) {
+    for (uint64_t i = 0; i < bestMovePrefix; ++i) {
         auto [nodeId, fromV0] = moveSequence[i];
         initialBisectionInfo[nodeId] = fromV0;
     }

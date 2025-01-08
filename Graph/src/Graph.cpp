@@ -71,7 +71,7 @@ bool Graph::iterativeDfsHasCycle(uint64_t start) const {
     assert(start < size && "start node id must be smaller than graph size");
     std::vector<bool> visited(size, false);
     std::vector<bool> inStack(size, false);  // Track nodes in current DFS path
-    std::stack<std::pair<uint64_t, size_t>> stack;
+    std::stack<std::pair<uint64_t, uint64_t>> stack;
 
     stack.emplace(start, 0);
     visited[start] = true;
@@ -282,7 +282,7 @@ void Graph::print(llvm::raw_ostream &os) const {
     assert(size == adj.size() && "Adjacency-list 2D vectors' size must be the same as the graph size");
 
     // Print each node's information
-    for (size_t i = 0; i < size; ++i) {
+    for (uint64_t i = 0; i < size; ++i) {
         const auto &adjList = adj[i];
         uint64_t weight = nodeWeights[i];
         os << "Node: " << i << "\nWeight: " << weight << "\n";

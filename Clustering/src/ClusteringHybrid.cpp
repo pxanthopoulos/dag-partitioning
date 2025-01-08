@@ -77,7 +77,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
     std::vector<uint64_t> clusterWeights(workingGraph.size);
 
     // Initialize each node as its own cluster
-    for (size_t i = 0; i < workingGraph.size; ++i) {
+    for (uint64_t i = 0; i < workingGraph.size; ++i) {
         leaders[i] = i;
         clusterWeights[i] = workingGraph.nodeWeights[i];
     }
