@@ -79,7 +79,7 @@ private:
      */
     [[nodiscard]] bool isBalanceImprovedOrMaintained(bool moveFromV0, uint64_t movedNodeId,
                                                      uint64_t maxNodeWeight, uint64_t sizeV0,
-                                                     uint64_t sizeV1, bool isBalanced);
+                                                     uint64_t sizeV1, bool isBalanced) const;
 
 public:
     /**
