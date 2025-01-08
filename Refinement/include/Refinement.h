@@ -49,6 +49,13 @@ protected:
     [[nodiscard]] bool checkBalance(uint64_t maxNodeWeight) const;
 
     /**
+     * @brief Checks if the computed edge cut is consistent with the bisection info
+     *
+     * @return true if edge cut is correct
+     */
+    [[nodiscard]] bool checkValidEdgeCut();
+
+    /**
      * @brief Pure virtual method for one refinement pass
      *
      * Derived classes implement specific refinement strategy here.

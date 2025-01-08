@@ -55,6 +55,20 @@ bool Refinement::checkBalance(uint64_t maxNodeWeight) const {
     return true;
 }
 
+bool Refinement::checkValidEdgeCut() {
+    uint64_t edgeCut = 0;
+    // Check each edge to ensure no V1->V0 connections exist
+    for (uint64_t i = 0; i < workingGraph.size; ++i) {
+        const auto &neighbors = workingGraph.adj[i];
+        for (const auto &[neighborId, edgeWeight]: neighbors) {
+            // If edge from V1 (true) to V0 (false) found, bisection is invalid
+            if (initialBisectionInfo[i] != initialBisectionInfo[neighborId]) edgeCut += edgeWeight;
+        }
+    }
+    if (initialEdgeCut != edgeCut) return false;
+    return true;
+}
+
 void Refinement::run() {
     uint64_t countPasses = 0;
 
@@ -68,6 +82,9 @@ void Refinement::run() {
 
         countPasses++;
     }
+
+    // Verify that the edge cut is consistent with the bisection info
+    assert(checkValidEdgeCut());
 
     // Verify final partition is balanced
 //    assert(checkBalance(workingGraph.maxNodeWeight()) && "Resulting partition is unbalanced");
