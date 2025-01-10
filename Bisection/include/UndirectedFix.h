@@ -79,11 +79,38 @@ private:
     /**
      * @brief Runs the complete undirected bisection and fixing process
      *
-     * For each partitioner enabled (METIS/Scotch):
+     * For the METIS partitioner:
      * 1. Gets initial undirected bisection
      * 2. Tries both partition assignments (P0=V0,P1=V1 and P1=V0,P0=V1)
      * 3. Fixes acyclicity both upward and downward
      * 4. Returns best result among all attempts
+     *
+     * @return Pair containing:
+     *         - Acyclic bisection vector
+     *         - Edge cut weight
+     */
+    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runMetis() const;
+
+    /**
+     * @brief Runs the complete undirected bisection and fixing process
+     *
+     * For the Scotch partitioner:
+     * 1. Gets initial undirected bisection
+     * 2. Tries both partition assignments (P0=V0,P1=V1 and P1=V0,P0=V1)
+     * 3. Fixes acyclicity both upward and downward
+     * 4. Returns best result among all attempts
+     *
+     * @return Pair containing:
+     *         - Acyclic bisection vector
+     *         - Edge cut weight
+     */
+    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runScotch() const;
+
+    /**
+     * @brief Runs the 2 partitioners and obtains best result
+     *
+     * Based on the enabled flags, runs the 2 partitioners (METIS & Scotch)
+     * and returns the best result, giving priority to non-zero edge cuts.
      *
      * @return Pair containing:
      *         - Acyclic bisection vector

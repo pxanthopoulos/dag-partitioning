@@ -181,94 +181,124 @@ void UndirectedFix::fixAcyclicityDown(std::vector<bool> &undirectedBisection) co
     }
 }
 
-// Main algorithm that tries all fixing combinations
-std::pair<std::vector<bool>, uint64_t> UndirectedFix::run() const {
+std::pair<std::vector<bool>, uint64_t> UndirectedFix::runMetis() const {
     uint64_t bestEdgeCut = UINT64_MAX, edgeCut;
+    bool isZero = false;
     std::vector<bool> bestBisection;
 
-    // Try METIS partitioning if enabled
-    if (useMetis) {
-        // Get initial undirected bisection
-        std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
-        std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+    // Get initial undirected bisection
+    std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
+    std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
 
-        // Create reversed assignment
-        std::transform(undirectedBisection.begin(), undirectedBisection.end(),
-                       reverseUndirectedBisection.begin(), [](bool x) { return !x; });
-        std::vector<bool> copy = undirectedBisection;
+    // Create reversed assignment
+    std::transform(undirectedBisection.begin(), undirectedBisection.end(),
+                   reverseUndirectedBisection.begin(), [](bool x) { return !x; });
+    std::vector<bool> copy = undirectedBisection;
 
-        // Try Approach 1: Fix up from original assignment
-        fixAcyclicityUp(undirectedBisection);
-        edgeCut = computeEdgeCut(undirectedBisection);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = undirectedBisection;
-        }
+    // Try Approach 1: Fix up from original assignment (always store result as best)
+    fixAcyclicityUp(undirectedBisection);
+    edgeCut = computeEdgeCut(undirectedBisection);
+    bestEdgeCut = edgeCut;
+    isZero = (bestEdgeCut == 0);
+    bestBisection = undirectedBisection;
 
-        // Try Approach 2: Fix down from original assignment
-        fixAcyclicityDown(copy);
-        edgeCut = computeEdgeCut(copy);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = copy;
-        }
 
-        // Try Approach 3: Fix up from reversed assignment
-        copy = reverseUndirectedBisection;
-        fixAcyclicityUp(reverseUndirectedBisection);
-        edgeCut = computeEdgeCut(reverseUndirectedBisection);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = reverseUndirectedBisection;
-        }
-
-        // Try Approach 4: Fix down from reversed assignment
-        fixAcyclicityDown(copy);
-        edgeCut = computeEdgeCut(copy);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = copy;
-        }
+    // Try Approach 2: Fix down from original assignment
+    fixAcyclicityDown(copy);
+    edgeCut = computeEdgeCut(copy);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = copy;
     }
 
-    // Repeat process with Scotch if enabled
-    if (useScotch) {
-        std::vector<bool> undirectedBisection = getUndirectedBisectionScotch();
-        std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
-        std::transform(undirectedBisection.begin(), undirectedBisection.end(), reverseUndirectedBisection.begin(),
-                       [](bool x) { return !x; });
-        std::vector<bool> copy = undirectedBisection;
-
-        fixAcyclicityUp(undirectedBisection);
-        edgeCut = computeEdgeCut(undirectedBisection);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = undirectedBisection;
-        }
-
-        fixAcyclicityDown(copy);
-        edgeCut = computeEdgeCut(copy);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = copy;
-        }
-
-        copy = reverseUndirectedBisection;
-        fixAcyclicityUp(reverseUndirectedBisection);
-        edgeCut = computeEdgeCut(reverseUndirectedBisection);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = reverseUndirectedBisection;
-        }
-
-        fixAcyclicityDown(copy);
-        edgeCut = computeEdgeCut(copy);
-        if (edgeCut < bestEdgeCut && edgeCut != 0) {
-            bestEdgeCut = edgeCut;
-            bestBisection = copy;
-        }
+    // Try Approach 3: Fix up from reversed assignment
+    copy = reverseUndirectedBisection;
+    fixAcyclicityUp(reverseUndirectedBisection);
+    edgeCut = computeEdgeCut(reverseUndirectedBisection);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = reverseUndirectedBisection;
     }
-    assert(bestEdgeCut != UINT64_MAX && "No valid edgeCut computed");
+
+    // Try Approach 4: Fix down from reversed assignment
+    fixAcyclicityDown(copy);
+    edgeCut = computeEdgeCut(copy);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = copy;
+    }
+
     assert(checkValidBisection(bestBisection) && "Best bisection is cyclic");
     return {bestBisection, bestEdgeCut};
+}
+
+std::pair<std::vector<bool>, uint64_t> UndirectedFix::runScotch() const {
+    uint64_t bestEdgeCut = UINT64_MAX, edgeCut;
+    bool isZero = false;
+    std::vector<bool> bestBisection;
+
+    // Get initial undirected bisection
+    std::vector<bool> undirectedBisection = getUndirectedBisectionScotch();
+    std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+
+    // Create reversed assignment
+    std::transform(undirectedBisection.begin(), undirectedBisection.end(),
+                   reverseUndirectedBisection.begin(), [](bool x) { return !x; });
+    std::vector<bool> copy = undirectedBisection;
+
+    // Try Approach 1: Fix up from original assignment (always store result as best)
+    fixAcyclicityUp(undirectedBisection);
+    edgeCut = computeEdgeCut(undirectedBisection);
+    bestEdgeCut = edgeCut;
+    isZero = (bestEdgeCut == 0);
+    bestBisection = undirectedBisection;
+
+
+    // Try Approach 2: Fix down from original assignment
+    fixAcyclicityDown(copy);
+    edgeCut = computeEdgeCut(copy);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = copy;
+    }
+
+    // Try Approach 3: Fix up from reversed assignment
+    copy = reverseUndirectedBisection;
+    fixAcyclicityUp(reverseUndirectedBisection);
+    edgeCut = computeEdgeCut(reverseUndirectedBisection);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = reverseUndirectedBisection;
+    }
+
+    // Try Approach 4: Fix down from reversed assignment
+    fixAcyclicityDown(copy);
+    edgeCut = computeEdgeCut(copy);
+    if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
+        bestEdgeCut = edgeCut;
+        isZero = (bestEdgeCut == 0);
+        bestBisection = copy;
+    }
+
+    assert(checkValidBisection(bestBisection) && "Best bisection is cyclic");
+    return {bestBisection, bestEdgeCut};
+}
+
+// Main algorithm that tries all fixing combinations
+std::pair<std::vector<bool>, uint64_t> UndirectedFix::run() const {
+    if (!useMetis) return runScotch();
+    if (!useScotch) return runMetis();
+
+    // Both enabled - compare results
+    const auto resultMetis = runMetis();
+    const auto resultScotch = runScotch();
+
+    return (resultMetis.second == 0) ? std::move(resultScotch) :
+           (resultScotch.second == 0) ? std::move(resultMetis) :
+           (resultMetis.second < resultScotch.second) ? std::move(resultMetis) : std::move(resultScotch);
 }
