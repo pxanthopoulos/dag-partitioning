@@ -1,5 +1,5 @@
 #include "Graph.h"
-#include "MultilevelBisectioner.h"
+#include "RecursivePartitioner.h"
 
 #include <iostream>
 #include <chrono>
@@ -30,7 +30,7 @@ std::vector<std::pair<uint64_t, double>> generate_bisections(const Graph &graph)
     for (uint64_t i = 0; i < (1 << graph.size); i++) {
         std::vector<bool> bisection;
         uint64_t mask = i;
-        for (int j = 0; j < graph.size; j++) {
+        for (uint64_t j = 0; j < graph.size; j++) {
             bisection.push_back(mask & 1);
             mask >>= 1;
         }
@@ -87,7 +87,20 @@ struct MethodCombination {
     std::string refinementStr;
 };
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <# of partitions>" << std::endl;
+        return 1;
+    }
+
+    uint64_t partitions;
+    try {
+        partitions = std::stoull(argv[1]);
+    } catch (const std::exception &e) {
+        std::cerr << "Error: Please provide a valid positive integer" << std::endl;
+        return 1;
+    }
+
 //    Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/2mm_10_20_30_40.dot",
 //                              "/home/panagiotis/code/dag-partitioning/node-mappings.txt");
     Graph graph = readDotFile("/home/panagiotis/code/dag-partitioning/test/dag.dot",
@@ -106,34 +119,34 @@ int main() {
 
     std::vector<MethodCombination> methods = {
             {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "FORB", "UNDIR", "FM"},
-            {ClusteringMethod::CYC,  BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "CYC",  "UNDIR", "FM"},
-            {ClusteringMethod::HYB,  BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "HYB",  "UNDIR", "FM"},
-            {ClusteringMethod::FORB, BisectionMethod::GGG,       RefinementMethod::BOUNDARYFM, "FORB", "GGG",   "FM"},
-            {ClusteringMethod::CYC,  BisectionMethod::GGG,       RefinementMethod::BOUNDARYFM, "CYC",  "GGG",   "FM"},
-            {ClusteringMethod::HYB,  BisectionMethod::GGG,       RefinementMethod::BOUNDARYFM, "HYB",  "GGG",   "FM"},
+            {ClusteringMethod::CYC, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "CYC", "UNDIR", "FM"},
+            {ClusteringMethod::HYB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYFM, "HYB", "UNDIR", "FM"},
+            {ClusteringMethod::FORB, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "FORB", "GGG", "FM"},
+            {ClusteringMethod::CYC, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "CYC", "GGG", "FM"},
+            {ClusteringMethod::HYB, BisectionMethod::GGG, RefinementMethod::BOUNDARYFM, "HYB", "GGG", "FM"},
             {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "FORB", "UNDIR", "KL"},
-            {ClusteringMethod::CYC,  BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "CYC",  "UNDIR", "KL"},
-            {ClusteringMethod::HYB,  BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "HYB",  "UNDIR", "KL"},
-            {ClusteringMethod::FORB, BisectionMethod::GGG,       RefinementMethod::BOUNDARYKL, "FORB", "GGG",   "KL"},
-            {ClusteringMethod::CYC,  BisectionMethod::GGG,       RefinementMethod::BOUNDARYKL, "CYC",  "GGG",   "KL"},
-            {ClusteringMethod::HYB,  BisectionMethod::GGG,       RefinementMethod::BOUNDARYKL, "HYB",  "GGG",   "KL"},
-            {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED,      "FORB", "UNDIR", "MIX"},
-            {ClusteringMethod::CYC,  BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED,      "CYC",  "UNDIR", "MIX"},
-            {ClusteringMethod::HYB,  BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED,      "HYB",  "UNDIR", "MIX"},
-            {ClusteringMethod::FORB, BisectionMethod::GGG,       RefinementMethod::MIXED,      "FORB", "GGG",   "MIX"},
-            {ClusteringMethod::CYC,  BisectionMethod::GGG,       RefinementMethod::MIXED,      "CYC",  "GGG",   "MIX"},
-            {ClusteringMethod::HYB,  BisectionMethod::GGG,       RefinementMethod::MIXED,      "HYB",  "GGG",   "MIX"}
+            {ClusteringMethod::CYC, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "CYC", "UNDIR", "KL"},
+            {ClusteringMethod::HYB, BisectionMethod::UNDIRBOTH, RefinementMethod::BOUNDARYKL, "HYB", "UNDIR", "KL"},
+            {ClusteringMethod::FORB, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "FORB", "GGG", "KL"},
+            {ClusteringMethod::CYC, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "CYC", "GGG", "KL"},
+            {ClusteringMethod::HYB, BisectionMethod::GGG, RefinementMethod::BOUNDARYKL, "HYB", "GGG", "KL"},
+            {ClusteringMethod::FORB, BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED, "FORB", "UNDIR", "MIX"},
+            {ClusteringMethod::CYC, BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED, "CYC", "UNDIR", "MIX"},
+            {ClusteringMethod::HYB, BisectionMethod::UNDIRBOTH, RefinementMethod::MIXED, "HYB", "UNDIR", "MIX"},
+            {ClusteringMethod::FORB, BisectionMethod::GGG, RefinementMethod::MIXED, "FORB", "GGG", "MIX"},
+            {ClusteringMethod::CYC, BisectionMethod::GGG, RefinementMethod::MIXED, "CYC", "GGG", "MIX"},
+            {ClusteringMethod::HYB, BisectionMethod::GGG, RefinementMethod::MIXED, "HYB", "GGG", "MIX"}
     };
 
     // Common parameters for all combinations
-    const int maxLevel = 20;
-    const int minSize = 1;
-    const double maxImbalance = 1.2;
-    const int maxPasses = 10;
+    const uint64_t maxLevel = 20;
+    const uint64_t minSize = 1;
+    const double maxImbalance = 1.1;
+    const uint64_t maxPasses = 10;
 
     // Structure to hold the results from each thread
     struct ThreadResult {
-        std::vector<bool> partition;
+        std::vector<uint64_t> partition;
         uint64_t cutSize{};
         uint64_t duration{};
     };
@@ -143,11 +156,12 @@ int main() {
     std::vector<ThreadResult> results(methods.size());
 
     // Spawn threads
-    for (size_t i = 0; i < methods.size(); i++) {
+    for (uint64_t i = 0; i < methods.size(); i++) {
         const auto &method = methods[i];
-        threads.emplace_back([&graph, &method, &results, i, maxImbalance]() {
-            MultilevelBisectioner bisectioner(
+        threads.emplace_back([&graph, &method, &results, i, maxImbalance, &partitions]() {
+            RecursivePartitioner partitioner(
                     graph,
+                    partitions,
                     method.clustering,
                     maxLevel,
                     minSize,
@@ -158,7 +172,7 @@ int main() {
             );
 
             auto start = std::chrono::high_resolution_clock::now();
-            auto [partition, cutSize] = bisectioner.run();
+            auto [partition, cutSize] = partitioner.run();
             auto end = std::chrono::high_resolution_clock::now();
             uint64_t duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
@@ -172,16 +186,16 @@ int main() {
         thread.join();
     }
 
-    // Print results
-    for (size_t i = 0; i < methods.size(); i++) {
-        const auto &method = methods[i];
-        const auto &result = results[i];
-
-        std::string methodStr = method.clusteringStr + "," +
-                                method.bisectionStr + "," +
-                                method.refinementStr;
-        printResults(result.partition, graph, result.cutSize, methodStr, result.duration);
-    }
+//    // Print results
+//    for (uint64_t i = 0; i < methods.size(); i++) {
+//        const auto &method = methods[i];
+//        const auto &result = results[i];
+//
+//        std::string methodStr = method.clusteringStr + "," +
+//                                method.bisectionStr + "," +
+//                                method.refinementStr;
+//        printResults(result.partition, graph, result.cutSize, methodStr, result.duration);
+//    }
 
     return 0;
 }
