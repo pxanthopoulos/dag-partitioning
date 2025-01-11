@@ -227,7 +227,6 @@ std::pair<std::vector<bool>, uint64_t> UndirectedFix::runMetis() const {
     edgeCut = computeEdgeCut(copy);
     if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
         bestEdgeCut = edgeCut;
-        isZero = (bestEdgeCut == 0);
         bestBisection = copy;
     }
 
@@ -281,7 +280,6 @@ std::pair<std::vector<bool>, uint64_t> UndirectedFix::runScotch() const {
     edgeCut = computeEdgeCut(copy);
     if (isZero || (edgeCut > 0 && edgeCut < bestEdgeCut)) {
         bestEdgeCut = edgeCut;
-        isZero = (bestEdgeCut == 0);
         bestBisection = copy;
     }
 
