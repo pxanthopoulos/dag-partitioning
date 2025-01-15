@@ -1,4 +1,4 @@
-add_library(Driver
+add_library(Driver OBJECT
         src/MultilevelBisectioner.cpp
         src/RecursivePartitioner.cpp
 )

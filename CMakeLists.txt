@@ -77,19 +77,11 @@ ExternalProject_Add(metis
 )
 include_directories(${CMAKE_BINARY_DIR}/third-party/metis/include)
 
-add_subdirectory(Graph)
-add_subdirectory(Clustering)
-add_subdirectory(Bisection)
-add_subdirectory(Driver)
-add_subdirectory(Refinement)
+add_subdirectory(src)
 
 add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE
-        Clustering
-        Graph
-        Bisection
-        Driver
-        Refinement
+        partitioner
         ${llvm_libs}
         m
 )

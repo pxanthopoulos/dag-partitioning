@@ -1,4 +1,4 @@
-add_library(Refinement
+add_library(Refinement OBJECT
         src/Refinement.cpp
         src/BoundaryFM.cpp
         src/BoundaryKL.cpp

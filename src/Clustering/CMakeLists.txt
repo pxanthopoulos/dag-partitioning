@@ -1,4 +1,4 @@
-add_library(Clustering
+add_library(Clustering OBJECT
         src/ClusteringForbiddenEdges.cpp
         src/Clustering.cpp
         src/ClusteringCycleDetection.cpp

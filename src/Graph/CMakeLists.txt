@@ -1,4 +1,4 @@
-add_library(Graph
+add_library(Graph OBJECT
         src/Graph.cpp
 )
 

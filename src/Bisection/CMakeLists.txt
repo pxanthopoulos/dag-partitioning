@@ -1,4 +1,4 @@
-add_library(Bisection
+add_library(Bisection OBJECT
         src/GreedyDirectedGraphGrowing.cpp
         src/Bisection.cpp
         src/UndirectedFix.cpp
