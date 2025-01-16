@@ -123,7 +123,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
 
                 if (!largeDegrees) {
                     // Use cycle detection
-                    if (detectCycle(node, neighborId, topLevels, leaders)) continue;
+                    if (detectCycle(node, neighborId, topLevels, leaders, markup, markdown)) continue;
                 } else {
                     // Use forbidden edges rules
                     if (numberOfBadNeighbors[node] == 2) continue;
@@ -152,7 +152,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
                 bool largeDegrees = checkLargeDegrees(neighborId, node);
 
                 if (!largeDegrees) {
-                    if (detectCycle(neighborId, node, topLevels, leaders)) continue;
+                    if (detectCycle(neighborId, node, topLevels, leaders, markup, markdown)) continue;
                 } else {
                     if (numberOfBadNeighbors[node] == 2) continue;
                     if (numberOfBadNeighbors[node] == 1) {

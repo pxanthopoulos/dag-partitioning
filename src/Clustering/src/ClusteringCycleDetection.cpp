@@ -74,26 +74,19 @@ void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leade
 
 uint64_t
 ClusteringCycleDetection::findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels,
-                                                       const std::vector<uint64_t> &leaders) {
-    uint64_t nodeLeader = leaders[node];
-    uint64_t minimumTopLevelInCluster = UINT64_MAX;
-
-    // Find minimum top-level value among all nodes in the cluster
-    for (uint64_t i = 0; i < leaders.size(); ++i) {
-        if (leaders[i] == nodeLeader) {
-            if (topLevels[i] < minimumTopLevelInCluster) {
-                minimumTopLevelInCluster = topLevels[i];
-            }
-        }
-    }
-    return minimumTopLevelInCluster;
+                                                       const std::vector<bool> &markup,
+                                                       const std::vector<bool> &markdown) {
+    if (markup[node]) return topLevels[node];
+    if (markdown[node]) return topLevels[node] - 1;
+    return topLevels[node];
 }
 
 bool
 ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vector<uint64_t> &topLevels,
-                                      const std::vector<uint64_t> &leaders) const {
+                                      const std::vector<uint64_t> &leaders, const std::vector<bool> &markup,
+                                      const std::vector<bool> &markdown) const {
     // Get minimum top-level value in target cluster
-    uint64_t minimumTopLevelInCluster = findMinimumTopLevelInCluster(to, topLevels, leaders);
+    uint64_t minimumTopLevelInCluster = findMinimumTopLevelInCluster(to, topLevels, markup, markdown);
     std::vector<bool> visited(workingGraph.size, false);
     std::queue<uint64_t> q;
 
@@ -181,7 +174,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClu
             if (isSuccessor) {
                 // Edge from node to neighbor
                 if (markup[neighborId] ||
-                    detectCycle(node, neighborId, topLevels, leaders))
+                    detectCycle(node, neighborId, topLevels, leaders, markup, markdown))
                     continue;
                 leaders[node] = leaderOfNeighbor;
                 markup[node] = markdown[neighborId] = true;
@@ -190,7 +183,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClu
             } else {
                 // Edge from neighbor to node
                 if (markdown[neighborId] ||
-                    detectCycle(neighborId, node, topLevels, leaders))
+                    detectCycle(neighborId, node, topLevels, leaders, markup, markdown))
                     continue;
                 leaders[node] = leaderOfNeighbor;
                 markdown[node] = markup[neighborId] = true;

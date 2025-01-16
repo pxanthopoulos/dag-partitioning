@@ -37,9 +37,9 @@ private:
      * @param leaders Cluster assignments
      * @return Minimum top-level value in the cluster
      */
-    [[nodiscard]] static uint64_t findMinimumTopLevelInCluster(uint64_t node,
-                                                               const std::vector<uint64_t> &topLevels,
-                                                               const std::vector<uint64_t> &leaders);
+    [[nodiscard]] static uint64_t
+    findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels, const std::vector<bool> &markup,
+                                 const std::vector<bool> &markdown);
 
     /**
      * @brief Implementation of one round of clustering using cycle detection
@@ -67,9 +67,9 @@ protected:
      * @param leaders Current cluster assignments
      * @return true if adding the node would create a cycle
      */
-    [[nodiscard]] bool detectCycle(uint64_t from, uint64_t to,
-                                   const std::vector<uint64_t> &topLevels,
-                                   const std::vector<uint64_t> &leaders) const;
+    [[nodiscard]] bool detectCycle(uint64_t from, uint64_t to, const std::vector<uint64_t> &topLevels,
+                                   const std::vector<uint64_t> &leaders, const std::vector<bool> &markup,
+                                   const std::vector<bool> &markdown) const;
 
 public:
     /**
