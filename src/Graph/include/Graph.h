@@ -28,6 +28,7 @@ public:
     std::vector<uint64_t> nodeWeights;                               // Weights of nodes
     uint64_t totalWeight;                                            // Sum of all node weights
     std::vector<uint64_t> inDegree;                                 // Number of incoming edges for each node
+    uint64_t maxNodeWeight;                                         // Maximum node weight
 
     /**
      * @brief Constructs a graph with the specified number of nodes
@@ -110,12 +111,6 @@ public:
      * @return Vector of distances from start node to all other nodes
      */
     [[nodiscard]] std::vector<uint64_t> distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
-
-    /**
-     * @brief Gets the maximum node weight in the graph
-     * @return Maximum node weight
-     */
-    [[nodiscard]] uint64_t maxNodeWeight() const;
 
     /**
      * @brief Prints graph information to the specified output stream

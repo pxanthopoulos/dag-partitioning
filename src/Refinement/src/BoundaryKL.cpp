@@ -170,7 +170,7 @@ BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> 
             // If this move breaks the balance, skip it
             uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
             uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
-            uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+            uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
             if ((double) newSizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
                 (double) newSizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
                 (double) newSizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
@@ -239,7 +239,7 @@ BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>
             uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
             uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
             uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
-            uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+            uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
             if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
                 (double) newSizeOfPreviousSmaller > upperBoundPartWeight + (double) maxNodeWeight)
                 continue;
@@ -293,7 +293,7 @@ bool BoundaryKL::onePassRefinement() {
     uint64_t bestMovePrefix = 0;
     std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
 
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes();
     bool isBalanced = checkBalance(maxNodeWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);

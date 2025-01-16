@@ -50,7 +50,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
     std::vector<uint64_t> sources;
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
 
     // Find sources and compute weighted degrees
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
@@ -193,7 +193,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
     std::vector<uint64_t> sinks;
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         localOutDegree[i] = workingGraph.adj[i].size();
         if (localOutDegree[i] == 0) {

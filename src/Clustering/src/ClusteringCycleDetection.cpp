@@ -79,8 +79,8 @@ ClusteringCycleDetection::findMinimumTopLevelInCluster(uint64_t node, const std:
     uint64_t minimumTopLevelInCluster = UINT64_MAX;
 
     // Find minimum top-level value among all nodes in the cluster
-    for (auto [i, leader]: llvm::enumerate(leaders)) {
-        if (leader == nodeLeader) {
+    for (uint64_t i = 0; i < leaders.size(); ++i) {
+        if (leaders[i] == nodeLeader) {
             if (topLevels[i] < minimumTopLevelInCluster) {
                 minimumTopLevelInCluster = topLevels[i];
             }

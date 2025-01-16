@@ -12,7 +12,8 @@
 
 // Constructor initializes all data structures with given size
 Graph::Graph(uint64_t size)
-        : size(size), adj(size), revAdj(size), nodeWeights(size, 0), totalWeight(0), inDegree(size, 0) {
+        : size(size), adj(size), revAdj(size), nodeWeights(size, 0), totalWeight(0), inDegree(size, 0),
+          maxNodeWeight(0) {
 }
 
 // Add a node with given weight to the graph
@@ -20,6 +21,8 @@ void Graph::addNode(uint64_t id, uint64_t weight) {
     assert(id < size && "Node ID must be smaller than graph size");
     nodeWeights[id] = weight;
     totalWeight += weight;
+
+    if (weight > maxNodeWeight) maxNodeWeight = weight;
 }
 
 // Add a weighted edge between two nodes
@@ -268,11 +271,6 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
     }
 
     return distances;
-}
-
-// Get maximum node weight in the graph
-uint64_t Graph::maxNodeWeight() const {
-    return *std::max_element(nodeWeights.begin(), nodeWeights.end());
 }
 
 // Print graph information to output stream

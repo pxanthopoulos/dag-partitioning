@@ -181,7 +181,7 @@ bool BoundaryFM::onePassRefinement() {
     uint64_t bestMovePrefix = 0;
     std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
 
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight();
+    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes();
     bool isBalanced = checkBalance(maxNodeWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);

@@ -87,8 +87,8 @@ void Refinement::run() {
     assert(checkValidEdgeCut());
 
     // Verify final partition is balanced
-//    assert(checkBalance(workingGraph.maxNodeWeight()) && "Resulting partition is unbalanced");
-    if (!checkBalance(workingGraph.maxNodeWeight())) {
+//    assert(checkBalance(workingGraph.maxNodeWeight) && "Resulting partition is unbalanced");
+    if (!checkBalance(workingGraph.maxNodeWeight)) {
         std::cerr << "PARTITION IS NOT BALANCED\n";
     }
 }
