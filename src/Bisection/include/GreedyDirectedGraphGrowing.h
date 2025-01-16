@@ -22,10 +22,10 @@ private:
      * 2. Second phase uses gain (incoming - outgoing weights) as priority
      *
      * @return Pair containing:
-     *         - Bisection vector (false=V0, true=V1)
+     *         - Bisection vector (0=V0, 1=V1)
      *         - Total edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnNormalGraph() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runOnNormalGraph() const;
 
     /**
      * @brief Runs the greedy algorithm in reverse direction (V0->V1)
@@ -34,10 +34,10 @@ private:
      * considering out-neighbors instead of in-neighbors.
      *
      * @return Pair containing:
-     *         - Bisection vector (false=V0, true=V1)
+     *         - Bisection vector (0=V0, 1=V1)
      *         - Total edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runOnReverseGraph() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runOnReverseGraph() const;
 
     /**
      * @brief Runs both normal and reverse algorithms and selects better result
@@ -47,7 +47,7 @@ private:
      *
      * @return Best bisection result from either direction
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const override;
 
 public:
     /**

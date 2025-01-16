@@ -15,7 +15,7 @@
 class Refinement {
 protected:
     const Graph &workingGraph;               // Graph being partitioned
-    std::vector<bool> &initialBisectionInfo; // Current partition assignment (modified by refinement)
+    std::vector<uint8_t> &initialBisectionInfo; // Current partition assignment (modified by refinement)
     uint64_t &initialEdgeCut;               // Current edge cut weight (modified by refinement)
     uint64_t maxNumberOfPasses;             // Maximum refinement iterations
     double upperBoundPartWeight;            // Maximum allowed partition weight
@@ -74,7 +74,7 @@ protected:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
+    Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo, uint64_t &initialEdgeCut,
                uint64_t maxNumberOfPasses, double upperBoundPartWeight, double lowerBoundPartWeight);
 
 public:

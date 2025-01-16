@@ -48,8 +48,8 @@ private:
                                       const std::vector<std::tuple<uint64_t, uint64_t, bool>> &sortedNeighbors,
                                       uint64_t neighborId,
                                       uint64_t leaderOfNeighbor,
-                                      const std::vector<bool> &markup,
-                                      const std::vector<bool> &markdown,
+                                      const std::vector<uint8_t> &markup,
+                                      const std::vector<uint8_t> &markdown,
                                       std::vector<uint64_t> &numberOfBadNeighbors,
                                       std::vector<uint64_t> &leaderOfBadNeighbors) const;
 

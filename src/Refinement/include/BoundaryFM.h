@@ -43,7 +43,7 @@ private:
      */
     void insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
                                      std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                     std::vector<bool> &inHeap) const;
+                                     std::vector<uint8_t> &inHeap) const;
 
     /**
      * @brief Updates movable vertices after a move
@@ -57,10 +57,10 @@ private:
      * @param movedNodeId Node that was just moved
      * @param checkOutNeighbors Whether to check outgoing (true) or incoming (false) neighbors
      */
-    void insertMovableNeighborsIntoHeaps(const std::vector<bool> &currentBisectionInfo,
+    void insertMovableNeighborsIntoHeaps(const std::vector<uint8_t> &currentBisectionInfo,
                                          std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
                                          std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                         std::vector<bool> &inHeap, uint64_t movedNodeId,
+                                         std::vector<uint8_t> &inHeap, uint64_t movedNodeId,
                                          bool checkOutNeighbors) const;
 
     /**
@@ -91,7 +91,7 @@ public:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    BoundaryFM(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+    BoundaryFM(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
                uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 };

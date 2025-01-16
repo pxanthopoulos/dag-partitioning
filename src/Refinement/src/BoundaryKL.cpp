@@ -5,7 +5,7 @@
 
 #include "BoundaryKL.h"
 
-BoundaryKL::BoundaryKL(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+BoundaryKL::BoundaryKL(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
         : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
@@ -13,18 +13,18 @@ BoundaryKL::BoundaryKL(const Graph &graph, std::vector<bool> &initialBisectionIn
 
 void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                              std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                             std::vector<bool> &inList) const {
+                                             std::vector<uint8_t> &inList) const {
 
     // Check each vertex for movability
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {
         // If the node has already been in a vec previously, don't re-add it
-        if (inList[nodeId]) continue;
+        if (inList[nodeId] == 1) continue;
 
-        if (!initialBisectionInfo[nodeId]) {  // Node in V0
+        if (initialBisectionInfo[nodeId] == 0) {  // Node in V0
             // Check if movable to V1: all out-neighbors must be in V1
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!initialBisectionInfo[neighborId]) {
+                if (initialBisectionInfo[neighborId] == 0) {
                     movable = false;
                     break;
                 }
@@ -40,13 +40,13 @@ void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64
                     gain -= (int64_t) edgeWeight;
                 }
                 listV0.emplace_back(gain, nodeId);
-                inList[nodeId] = true;
+                inList[nodeId] = 1;
             }
         } else {  // Node in V1
             // Check if movable to V0: all in-neighbors must be in V0
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (initialBisectionInfo[neighborId]) {
+                if (initialBisectionInfo[neighborId] == 1) {
                     movable = false;
                     break;
                 }
@@ -62,26 +62,26 @@ void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64
                     gain += (int64_t) edgeWeight;
                 }
                 listV1.emplace_back(gain, nodeId);
-                inList[nodeId] = true;
+                inList[nodeId] = 1;
             }
         }
     }
 }
 
 // Called after moving a node to update movable status of its neighbors (possibly insert new movable nodes)
-void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<bool> &currentBisectionInfo,
+void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<uint8_t> &currentBisectionInfo,
                                                  std::list<std::pair<int64_t, uint64_t>> &listV0,
                                                  std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                                 std::vector<bool> &inList, uint64_t movedNodeId,
+                                                 std::vector<uint8_t> &inList, uint64_t movedNodeId,
                                                  bool checkOutNeighbors) const {
     if (checkOutNeighbors) {  // Node moved V1->V0, check out-neighbors
         for (const auto &[nodeId, _]: workingGraph.adj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inList[nodeId] || !currentBisectionInfo[nodeId]) continue;
+            if (inList[nodeId] == 1 || currentBisectionInfo[nodeId] == 0) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (currentBisectionInfo[neighborId]) {
+                if (currentBisectionInfo[neighborId] == 1) {
                     movable = false;
                     break;
                 }
@@ -101,17 +101,17 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<bool> &curren
                                            [](const auto &a, const auto &b) { return a.first > b.first; });
 
                 listV1.insert(it, std::make_pair(gain, nodeId));
-                inList[nodeId] = true;
+                inList[nodeId] = 1;
             }
         }
     } else {  // Node moved V0->V1, check in-neighbors
         for (const auto &[nodeId, _]: workingGraph.revAdj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inList[nodeId] || currentBisectionInfo[nodeId]) continue;
+            if (inList[nodeId] == 1 || currentBisectionInfo[nodeId] == 1) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!currentBisectionInfo[neighborId]) {
+                if (currentBisectionInfo[neighborId] == 0) {
                     movable = false;
                     break;
                 }
@@ -131,7 +131,7 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<bool> &curren
                                            [](const auto &a, const auto &b) { return a.first > b.first; });
 
                 listV0.insert(it, std::make_pair(gain, nodeId));
-                inList[nodeId] = true;
+                inList[nodeId] = 1;
             }
         }
     }
@@ -140,7 +140,7 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<bool> &curren
 std::tuple<bool, uint64_t, uint64_t, int64_t>
 BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                         std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                        std::vector<bool> &moved, uint64_t &sizeV0,
+                                        std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                         uint64_t &sizeV1) const {
     bool found = false;
     int64_t maxTotalGain = INT64_MIN;
@@ -204,7 +204,7 @@ BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> 
 std::tuple<bool, uint64_t, uint64_t, int64_t>
 BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                           std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                          std::vector<bool> &moved, uint64_t &sizeV0,
+                                          std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                           uint64_t &sizeV1) const {
     bool found = false;
     // Perfect balance is each size is 50% of the total. Here we calculate the difference from the perfect balance. Lower is better.
@@ -266,8 +266,8 @@ BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>
 }
 
 bool BoundaryKL::onePassRefinement() {
-    std::vector<bool> moved(workingGraph.size, false);
-    std::vector<bool> inList(workingGraph.size, false);
+    std::vector<uint8_t> moved(workingGraph.size, 0);
+    std::vector<uint8_t> inList(workingGraph.size, 0);
 
     std::list<std::pair<int64_t, uint64_t>> listV0, listV1;
 
@@ -291,7 +291,7 @@ bool BoundaryKL::onePassRefinement() {
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
     uint64_t bestMovePrefix = 0;
-    std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
+    std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes();
@@ -308,11 +308,11 @@ bool BoundaryKL::onePassRefinement() {
         // Tentative move
         sizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
         sizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
-        moved[nodeIdV0] = moved[nodeIdV1] = true;
+        moved[nodeIdV0] = moved[nodeIdV1] = 1;
         moveSequence.emplace_back(nodeIdV0, nodeIdV1);
         currentEdgeCut -= gain;
-        initialBisectionInfoTemp[nodeIdV0] = true;
-        initialBisectionInfoTemp[nodeIdV1] = false;
+        initialBisectionInfoTemp[nodeIdV0] = 1;
+        initialBisectionInfoTemp[nodeIdV1] = 0;
         uint64_t maxPartSize = std::max(sizeV0, sizeV1);
 
         // If partition is unbalanced, always include this move to the sequence
@@ -337,8 +337,8 @@ bool BoundaryKL::onePassRefinement() {
         // (if it has already been moved, we don't care if it is movable or not)
         // Then the neighbor becomes unmovable since it has one in-neighbor (the moved nodeIdV0) that is in V1
         for (const auto &[neighborId, _]: workingGraph.adj[nodeIdV0]) {
-            if (!moved[neighborId] && initialBisectionInfoTemp[neighborId] && inList[neighborId]) {
-                moved[neighborId] = true;
+            if (moved[neighborId] == 0 && initialBisectionInfoTemp[neighborId] == 1 && inList[neighborId] == 1) {
+                moved[neighborId] = 1;
             }
         }
         // Moving from V0 to V1 can make V0 nodes movable
@@ -353,8 +353,8 @@ bool BoundaryKL::onePassRefinement() {
         // (if it has already been moved, we don't care if it is movable or not)
         // Then the neighbor becomes unmovable since it has one out-neighbor (the moved nodeIdV1) that is in V0
         for (const auto &[neighborId, _]: workingGraph.revAdj[nodeIdV1]) {
-            if (!moved[neighborId] && !initialBisectionInfoTemp[neighborId] && inList[neighborId]) {
-                moved[neighborId] = true;
+            if (moved[neighborId] == 0 && initialBisectionInfoTemp[neighborId] == 0 && inList[neighborId] == 1) {
+                moved[neighborId] = 1;
             }
         }
         // Moving from V1 to V0 can make V1 nodes movable

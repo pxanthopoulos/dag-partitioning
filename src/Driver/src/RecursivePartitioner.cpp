@@ -28,11 +28,11 @@ RecursivePartitioner::RecursivePartitioner(const Graph &graph, uint64_t partitio
 }
 
 std::tuple<Graph, std::unordered_map<uint64_t, uint64_t>, Graph, std::unordered_map<uint64_t, uint64_t>>
-RecursivePartitioner::createSubgraphs(const std::vector<bool> &bisection) const {
+RecursivePartitioner::createSubgraphs(const std::vector<uint8_t> &bisection) const {
     // Track sizes for resulting subgraphs
     uint64_t subGraphSize0 = 0;
     for (const auto &val: bisection) {
-        if (!val)
+        if (val == 0)
             subGraphSize0++;
     }
 
@@ -51,7 +51,7 @@ RecursivePartitioner::createSubgraphs(const std::vector<bool> &bisection) const 
     std::unordered_map<uint64_t, uint64_t> map;
 
     for (uint64_t i = 0; i < bisection.size(); ++i) {
-        if (!bisection[i]) {
+        if (bisection[i] == 0) {
             subGraph0.addNode(newNodeId0, workingGraph.nodeWeights[i]);
             map0[newNodeId0] = i;
             map[i] = newNodeId0;
@@ -66,13 +66,13 @@ RecursivePartitioner::createSubgraphs(const std::vector<bool> &bisection) const 
 
     for (uint64_t i = 0; i < bisection.size(); ++i) {
         const auto &neighbors = workingGraph.adj[i];
-        if (!bisection[i]) {
+        if (bisection[i] == 0) {
             for (const auto &[neighborId, edgeWeight]: neighbors) {
-                if (!bisection[neighborId]) subGraph0.addEdge(map[i], map[neighborId], edgeWeight);
+                if (bisection[neighborId] == 0) subGraph0.addEdge(map[i], map[neighborId], edgeWeight);
             }
         } else {
             for (const auto &[neighborId, edgeWeight]: neighbors) {
-                if (bisection[neighborId]) subGraph1.addEdge(map[i], map[neighborId], edgeWeight);
+                if (bisection[neighborId] == 1) subGraph1.addEdge(map[i], map[neighborId], edgeWeight);
             }
         }
     }

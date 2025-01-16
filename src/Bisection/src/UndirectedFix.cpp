@@ -64,7 +64,7 @@ void UndirectedFix::graphToCSRFormat(int64_t edgeNumber,
 }
 
 // Get initial bisection using Scotch partitioner
-std::vector<bool> UndirectedFix::getUndirectedBisectionScotch() const {
+std::vector<uint8_t> UndirectedFix::getUndirectedBisectionScotch() const {
     // Initialize Scotch structures
     SCOTCH_Graph scotchGraph;
     SCOTCH_Strat scotchStrategy;
@@ -106,14 +106,14 @@ std::vector<bool> UndirectedFix::getUndirectedBisectionScotch() const {
     SCOTCH_stratExit(&scotchStrategy);
 
     // Convert to boolean representation
-    std::vector<bool> result(bisectionData.size());
+    std::vector<uint8_t> result(bisectionData.size());
     std::transform(bisectionData.begin(), bisectionData.end(), result.begin(),
-                   [](int64_t x) { return x != 0; });
+                   [](int64_t x) { return (uint8_t) x; });
     return result;
 }
 
 // Get initial bisection using METIS partitioner
-std::vector<bool> UndirectedFix::getUndirectedBisectionMetis() const {
+std::vector<uint8_t> UndirectedFix::getUndirectedBisectionMetis() const {
     // Configure METIS options
     int64_t options[METIS_NOPTIONS];
     METIS_SetDefaultOptions(options);
@@ -147,53 +147,53 @@ std::vector<bool> UndirectedFix::getUndirectedBisectionMetis() const {
     assert(ret == METIS_OK && "metis partition failed");
 
     // Convert to boolean representation
-    std::vector<bool> result(size);
+    std::vector<uint8_t> result(size);
     std::transform(bisectionData, bisectionData + size, result.begin(),
-                   [](int64_t x) { return x != 0; });
+                   [](int64_t x) { return (uint8_t) x; });
     return result;
 }
 
 // Fix cycles by moving ancestors to V0 (Algorithm 3)
-void UndirectedFix::fixAcyclicityUp(std::vector<bool> &undirectedBisection) const {
+void UndirectedFix::fixAcyclicityUp(std::vector<uint8_t> &undirectedBisection) const {
     std::vector<uint64_t> topologicalOrder = workingGraph.topologicalSort();
 
     // Process vertices in reverse topological order
     for (const uint64_t &nodeId: llvm::reverse(topologicalOrder)) {
-        if (!undirectedBisection[nodeId]) {  // If node is in V0
+        if (undirectedBisection[nodeId] == 0) {  // If node is in V0
             // Move all predecessors to V0
             for (const auto &[predecessorId, edgeWeight]: workingGraph.revAdj[nodeId])
-                undirectedBisection[predecessorId] = false;
+                undirectedBisection[predecessorId] = 0;
         }
     }
 }
 
 // Fix cycles by moving descendants to V1 (Algorithm 4)
-void UndirectedFix::fixAcyclicityDown(std::vector<bool> &undirectedBisection) const {
+void UndirectedFix::fixAcyclicityDown(std::vector<uint8_t> &undirectedBisection) const {
     std::vector<uint64_t> topologicalOrder = workingGraph.topologicalSort();
 
     // Process vertices in topological order
     for (const uint64_t &nodeId: topologicalOrder) {
-        if (undirectedBisection[nodeId]) {  // If node is in V1
+        if (undirectedBisection[nodeId] == 1) {  // If node is in V1
             // Move all successors to V1
             for (const auto &[successorId, edgeWeight]: workingGraph.adj[nodeId])
-                undirectedBisection[successorId] = true;
+                undirectedBisection[successorId] = 1;
         }
     }
 }
 
-std::pair<std::vector<bool>, uint64_t> UndirectedFix::runMetis() const {
+std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     uint64_t bestEdgeCut = UINT64_MAX, edgeCut;
     bool isZero = false;
-    std::vector<bool> bestBisection;
+    std::vector<uint8_t> bestBisection;
 
     // Get initial undirected bisection
-    std::vector<bool> undirectedBisection = getUndirectedBisectionMetis();
-    std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+    std::vector<uint8_t> undirectedBisection = getUndirectedBisectionMetis();
+    std::vector<uint8_t> reverseUndirectedBisection(undirectedBisection.size());
 
     // Create reversed assignment
     std::transform(undirectedBisection.begin(), undirectedBisection.end(),
-                   reverseUndirectedBisection.begin(), [](bool x) { return !x; });
-    std::vector<bool> copy = undirectedBisection;
+                   reverseUndirectedBisection.begin(), [](uint8_t x) { return 1 - x; });
+    std::vector<uint8_t> copy = undirectedBisection;
 
     // Try Approach 1: Fix up from original assignment (always store result as best)
     fixAcyclicityUp(undirectedBisection);
@@ -234,19 +234,19 @@ std::pair<std::vector<bool>, uint64_t> UndirectedFix::runMetis() const {
     return {bestBisection, bestEdgeCut};
 }
 
-std::pair<std::vector<bool>, uint64_t> UndirectedFix::runScotch() const {
+std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     uint64_t bestEdgeCut = UINT64_MAX, edgeCut;
     bool isZero = false;
-    std::vector<bool> bestBisection;
+    std::vector<uint8_t> bestBisection;
 
     // Get initial undirected bisection
-    std::vector<bool> undirectedBisection = getUndirectedBisectionScotch();
-    std::vector<bool> reverseUndirectedBisection(undirectedBisection.size());
+    std::vector<uint8_t> undirectedBisection = getUndirectedBisectionScotch();
+    std::vector<uint8_t> reverseUndirectedBisection(undirectedBisection.size());
 
     // Create reversed assignment
     std::transform(undirectedBisection.begin(), undirectedBisection.end(),
-                   reverseUndirectedBisection.begin(), [](bool x) { return !x; });
-    std::vector<bool> copy = undirectedBisection;
+                   reverseUndirectedBisection.begin(), [](bool x) { return 1 - x; });
+    std::vector<uint8_t> copy = undirectedBisection;
 
     // Try Approach 1: Fix up from original assignment (always store result as best)
     fixAcyclicityUp(undirectedBisection);
@@ -288,7 +288,7 @@ std::pair<std::vector<bool>, uint64_t> UndirectedFix::runScotch() const {
 }
 
 // Main algorithm that tries all fixing combinations
-std::pair<std::vector<bool>, uint64_t> UndirectedFix::run() const {
+std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::run() const {
     if (!useMetis) return runScotch();
     if (!useScotch) return runMetis();
 

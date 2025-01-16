@@ -43,7 +43,7 @@ private:
      */
     void insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                      std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                     std::vector<bool> &inList) const;
+                                     std::vector<uint8_t> &inList) const;
 
     /**
      * @brief Updates movable vertices after a move
@@ -57,10 +57,10 @@ private:
      * @param movedNodeId Node that was just moved
      * @param checkOutNeighbors Whether to check outgoing (true) or incoming (false) neighbors
      */
-    void insertMovableNeighborsIntoLists(const std::vector<bool> &currentBisectionInfo,
+    void insertMovableNeighborsIntoLists(const std::vector<uint8_t> &currentBisectionInfo,
                                          std::list<std::pair<int64_t, uint64_t>> &listV0,
                                          std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                         std::vector<bool> &inList, uint64_t movedNodeId,
+                                         std::vector<uint8_t> &inList, uint64_t movedNodeId,
                                          bool checkOutNeighbors) const;
 
     /**
@@ -79,7 +79,7 @@ private:
     [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, int64_t>
     findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                 std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                std::vector<bool> &moved, uint64_t &sizeV0,
+                                std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                 uint64_t &sizeV1) const;
 
     /**
@@ -98,7 +98,7 @@ private:
     [[nodiscard]] std::tuple<bool, uint64_t, uint64_t, int64_t>
     findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
                                   std::list<std::pair<int64_t, uint64_t>> &listV1,
-                                  std::vector<bool> &moved, uint64_t &sizeV0,
+                                  std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                   uint64_t &sizeV1) const;
 
 public:
@@ -111,7 +111,7 @@ public:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    BoundaryKL(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+    BoundaryKL(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
                uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 };

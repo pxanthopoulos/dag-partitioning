@@ -86,7 +86,7 @@ ClusteringForbiddenEdges::findBestNeighbor(const std::vector<std::pair<uint64_t,
 
 std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClustering() const {
     uint64_t newSize = workingGraph.size;
-    std::vector<bool> isNotSingleton(workingGraph.size, false);
+    std::vector<uint8_t> isNotSingleton(workingGraph.size, 0);
     std::vector<uint64_t> leaders(workingGraph.size);
     std::vector<uint64_t> clusterWeights(workingGraph.size);
 
@@ -106,7 +106,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
 
     // Process nodes in topological order
     for (uint64_t node: topologicalOrder) {
-        if (isNotSingleton[node]) continue;
+        if (isNotSingleton[node] == 1) continue;
 
         // Find valid clustering candidates
         std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors = workingGraph.getNeighbors(node);
@@ -158,7 +158,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
         }
 
         // If best neighbor was singleton, update its neighbors too (only those with top level diff <= 1)
-        if (!isNotSingleton[bestNeighbor]) {
+        if (isNotSingleton[bestNeighbor] == 0) {
             std::vector<std::tuple<uint64_t, uint64_t, bool>> neighborsOfBestNeighbor =
                     workingGraph.getNeighbors(bestNeighbor);
             for (const auto &[neighborId, edgeWeight, isSuccessor]: neighborsOfBestNeighbor) {
@@ -176,9 +176,9 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringForbiddenEdges::oneRoundClu
                 }
             }
 
-            isNotSingleton[bestNeighbor] = true;
+            isNotSingleton[bestNeighbor] = 1;
         }
-        isNotSingleton[node] = true;
+        isNotSingleton[node] = 1;
 
         // Stop if reached minimum vertices target
         if (newSize == minVertices) break;

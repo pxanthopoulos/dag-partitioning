@@ -24,8 +24,8 @@ void ClusteringHybrid::bookKeepingForForbiddenEdges(const std::vector<uint64_t> 
                                                     const std::vector<std::tuple<uint64_t, uint64_t, bool>> &sortedNeighbors,
                                                     uint64_t neighborId,
                                                     uint64_t leaderOfNeighbor,
-                                                    const std::vector<bool> &markup,
-                                                    const std::vector<bool> &markdown,
+                                                    const std::vector<uint8_t> &markup,
+                                                    const std::vector<uint8_t> &markdown,
                                                     std::vector<uint64_t> &numberOfBadNeighbors,
                                                     std::vector<uint64_t> &leaderOfBadNeighbors) const {
     // Update bad neighbor information for all neighbors of the node being merged (only those with top level diff <= 1)
@@ -49,7 +49,7 @@ void ClusteringHybrid::bookKeepingForForbiddenEdges(const std::vector<uint64_t> 
     }
 
     // If neighbor was a singleton, update its neighbors too (only those with top level diff <= 1)
-    if (!markup[neighborId] && !markdown[neighborId]) {
+    if (markup[neighborId] == 0 && markdown[neighborId] == 0) {
         std::vector<std::tuple<uint64_t, uint64_t, bool>> neighborsOfMergedNeighbor =
                 workingGraph.getNeighbors(neighborId);
 
@@ -83,8 +83,8 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
     }
 
     // Initialize tracking data structures for both strategies
-    std::vector<bool> markup(workingGraph.size, false);      // For cycle detection
-    std::vector<bool> markdown(workingGraph.size, false);    // For cycle detection
+    std::vector<uint8_t> markup(workingGraph.size, 0);      // For cycle detection
+    std::vector<uint8_t> markdown(workingGraph.size, 0);    // For cycle detection
     std::vector<uint64_t> numberOfBadNeighbors(workingGraph.size, 0);    // For forbidden edges
     std::vector<uint64_t> leaderOfBadNeighbors(workingGraph.size, UINT64_MAX);  // For forbidden edges
 
@@ -93,7 +93,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
 
     // Process nodes in topological order
     for (uint64_t node: topologicalOrder) {
-        if (markup[node] || markdown[node]) continue;
+        if (markup[node] == 1 || markdown[node] == 1) continue;
 
         // Get neighbors sorted by edge weight
         std::vector<std::tuple<uint64_t, uint64_t, bool>> sortedNeighbors =
@@ -116,7 +116,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
 
             if (isSuccessor) {
                 // Edge from node to neighbor
-                if (markup[neighborId]) continue;
+                if (markup[neighborId] == 1) continue;
 
                 // Check if should use forbidden edges strategy
                 bool largeDegrees = checkLargeDegrees(node, neighborId);
@@ -144,10 +144,10 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
                                              markup, markdown, numberOfBadNeighbors, leaderOfBadNeighbors);
 
                 // Update cycle detection tracking
-                markup[node] = markdown[neighborId] = true;
+                markup[node] = markdown[neighborId] = 1;
             } else {
                 // Edge from neighbor to node (similar logic with reversed roles)
-                if (markdown[neighborId]) continue;
+                if (markdown[neighborId] == 1) continue;
 
                 bool largeDegrees = checkLargeDegrees(neighborId, node);
 
@@ -169,7 +169,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringHybrid::oneRoundClustering(
                 bookKeepingForForbiddenEdges(topLevels, node, sortedNeighbors, neighborId, leaderOfNeighbor,
                                              markup, markdown, numberOfBadNeighbors, leaderOfBadNeighbors);
 
-                markdown[node] = markup[neighborId] = true;
+                markdown[node] = markup[neighborId] = 1;
             }
             break;
         }

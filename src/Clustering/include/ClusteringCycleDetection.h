@@ -35,11 +35,14 @@ private:
      * @param node A node in the cluster
      * @param topLevels Top-level values for all nodes
      * @param leaders Cluster assignments
+     * @param markup Vector that signifies if a clustered node has the small top value in its cluster
+     * @param markdown Vector that signifies if a clustered node has the high top value in its cluster
      * @return Minimum top-level value in the cluster
      */
     [[nodiscard]] static uint64_t
-    findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels, const std::vector<bool> &markup,
-                                 const std::vector<bool> &markdown);
+    findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels,
+                                 const std::vector<uint8_t> &markup,
+                                 const std::vector<uint8_t> &markdown);
 
     /**
      * @brief Implementation of one round of clustering using cycle detection
@@ -65,11 +68,13 @@ protected:
      * @param to Node already in the target cluster
      * @param topLevels Top-level values for all nodes
      * @param leaders Current cluster assignments
+     * @param markup Vector that signifies if a clustered node has the small top value in its cluster
+     * @param markdown Vector that signifies if a clustered node has the high top value in its cluster
      * @return true if adding the node would create a cycle
      */
     [[nodiscard]] bool detectCycle(uint64_t from, uint64_t to, const std::vector<uint64_t> &topLevels,
-                                   const std::vector<uint64_t> &leaders, const std::vector<bool> &markup,
-                                   const std::vector<bool> &markdown) const;
+                                   const std::vector<uint64_t> &leaders, const std::vector<uint8_t> &markup,
+                                   const std::vector<uint8_t> &markdown) const;
 
 public:
     /**

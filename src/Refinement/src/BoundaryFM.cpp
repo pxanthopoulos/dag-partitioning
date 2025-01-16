@@ -5,7 +5,7 @@
 
 #include "BoundaryFM.h"
 
-BoundaryFM::BoundaryFM(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+BoundaryFM::BoundaryFM(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
         : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
@@ -14,18 +14,18 @@ BoundaryFM::BoundaryFM(const Graph &graph, std::vector<bool> &initialBisectionIn
 void BoundaryFM::insertMovableNodesIntoHeaps(
         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-        std::vector<bool> &inHeap) const {
+        std::vector<uint8_t> &inHeap) const {
 
     // Check each vertex for movability
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {
         // If the node has already been in the heap previously, don't re-add it
-        if (inHeap[nodeId]) continue;
+        if (inHeap[nodeId] == 1) continue;
 
-        if (!initialBisectionInfo[nodeId]) {  // Node in V0
+        if (initialBisectionInfo[nodeId] == 0) {  // Node in V0
             // Check if movable to V1: all out-neighbors must be in V1
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!initialBisectionInfo[neighborId]) {
+                if (initialBisectionInfo[neighborId] == 0) {
                     movable = false;
                     break;
                 }
@@ -41,13 +41,13 @@ void BoundaryFM::insertMovableNodesIntoHeaps(
                     gain -= (int64_t) edgeWeight;
                 }
                 heapV0.emplace(gain, nodeId);
-                inHeap[nodeId] = true;
+                inHeap[nodeId] = 1;
             }
         } else {  // Node in V1
             // Check if movable to V0: all in-neighbors must be in V0
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (initialBisectionInfo[neighborId]) {
+                if (initialBisectionInfo[neighborId] == 1) {
                     movable = false;
                     break;
                 }
@@ -63,7 +63,7 @@ void BoundaryFM::insertMovableNodesIntoHeaps(
                     gain += (int64_t) edgeWeight;
                 }
                 heapV1.emplace(gain, nodeId);
-                inHeap[nodeId] = true;
+                inHeap[nodeId] = 1;
             }
         }
     }
@@ -71,20 +71,20 @@ void BoundaryFM::insertMovableNodesIntoHeaps(
 
 // Called after moving a node to update movable status of its neighbors (possibly insert new movable nodes)
 void BoundaryFM::insertMovableNeighborsIntoHeaps(
-        const std::vector<bool> &currentBisectionInfo,
+        const std::vector<uint8_t> &currentBisectionInfo,
         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-        std::vector<bool> &inHeap, uint64_t movedNodeId,
+        std::vector<uint8_t> &inHeap, uint64_t movedNodeId,
         bool checkOutNeighbors) const {
 
     if (checkOutNeighbors) {  // Node moved V1->V0, check out-neighbors
         for (const auto &[nodeId, _]: workingGraph.adj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inHeap[nodeId] || !currentBisectionInfo[nodeId]) continue;
+            if (inHeap[nodeId] == 1 || currentBisectionInfo[nodeId] == 0) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (currentBisectionInfo[neighborId]) {
+                if (currentBisectionInfo[neighborId] == 1) {
                     movable = false;
                     break;
                 }
@@ -100,17 +100,17 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
                     gain += (int64_t) edgeWeight;
                 }
                 heapV1.emplace(gain, nodeId);
-                inHeap[nodeId] = true;
+                inHeap[nodeId] = 1;
             }
         }
     } else {  // Node moved V0->V1, check in-neighbors
         for (const auto &[nodeId, _]: workingGraph.revAdj[movedNodeId]) {
             // If the node has already been in the heap previously, don't re-add it
-            if (inHeap[nodeId] || currentBisectionInfo[nodeId]) continue;
+            if (inHeap[nodeId] == 1 || currentBisectionInfo[nodeId] == 1) continue;
 
             bool movable = true;
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!currentBisectionInfo[neighborId]) {
+                if (currentBisectionInfo[neighborId] == 0) {
                     movable = false;
                     break;
                 }
@@ -126,7 +126,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
                     gain -= (int64_t) edgeWeight;
                 }
                 heapV0.emplace(gain, nodeId);
-                inHeap[nodeId] = true;
+                inHeap[nodeId] = 1;
             }
         }
     }
@@ -167,8 +167,8 @@ bool BoundaryFM::isBalanceImprovedOrMaintained(
 }
 
 bool BoundaryFM::onePassRefinement() {
-    std::vector<bool> moved(workingGraph.size, false);
-    std::vector<bool> inHeap(workingGraph.size, false);
+    std::vector<uint8_t> moved(workingGraph.size, 0);
+    std::vector<uint8_t> inHeap(workingGraph.size, 0);
 
     std::priority_queue<std::pair<int64_t, uint64_t>> heapV0, heapV1;
 
@@ -179,7 +179,7 @@ bool BoundaryFM::onePassRefinement() {
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
     uint64_t bestMovePrefix = 0;
-    std::vector<bool> initialBisectionInfoTemp = initialBisectionInfo;
+    std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes();
@@ -188,7 +188,7 @@ bool BoundaryFM::onePassRefinement() {
 
     // Main refinement loop - make moves until no more vertices can move
     while (!heapV0.empty() || !heapV1.empty()) {
-        bool moveFromV0 = false;
+        uint8_t moveFromV0 = 0;
         uint64_t nodeId;
         int64_t gain;
         bool isV0Larger = sizeV0 > sizeV1;
@@ -201,14 +201,14 @@ bool BoundaryFM::onePassRefinement() {
             } else if (heapV1.empty()) {
                 std::tie(gain, nodeId) = heapV0.top();
                 heapV0.pop();
-                moveFromV0 = true;
+                moveFromV0 = 1;
             } else {
                 auto bestV0 = heapV0.top();
                 auto bestV1 = heapV1.top();
                 if (bestV0.first >= bestV1.first) {
                     std::tie(gain, nodeId) = bestV0;
                     heapV0.pop();
-                    moveFromV0 = true;
+                    moveFromV0 = 1;
                 } else {
                     std::tie(gain, nodeId) = bestV1;
                     heapV1.pop();
@@ -221,31 +221,31 @@ bool BoundaryFM::onePassRefinement() {
                 assert(!heapV0.empty() && "Partition is unbalanced but heavy part V0 has no movable nodes");
                 std::tie(gain, nodeId) = heapV0.top();
                 heapV0.pop();
-                moveFromV0 = true;
+                moveFromV0 = 1;
             } else {
                 assert(!heapV1.empty() && "Partition is unbalanced but heavy part V1 has no movable nodes");
                 std::tie(gain, nodeId) = heapV1.top();
                 heapV1.pop();
-                moveFromV0 = false;
+                moveFromV0 = 0;
             }
         }
 
         // If node already moved (or marked move to signify unmovable node), skip
-        if (moved[nodeId])
+        if (moved[nodeId] == 1)
             continue;
         // If move causes unbalance or does not improve balance, skip
         if (!isBalanceImprovedOrMaintained(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1, isBalanced))
             continue;
 
         // Tentative move
-        if (moveFromV0) {
+        if (moveFromV0 == 1) {
             sizeV0 -= workingGraph.nodeWeights[nodeId];
             sizeV1 += workingGraph.nodeWeights[nodeId];
         } else {
             sizeV0 += workingGraph.nodeWeights[nodeId];
             sizeV1 -= workingGraph.nodeWeights[nodeId];
         }
-        moved[nodeId] = true;
+        moved[nodeId] = 1;
         moveSequence.emplace_back(nodeId, moveFromV0);
         currentEdgeCut -= gain;
         initialBisectionInfoTemp[nodeId] = moveFromV0;
@@ -267,14 +267,14 @@ bool BoundaryFM::onePassRefinement() {
             (double) sizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
             isBalanced = false;
 
-        if (moveFromV0) {
+        if (moveFromV0 == 1) {
             // Moving from V0 to V1 can make V1 nodes unmovable
             // If an out-neighbor of the moved nodeId is in V1 and is not yet moved,
             // (if it has already been moved, we don't care if it is movable or not)
             // Then the neighbor becomes unmovable since it has one in-neighbor (the moved nodeId) that is in V1
             for (const auto &[neighborId, _]: workingGraph.adj[nodeId]) {
-                if (!moved[neighborId] && initialBisectionInfoTemp[neighborId] && inHeap[neighborId]) {
-                    moved[neighborId] = true;
+                if (moved[neighborId] == 0 && initialBisectionInfoTemp[neighborId] == 0 && inHeap[neighborId] == 1) {
+                    moved[neighborId] = 1;
                 }
             }
             // Moving from V0 to V1 can make V0 nodes movable
@@ -288,8 +288,8 @@ bool BoundaryFM::onePassRefinement() {
             // (if it has already been moved, we don't care if it is movable or not)
             // Then the neighbor becomes unmovable since it has one out-neighbor (the moved nodeId) that is in V0
             for (const auto &[neighborId, _]: workingGraph.revAdj[nodeId]) {
-                if (!moved[neighborId] && !initialBisectionInfoTemp[neighborId] && inHeap[neighborId]) {
-                    moved[neighborId] = true;
+                if (moved[neighborId] == 0 && initialBisectionInfoTemp[neighborId] == 0 && inHeap[neighborId] == 1) {
+                    moved[neighborId] = 1;
                 }
             }
             // Moving from V1 to V0 can make V1 nodes movable

@@ -32,10 +32,10 @@ struct HeapComparator {
     }
 };
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGraph() const {
+std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGraph() const {
     // Initialize all vertices in V1
-    std::vector<bool> bisection(workingGraph.size, true);
-    std::vector<bool> bestBisection;
+    std::vector<uint8_t> bisection(workingGraph.size, 1);
+    std::vector<uint8_t> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
     auto bestImbalanceDiff = DBL_MAX;
     uint64_t currentEdgeCut = 0;
@@ -84,7 +84,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
         maxHeapPhase1.pop();
 
         // Move node to V0
-        bisection[nodeId] = false;
+        bisection[nodeId] = 0;
         currentEdgeCut += weightedOutDegree[nodeId];
         currentEdgeCut -= weightedInDegree[nodeId];
         partWeightV0 += workingGraph.nodeWeights[nodeId];
@@ -139,7 +139,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
         maxHeapPhase2.pop();
 
         // Move node to V0
-        bisection[nodeId] = false;
+        bisection[nodeId] = 0;
         currentEdgeCut += weightedOutDegree[nodeId];
         currentEdgeCut -= weightedInDegree[nodeId];
         partWeightV0 += workingGraph.nodeWeights[nodeId];
@@ -173,14 +173,14 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGr
     return {bestBisection, bestEdgeCut};
 }
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseGraph() const {
+std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseGraph() const {
     // Similar to runOnNormalGraph but:
     // 1. Starts with all vertices in V0
     // 2. Uses out-degree instead of in-degree
     // 3. Moves vertices to V1
     // Structure and logic mirrors runOnNormalGraph with reversed directions
-    std::vector<bool> bisection(workingGraph.size, false);
-    std::vector<bool> bestBisection;
+    std::vector<uint8_t> bisection(workingGraph.size, false);
+    std::vector<uint8_t> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
     auto bestImbalanceDiff = DBL_MAX;
     uint64_t currentEdgeCut = 0;
@@ -219,7 +219,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
         const auto [_, distance, nodeId] = maxHeapPhase1.top();
         maxHeapPhase1.pop();
 
-        bisection[nodeId] = true;
+        bisection[nodeId] = 1;
         currentEdgeCut -= weightedOutDegree[nodeId];
         currentEdgeCut += weightedInDegree[nodeId];
         partWeightV0 -= workingGraph.nodeWeights[nodeId];
@@ -264,7 +264,7 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
         const auto [_, distance, nodeId] = maxHeapPhase2.top();
         maxHeapPhase2.pop();
 
-        bisection[nodeId] = true;
+        bisection[nodeId] = 1;
         currentEdgeCut -= weightedOutDegree[nodeId];
         currentEdgeCut += weightedInDegree[nodeId];
         partWeightV0 -= workingGraph.nodeWeights[nodeId];
@@ -296,10 +296,10 @@ std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseG
     return {bestBisection, bestEdgeCut};
 }
 
-std::pair<std::vector<bool>, uint64_t> GreedyDirectedGraphGrowing::run() const {
+std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::run() const {
     // Run both normal and reverse algorithms
-    std::pair<std::vector<bool>, uint64_t> bisectionNormal = runOnNormalGraph();
-    std::pair<std::vector<bool>, uint64_t> bisectionReverse = runOnReverseGraph();
+    std::pair<std::vector<uint8_t>, uint64_t> bisectionNormal = runOnNormalGraph();
+    std::pair<std::vector<uint8_t>, uint64_t> bisectionReverse = runOnReverseGraph();
 
     // Verify both solutions maintain acyclicity
     assert(checkValidBisection(bisectionNormal.first) == true && "bisection on normal graph is invalid");

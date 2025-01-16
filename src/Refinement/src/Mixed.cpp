@@ -4,10 +4,10 @@
  *
  * Runs one pass of boundary KL and one pass of boundary FM.
  */
- 
+
 #include "Mixed.h"
 
-Mixed::Mixed(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+Mixed::Mixed(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
              uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
              double upperBoundPartWeight, double lowerBoundPartWeight)
         : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,

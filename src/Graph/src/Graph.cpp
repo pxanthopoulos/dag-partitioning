@@ -72,20 +72,20 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>> Graph::getNeighborsSortedByEdg
 // Check for cycles using iterative DFS from a start node
 bool Graph::iterativeDfsHasCycle(uint64_t start) const {
     assert(start < size && "start node id must be smaller than graph size");
-    std::vector<bool> visited(size, false);
-    std::vector<bool> inStack(size, false);  // Track nodes in current DFS path
+    std::vector<uint8_t> visited(size, 0);
+    std::vector<uint8_t> inStack(size, 0);  // Track nodes in current DFS path
     std::stack<std::pair<uint64_t, uint64_t>> stack;
 
     stack.emplace(start, 0);
-    visited[start] = true;
-    inStack[start] = true;
+    visited[start] = 1;
+    inStack[start] = 1;
 
     while (!stack.empty()) {
         auto [node, neighborIndex] = stack.top();
 
         // If all neighbors of current node are processed
         if (neighborIndex >= adj[node].size()) {
-            inStack[node] = false;  // Remove from current path
+            inStack[node] = 0;  // Remove from current path
             stack.pop();
             continue;
         }
@@ -94,12 +94,12 @@ bool Graph::iterativeDfsHasCycle(uint64_t start) const {
         stack.top().second++;
         uint64_t next = adj[node][neighborIndex].first;
 
-        if (!visited[next]) {
+        if (visited[next] == 0) {
             // Process unvisited neighbor
-            visited[next] = true;
-            inStack[next] = true;
+            visited[next] = 1;
+            inStack[next] = 1;
             stack.emplace(next, 0);
-        } else if (inStack[next]) {
+        } else if (inStack[next] == 1) {
             // Back edge found - cycle detected
             return true;
         }
@@ -109,11 +109,11 @@ bool Graph::iterativeDfsHasCycle(uint64_t start) const {
 
 // Check if the entire graph has any cycles
 bool Graph::hasCycle() const {
-    std::vector<bool> visited(adj.size(), false);
+    std::vector<uint8_t> visited(adj.size(), 0);
 
     // Try to find cycles starting from each unvisited node
     for (uint64_t i = 0; i < adj.size(); i++) {
-        if (!visited[i] && iterativeDfsHasCycle(i)) {
+        if (visited[i] == 0 && iterativeDfsHasCycle(i)) {
             return true;
         }
     }

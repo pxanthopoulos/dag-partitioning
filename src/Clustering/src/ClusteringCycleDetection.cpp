@@ -74,30 +74,30 @@ void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leade
 
 uint64_t
 ClusteringCycleDetection::findMinimumTopLevelInCluster(uint64_t node, const std::vector<uint64_t> &topLevels,
-                                                       const std::vector<bool> &markup,
-                                                       const std::vector<bool> &markdown) {
-    if (markup[node]) return topLevels[node];
-    if (markdown[node]) return topLevels[node] - 1;
+                                                       const std::vector<uint8_t> &markup,
+                                                       const std::vector<uint8_t> &markdown) {
+    if (markup[node] == 1) return topLevels[node];
+    if (markdown[node] == 1) return topLevels[node] - 1;
     return topLevels[node];
 }
 
 bool
 ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vector<uint64_t> &topLevels,
-                                      const std::vector<uint64_t> &leaders, const std::vector<bool> &markup,
-                                      const std::vector<bool> &markdown) const {
+                                      const std::vector<uint64_t> &leaders, const std::vector<uint8_t> &markup,
+                                      const std::vector<uint8_t> &markdown) const {
     // Get minimum top-level value in target cluster
     uint64_t minimumTopLevelInCluster = findMinimumTopLevelInCluster(to, topLevels, markup, markdown);
-    std::vector<bool> visited(workingGraph.size, false);
+    std::vector<uint8_t> visited(workingGraph.size, 0);
     std::queue<uint64_t> q;
 
     // Start BFS from the node being added
-    visited[from] = true;
+    visited[from] = 1;
     q.push(from);
 
     // BFS traversal checking for paths back to target cluster
     while (!q.empty()) {
         uint64_t u = q.front();
-        visited[u] = true;
+        visited[u] = 1;
 
         // If we reach any node in the target cluster, we found a cycle
         if (leaders[u] == leaders[to]) return true;
@@ -113,7 +113,7 @@ ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vec
             uint64_t diff = (topLevels[successorId] > minimumTopLevelInCluster) ?
                             (topLevels[successorId] - minimumTopLevelInCluster) :
                             (minimumTopLevelInCluster - topLevels[successorId]);
-            if (!visited[successorId] && diff <= 1) {
+            if (visited[successorId] == 0 && diff <= 1) {
                 q.push(successorId);
             }
         }
@@ -123,7 +123,7 @@ ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vec
             uint64_t diff = (topLevels[predecessorId] > minimumTopLevelInCluster) ?
                             (topLevels[predecessorId] - minimumTopLevelInCluster) :
                             (minimumTopLevelInCluster - topLevels[predecessorId]);
-            if (!visited[predecessorId] && diff <= 1 && leaders[predecessorId] == leaders[u]) {
+            if (visited[predecessorId] == 0 && diff <= 1 && leaders[predecessorId] == leaders[u]) {
                 q.push(predecessorId);
             }
         }
@@ -133,8 +133,8 @@ ClusteringCycleDetection::detectCycle(uint64_t from, uint64_t to, const std::vec
 
 std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClustering() const {
     uint64_t newSize = workingGraph.size;
-    std::vector<bool> markup(workingGraph.size, false);    // Nodes at level t in their cluster
-    std::vector<bool> markdown(workingGraph.size, false);  // Nodes at level t+1 in their cluster
+    std::vector<uint8_t> markup(workingGraph.size, 0);    // Nodes at level t in their cluster
+    std::vector<uint8_t> markdown(workingGraph.size, 0);  // Nodes at level t+1 in their cluster
     std::vector<uint64_t> leaders(workingGraph.size);
     std::vector<uint64_t> clusterWeights(workingGraph.size);
 
@@ -150,7 +150,7 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClu
     // Process nodes in topological order
     for (uint64_t node: topologicalOrder) {
         // Skip nodes already in clusters
-        if (markup[node] || markdown[node]) continue;
+        if (markup[node] == 1 || markdown[node] == 1) continue;
 
         // Get neighbors sorted by edge weight
         std::vector<std::tuple<uint64_t, uint64_t, bool>> sortedNeighbors =
@@ -173,20 +173,20 @@ std::pair<std::vector<uint64_t>, uint64_t> ClusteringCycleDetection::oneRoundClu
 
             if (isSuccessor) {
                 // Edge from node to neighbor
-                if (markup[neighborId] ||
+                if (markup[neighborId] == 1 ||
                     detectCycle(node, neighborId, topLevels, leaders, markup, markdown))
                     continue;
                 leaders[node] = leaderOfNeighbor;
-                markup[node] = markdown[neighborId] = true;
+                markup[node] = markdown[neighborId] = 1;
                 newSize--;
                 clusterWeights[leaderOfNeighbor] += workingGraph.nodeWeights[node];
             } else {
                 // Edge from neighbor to node
-                if (markdown[neighborId] ||
+                if (markdown[neighborId] == 1 ||
                     detectCycle(neighborId, node, topLevels, leaders, markup, markdown))
                     continue;
                 leaders[node] = leaderOfNeighbor;
-                markdown[node] = markup[neighborId] = true;
+                markdown[node] = markup[neighborId] = 1;
                 newSize--;
                 clusterWeights[leaderOfNeighbor] += workingGraph.nodeWeights[node];
             }

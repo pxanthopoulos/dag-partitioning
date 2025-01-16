@@ -21,14 +21,14 @@ protected:
     /**
      * @brief Verifies that a bisection maintains acyclicity
      *
-     * Checks that there are no edges from V1 (true) to V0 (false).
+     * Checks that there are no edges from V1 (1) to V0 (0).
      * A valid bisection must not have any backward edges from the second
      * partition to the first.
      *
-     * @param bisection Boolean vector where true indicates V1, false indicates V0
+     * @param bisection Vector where true indicates V1, false indicates V0
      * @return true if bisection is acyclic
      */
-    [[nodiscard]] virtual bool checkValidBisection(const std::vector<bool> &bisection) const;
+    [[nodiscard]] virtual bool checkValidBisection(const std::vector<uint8_t> &bisection) const;
 
     /**
      * @brief Computes total weight of edges crossing the bisection
@@ -36,10 +36,10 @@ protected:
      * Sums up weights of all edges that connect vertices in different
      * partitions (edge cut).
      *
-     * @param bisection Boolean vector where true indicates V1, false indicates V0
+     * @param bisection Vector where true indicates V1, false indicates V0
      * @return Total weight of edges crossing between partitions
      */
-    [[nodiscard]] virtual uint64_t computeEdgeCut(const std::vector<bool> &bisection) const;
+    [[nodiscard]] virtual uint64_t computeEdgeCut(const std::vector<uint8_t> &bisection) const;
 
     /**
      * @brief Protected constructor for derived classes
@@ -58,10 +58,10 @@ public:
     /**
      * @brief Pure virtual method to execute the bisection algorithm
      * @return Pair containing:
-     *         - Boolean vector indicating partition assignment (false=V0, true=V1)
+     *         - Vector indicating partition assignment (0=V0, 1=V1)
      *         - Total edge cut weight
      */
-    [[nodiscard]] virtual std::pair<std::vector<bool>, uint64_t> run() const = 0;
+    [[nodiscard]] virtual std::pair<std::vector<uint8_t>, uint64_t> run() const = 0;
 };
 
 #endif //DAG_PARTITIONING_BISECTION_H

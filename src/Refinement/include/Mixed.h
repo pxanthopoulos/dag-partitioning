@@ -32,7 +32,7 @@ public:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    Mixed(const Graph &graph, std::vector<bool> &initialBisectionInfo,
+    Mixed(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
           uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
           double upperBoundPartWeight, double lowerBoundPartWeight);
 };

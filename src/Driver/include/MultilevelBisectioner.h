@@ -84,14 +84,14 @@ public:
      * @param graph Graph to bisect
      * @return Pair of bisection vector and edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runBisection(const Graph &graph) const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runBisection(const Graph &graph) const;
 
     /**
      * @brief Projects bisection to finer level using node mapping
      * @param bisectionInfo Current bisection to be projected
      * @param mapping Node mapping from finer to coarser level (clustering)
      */
-    static void projectBisection(std::pair<std::vector<bool>, uint64_t> &bisectionInfo,
+    static void projectBisection(std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfo,
                                  const std::vector<uint64_t> &mapping);
 
     /**
@@ -100,13 +100,13 @@ public:
      * @param bisectionInfo Bisection to be refined
      */
     void runRefinement(const Graph &graph,
-                       std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const;
+                       std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfo) const;
 
     /**
      * @brief Executes complete multilevel bisection process
      * @return Final bisection and edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const;
 };
 
 #endif //DAG_PARTITIONING_MULTILEVELBISECTIONER_H

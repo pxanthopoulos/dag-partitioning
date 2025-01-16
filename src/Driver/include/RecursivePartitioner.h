@@ -31,12 +31,12 @@ private:
     * internal edges and removing cross-partition edges. Also, returns one map for each subgraph that
     * maps new node IDs to old node IDs
     *
-    * @param bisection Boolean vector where bisection[i] indicates which partition (false=V0, true=V1)
+    * @param bisection Vector where bisection[i] indicates which partition (0=V0, 1=V1)
     *                  vertex i belongs to
     * @return The two resulting subgraphs (V0, V1) and the two maps
     */
     [[nodiscard]] std::tuple<Graph, std::unordered_map<uint64_t, uint64_t>, Graph, std::unordered_map<uint64_t, uint64_t>>
-    createSubgraphs(const std::vector<bool> &bisection) const;
+    createSubgraphs(const std::vector<uint8_t> &bisection) const;
 
 public:
     /**

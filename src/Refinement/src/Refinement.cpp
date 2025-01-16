@@ -6,7 +6,7 @@
 #include <iostream>
 #include "Refinement.h"
 
-Refinement::Refinement(const Graph &graph, std::vector<bool> &initialBisectionInfo, uint64_t &initialEdgeCut,
+Refinement::Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo, uint64_t &initialEdgeCut,
                        uint64_t maxNumberOfPasses, double upperBoundPartWeight, double lowerBoundPartWeight)
         : workingGraph(graph),
           initialBisectionInfo(initialBisectionInfo),

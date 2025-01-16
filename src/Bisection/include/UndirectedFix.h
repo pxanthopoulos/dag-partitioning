@@ -48,13 +48,13 @@ private:
      * @brief Gets initial bisection using Scotch partitioner
      * @return Boolean vector indicating partition assignment
      */
-    [[nodiscard]] std::vector<bool> getUndirectedBisectionScotch() const;
+    [[nodiscard]] std::vector<uint8_t> getUndirectedBisectionScotch() const;
 
     /**
      * @brief Gets initial bisection using METIS partitioner
      * @return Boolean vector indicating partition assignment
      */
-    [[nodiscard]] std::vector<bool> getUndirectedBisectionMetis() const;
+    [[nodiscard]] std::vector<uint8_t> getUndirectedBisectionMetis() const;
 
     /**
      * @brief Fixes acyclicity by propagating partition 0 assignment upward
@@ -64,7 +64,7 @@ private:
      *
      * @param undirectedBisection Bisection to be fixed
      */
-    void fixAcyclicityUp(std::vector<bool> &undirectedBisection) const;
+    void fixAcyclicityUp(std::vector<uint8_t> &undirectedBisection) const;
 
     /**
      * @brief Fixes acyclicity by propagating partition 1 assignment downward
@@ -74,7 +74,7 @@ private:
      *
      * @param undirectedBisection Bisection to be fixed
      */
-    void fixAcyclicityDown(std::vector<bool> &undirectedBisection) const;
+    void fixAcyclicityDown(std::vector<uint8_t> &undirectedBisection) const;
 
     /**
      * @brief Runs the complete undirected bisection and fixing process
@@ -89,7 +89,7 @@ private:
      *         - Acyclic bisection vector
      *         - Edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runMetis() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runMetis() const;
 
     /**
      * @brief Runs the complete undirected bisection and fixing process
@@ -104,7 +104,7 @@ private:
      *         - Acyclic bisection vector
      *         - Edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> runScotch() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runScotch() const;
 
     /**
      * @brief Runs the 2 partitioners and obtains best result
@@ -116,7 +116,7 @@ private:
      *         - Acyclic bisection vector
      *         - Edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<bool>, uint64_t> run() const override;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const override;
 
 public:
     /**
