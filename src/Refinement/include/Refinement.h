@@ -24,7 +24,7 @@ protected:
     /**
      * @brief Checks if current bisection maintains acyclicity
      *
-     * Verifies that there are no edges from V1 (true) to V0 (false).
+     * Verifies that there are no edges from V1 (1) to V0 (0).
      * Must be maintained throughout refinement.
      *
      * @return true if bisection is acyclic

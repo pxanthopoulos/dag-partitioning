@@ -25,7 +25,7 @@ protected:
      * A valid bisection must not have any backward edges from the second
      * partition to the first.
      *
-     * @param bisection Vector where true indicates V1, false indicates V0
+     * @param bisection Vector where 1 indicates V1, 0 indicates V0
      * @return true if bisection is acyclic
      */
     [[nodiscard]] virtual bool checkValidBisection(const std::vector<uint8_t> &bisection) const;
@@ -36,7 +36,7 @@ protected:
      * Sums up weights of all edges that connect vertices in different
      * partitions (edge cut).
      *
-     * @param bisection Vector where true indicates V1, false indicates V0
+     * @param bisection Vector where 1 indicates V1, 0 indicates V0
      * @return Total weight of edges crossing between partitions
      */
     [[nodiscard]] virtual uint64_t computeEdgeCut(const std::vector<uint8_t> &bisection) const;

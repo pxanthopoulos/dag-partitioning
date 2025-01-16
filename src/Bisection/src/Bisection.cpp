@@ -15,7 +15,7 @@ bool Bisection::checkValidBisection(const std::vector<uint8_t> &bisection) const
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         const auto &neighbors = workingGraph.adj[i];
         for (const auto &[neighborId, _]: neighbors) {
-            // If there's an edge from V1 (true) to V0 (false), bisection is invalid
+            // If there's an edge from V1 (1) to V0 (0), bisection is invalid
             if (bisection[i] == 1 && bisection[neighborId] == 0) return false;
         }
     }
