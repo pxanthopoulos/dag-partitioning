@@ -60,7 +60,7 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> MultilevelBisectioner::runCl
 std::pair<std::vector<bool>, uint64_t> MultilevelBisectioner::runBisection(const Graph &graph) const {
     // Calculate partition weight bounds based on imbalance ratio
     double lowerBoundPartWeight = 1.0;
-    double upperBoundPartWeight = imbalanceRatio * ((double) workingGraph.totalWeight / 2.0);
+    double upperBoundPartWeight = imbalanceRatio * ((double) graph.totalWeight / 2.0);
 
     // Create appropriate bisection algorithm
     std::unique_ptr<Bisection> bisection;
@@ -104,7 +104,7 @@ void MultilevelBisectioner::runRefinement(
         std::pair<std::vector<bool>, uint64_t> &bisectionInfo) const {
     // Calculate partition weight bounds
     double lowerBoundPartWeight = 1.0;
-    double upperBoundPartWeight = imbalanceRatio * ((double) workingGraph.totalWeight / 2.0);
+    double upperBoundPartWeight = imbalanceRatio * ((double) graph.totalWeight / 2.0);
 
     // Create appropriate refinement algorithm
     std::unique_ptr<Refinement> refinement;
