@@ -95,8 +95,10 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
                                           refinementMethod, refinementPasses);
         auto [bisectionInfo, edgeCut] = bisectioner.run();
 
-        std::transform(bisectionInfo.begin(), bisectionInfo.end(), std::back_inserter(partitionMapping),
-                       [](uint8_t val) { return (uint64_t) val; });
+        // Convert bool vector to partition numbers (0 and 1)
+        for (uint64_t i = 0; i < bisectionInfo.size(); i++) {
+            partitionMapping[i] = bisectionInfo[i];
+        }
         return {partitionMapping, edgeCut};
     }
 
