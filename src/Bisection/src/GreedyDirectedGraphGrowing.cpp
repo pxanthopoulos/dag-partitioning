@@ -179,7 +179,7 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
     // 2. Uses out-degree instead of in-degree
     // 3. Moves vertices to V1
     // Structure and logic mirrors runOnNormalGraph with reversed directions
-    std::vector<uint8_t> bisection(workingGraph.size, false);
+    std::vector<uint8_t> bisection(workingGraph.size, 0);
     std::vector<uint8_t> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
     auto bestImbalanceDiff = DBL_MAX;

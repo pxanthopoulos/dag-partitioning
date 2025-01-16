@@ -21,7 +21,7 @@ bool Refinement::checkValidBisection() const {
         const auto &neighbors = workingGraph.adj[i];
         for (const auto &[neighborId, _]: neighbors) {
             // If edge from V1 (true) to V0 (false) found, bisection is invalid
-            if (initialBisectionInfo[i] && !initialBisectionInfo[neighborId])
+            if (initialBisectionInfo[i] == 1 && initialBisectionInfo[neighborId] == 0)
                 return false;
         }
     }
@@ -33,7 +33,7 @@ std::pair<uint64_t, uint64_t> Refinement::calculatePartSizes() const {
 
     // Sum weights for each partition
     for (uint64_t i = 0; i < initialBisectionInfo.size(); ++i) {
-        if (!initialBisectionInfo[i])
+        if (initialBisectionInfo[i] == 0)
             sizeV0 += workingGraph.nodeWeights[i];
         else
             sizeV1 += workingGraph.nodeWeights[i];
