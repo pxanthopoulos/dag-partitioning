@@ -11,8 +11,8 @@ BoundaryKL::BoundaryKL(const Graph &graph, std::vector<uint8_t> &initialBisectio
         : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
                      upperBoundPartWeight, lowerBoundPartWeight) {}
 
-void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64_t>> &listV0,
-                                             std::list<std::pair<int64_t, uint64_t>> &listV1,
+void BoundaryKL::insertMovableNodesIntoLists(std::vector<std::pair<int64_t, uint64_t>> &vecV0,
+                                             std::vector<std::pair<int64_t, uint64_t>> &vecV1,
                                              std::vector<uint8_t> &inList) const {
 
     // Check each vertex for movability
@@ -39,7 +39,7 @@ void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64
                 for (const auto &[_, edgeWeight]: workingGraph.revAdj[nodeId]) {
                     gain -= (int64_t) edgeWeight;
                 }
-                listV0.emplace_back(gain, nodeId);
+                vecV0.emplace_back(gain, nodeId);
                 inList[nodeId] = 1;
             }
         } else {  // Node in V1
@@ -61,7 +61,7 @@ void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64
                 for (const auto &[_, edgeWeight]: workingGraph.revAdj[nodeId]) {
                     gain += (int64_t) edgeWeight;
                 }
-                listV1.emplace_back(gain, nodeId);
+                vecV1.emplace_back(gain, nodeId);
                 inList[nodeId] = 1;
             }
         }
@@ -70,8 +70,8 @@ void BoundaryKL::insertMovableNodesIntoLists(std::list<std::pair<int64_t, uint64
 
 // Called after moving a node to update movable status of its neighbors (possibly insert new movable nodes)
 void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<uint8_t> &currentBisectionInfo,
-                                                 std::list<std::pair<int64_t, uint64_t>> &listV0,
-                                                 std::list<std::pair<int64_t, uint64_t>> &listV1,
+                                                 std::vector<std::pair<int64_t, uint64_t>> &vecV0,
+                                                 std::vector<std::pair<int64_t, uint64_t>> &vecV1,
                                                  std::vector<uint8_t> &inList, uint64_t movedNodeId,
                                                  bool checkOutNeighbors) const {
     if (checkOutNeighbors) {  // Node moved V1->V0, check out-neighbors
@@ -96,11 +96,11 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<uint8_t> &cur
                 for (const auto &[_, edgeWeight]: workingGraph.revAdj[nodeId]) {
                     gain += (int64_t) edgeWeight;
                 }
-                auto it = std::upper_bound(listV1.begin(), listV1.end(),
+                auto it = std::upper_bound(vecV1.begin(), vecV1.end(),
                                            std::make_pair(gain, nodeId),
                                            [](const auto &a, const auto &b) { return a.first > b.first; });
 
-                listV1.insert(it, std::make_pair(gain, nodeId));
+                vecV1.insert(it, std::make_pair(gain, nodeId));
                 inList[nodeId] = 1;
             }
         }
@@ -126,11 +126,11 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<uint8_t> &cur
                 for (const auto &[_, edgeWeight]: workingGraph.revAdj[nodeId]) {
                     gain -= (int64_t) edgeWeight;
                 }
-                auto it = std::upper_bound(listV0.begin(), listV0.end(),
+                auto it = std::upper_bound(vecV0.begin(), vecV0.end(),
                                            std::make_pair(gain, nodeId),
                                            [](const auto &a, const auto &b) { return a.first > b.first; });
 
-                listV0.insert(it, std::make_pair(gain, nodeId));
+                vecV0.insert(it, std::make_pair(gain, nodeId));
                 inList[nodeId] = 1;
             }
         }
@@ -138,24 +138,24 @@ void BoundaryKL::insertMovableNeighborsIntoLists(const std::vector<uint8_t> &cur
 }
 
 std::tuple<bool, uint64_t, uint64_t, int64_t>
-BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
-                                        std::list<std::pair<int64_t, uint64_t>> &listV1,
+BoundaryKL::findBestMovablePairBalanced(std::vector<std::pair<int64_t, uint64_t>> &vecV0,
+                                        std::vector<std::pair<int64_t, uint64_t>> &vecV1,
                                         std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                         uint64_t &sizeV1) const {
     bool found = false;
     int64_t maxTotalGain = INT64_MIN;
     uint64_t bestNodeV0 = -1;
     uint64_t bestNodeV1 = -1;
-    std::list<std::pair<int64_t, uint64_t>>::iterator bestItV0;
-    std::list<std::pair<int64_t, uint64_t>>::iterator bestItV1;
+    uint64_t bestIdxV0 = 0;
+    uint64_t bestIdxV1 = 0;
 
-    for (auto itV0 = listV0.begin(); itV0 != listV0.end(); ++itV0) {
-        const auto &[gainV0, nodeIdV0] = *itV0;
+    for (uint64_t i = 0; i < vecV0.size(); ++i) {
+        const auto &[gainV0, nodeIdV0] = vecV0[i];
         // Check if the node has been marked as unmovable
-        if (moved[nodeIdV0]) continue;
+        if (moved[nodeIdV0] == 1) continue;
 
-        for (auto itV1 = listV1.begin(); itV1 != listV1.end(); ++itV1) {
-            const auto &[gainV1, nodeIdV1] = *itV1;
+        for (uint64_t j = 0; j < vecV1.size(); ++j) {
+            const auto &[gainV1, nodeIdV1] = vecV1[j];
             uint64_t nodeIdV1tmp = nodeIdV1;
 
             // Early exit. Before checking if the pair is swappable, we can check if the gain is better than the best so far.
@@ -165,7 +165,7 @@ BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> 
             if (totalGain <= maxTotalGain) break;
 
             // Check if the node has been marked as unmovable
-            if (moved[nodeIdV1]) continue;
+            if (moved[nodeIdV1] == 1) continue;
 
             // If this move breaks the balance, skip it
             uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
@@ -189,21 +189,28 @@ BoundaryKL::findBestMovablePairBalanced(std::list<std::pair<int64_t, uint64_t>> 
             bestNodeV0 = nodeIdV0;
             bestNodeV1 = nodeIdV1;
             maxTotalGain = totalGain;
-            bestItV0 = itV0;
-            bestItV1 = itV1;
+            bestIdxV0 = i;
+            bestIdxV1 = j;
         }
     }
 
     if (found) {
-        listV0.erase(bestItV0);
-        listV1.erase(bestItV1);
+        if (bestIdxV0 != vecV0.size() - 1) {
+            std::swap(vecV0[bestIdxV0], vecV0.back());
+        }
+        vecV0.pop_back();
+
+        if (bestIdxV1 != vecV1.size() - 1) {
+            std::swap(vecV1[bestIdxV1], vecV1.back());
+        }
+        vecV1.pop_back();
     }
     return {found, bestNodeV0, bestNodeV1, maxTotalGain};
 }
 
 std::tuple<bool, uint64_t, uint64_t, int64_t>
-BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>> &listV0,
-                                          std::list<std::pair<int64_t, uint64_t>> &listV1,
+BoundaryKL::findBestMovablePairUnbalanced(std::vector<std::pair<int64_t, uint64_t>> &vecV0,
+                                          std::vector<std::pair<int64_t, uint64_t>> &vecV1,
                                           std::vector<uint8_t> &moved, uint64_t &sizeV0,
                                           uint64_t &sizeV1) const {
     bool found = false;
@@ -212,20 +219,20 @@ BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>
     uint64_t bestNodeV0 = -1;
     uint64_t bestNodeV1 = -1;
     uint64_t gain = 0;
-    std::list<std::pair<int64_t, uint64_t>>::iterator bestItV0;
-    std::list<std::pair<int64_t, uint64_t>>::iterator bestItV1;
+    uint64_t bestIdxV0 = 0;
+    uint64_t bestIdxV1 = 0;
 
-    for (auto itV0 = listV0.begin(); itV0 != listV0.end(); ++itV0) {
-        const auto &[gainV0, nodeIdV0] = *itV0;
+    for (uint64_t i = 0; i < vecV0.size(); ++i) {
+        const auto &[gainV0, nodeIdV0] = vecV0[i];
         // Check if the node has been marked as unmovable
-        if (moved[nodeIdV0]) continue;
+        if (moved[nodeIdV0] == 1) continue;
 
-        for (auto itV1 = listV1.begin(); itV1 != listV1.end(); ++itV1) {
-            const auto &[gainV1, nodeIdV1] = *itV1;
+        for (uint64_t j = 0; j < vecV1.size(); ++j) {
+            const auto &[gainV1, nodeIdV1] = vecV1[j];
             uint64_t nodeIdV1tmp = nodeIdV1;
 
             // Check if the node has been marked as unmovable
-            if (moved[nodeIdV1]) continue;
+            if (moved[nodeIdV1] == 1) continue;
 
             // Check if nodeIdV0 has edge to nodeIdV1. If so, they cannot be swapped.
             auto it = std::find_if(workingGraph.adj[nodeIdV0].begin(), workingGraph.adj[nodeIdV0].end(),
@@ -252,15 +259,22 @@ BoundaryKL::findBestMovablePairUnbalanced(std::list<std::pair<int64_t, uint64_t>
                 bestNodeV0 = nodeIdV0;
                 bestNodeV1 = nodeIdV1;
                 gain = gainV0 + gainV1;
-                bestItV0 = itV0;
-                bestItV1 = itV1;
+                bestIdxV0 = i;
+                bestIdxV1 = j;
             }
         }
     }
 
     if (found) {
-        listV0.erase(bestItV0);
-        listV1.erase(bestItV1);
+        if (bestIdxV0 != vecV0.size() - 1) {
+            std::swap(vecV0[bestIdxV0], vecV0.back());
+        }
+        vecV0.pop_back();
+
+        if (bestIdxV1 != vecV1.size() - 1) {
+            std::swap(vecV1[bestIdxV1], vecV1.back());
+        }
+        vecV1.pop_back();
     }
     return {found, bestNodeV0, bestNodeV1, gain};
 }
@@ -269,18 +283,18 @@ bool BoundaryKL::onePassRefinement() {
     std::vector<uint8_t> moved(workingGraph.size, 0);
     std::vector<uint8_t> inList(workingGraph.size, 0);
 
-    std::list<std::pair<int64_t, uint64_t>> listV0, listV1;
+    std::vector<std::pair<int64_t, uint64_t>> vecV0, vecV1;
 
     // Find initially movable vertices
-    insertMovableNodesIntoLists(listV0, listV1, inList);
-    // Lists are maintained in descending gain order to enable early exit optimizations
-    listV0.sort([](const auto &a, const auto &b) {
+    insertMovableNodesIntoLists(vecV0, vecV1, inList);
+    // Vectors are maintained in descending gain order to enable early exit optimizations
+    std::sort(vecV0.begin(), vecV0.end(), [](const auto &a, const auto &b) {
         if (a.first != b.first) {
             return a.first > b.first;
         }
         return a.second < b.second;  // Secondary sort criteria for equal first values
     });
-    listV1.sort([](const auto &a, const auto &b) {
+    std::sort(vecV1.begin(), vecV1.end(), [](const auto &a, const auto &b) {
         if (a.first != b.first) {
             return a.first > b.first;
         }
@@ -299,10 +313,10 @@ bool BoundaryKL::onePassRefinement() {
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
-    while (!listV0.empty() && !listV1.empty()) {
+    while (!vecV0.empty() && !vecV1.empty()) {
         auto [found, nodeIdV0, nodeIdV1, gain] = isBalanced
-                                                 ? findBestMovablePairBalanced(listV0, listV1, moved, sizeV0, sizeV1)
-                                                 : findBestMovablePairUnbalanced(listV0, listV1, moved, sizeV0, sizeV1);
+                                                 ? findBestMovablePairBalanced(vecV0, vecV1, moved, sizeV0, sizeV1)
+                                                 : findBestMovablePairUnbalanced(vecV0, vecV1, moved, sizeV0, sizeV1);
         if (!found) break;
 
         // Tentative move
@@ -345,7 +359,7 @@ bool BoundaryKL::onePassRefinement() {
         // If an in-neighbor of the moved nodeIdV0 is in V0 and is not already movable,
         // (if it has already been marked movable by the initial check, we don't recheck)
         // Then the neighbor might become movable if its only out-neighbor in V0 was the moved nodeIdV0
-        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, listV0, listV1, inList, nodeIdV0,
+        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, vecV0, vecV1, inList, nodeIdV0,
                                         false);
 
         // Moving from V1 to V0 can make V0 nodes unmovable
@@ -361,7 +375,7 @@ bool BoundaryKL::onePassRefinement() {
         // If an out-neighbor of the moved nodeIdV1 is in V1 and is not already movable,
         // (if it has already been marked movable by the initial check, we don't recheck)
         // Then the neighbor might become movable if its only in-neighbor in V1 was the moved nodeV1
-        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, listV0, listV1, inList, nodeIdV1, true);
+        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, vecV0, vecV1, inList, nodeIdV1, true);
     }
 
     // If no improvement was found, return false
@@ -375,8 +389,8 @@ bool BoundaryKL::onePassRefinement() {
     // Apply best move sequence
     for (uint64_t i = 0; i < bestMovePrefix; ++i) {
         auto [nodeIdV0, nodeIdV1] = moveSequence[i];
-        initialBisectionInfo[nodeIdV0] = true;
-        initialBisectionInfo[nodeIdV1] = false;
+        initialBisectionInfo[nodeIdV0] = 1;
+        initialBisectionInfo[nodeIdV1] = 0;
     }
     initialEdgeCut = bestEdgeCut;
 
