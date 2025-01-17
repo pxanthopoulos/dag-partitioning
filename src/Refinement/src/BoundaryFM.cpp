@@ -196,6 +196,7 @@ bool BoundaryFM::onePassRefinement() {
         // If node already moved (or marked move to signify unmovable node), skip
         if (moved[nodeId] == 1)
             continue;
+        
         // If move causes unbalance or does not improve balance, skip
         if (!confirmMove(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1))
             continue;
@@ -222,14 +223,14 @@ bool BoundaryFM::onePassRefinement() {
             bestMovePrefix = moveSequence.size();
             minMaxPartSize = maxPartSize;
             noImprovement = 0;
-        }
 
-        isBalanced = true;
-        if ((double) sizeV0 < lowerBoundPartWeight ||
-            (double) sizeV0 > upperBoundPartWeight ||
-            (double) sizeV1 < lowerBoundPartWeight ||
-            (double) sizeV1 > upperBoundPartWeight)
-            isBalanced = false;
+            isBalanced = true;
+            if ((double) sizeV0 < lowerBoundPartWeight ||
+                (double) sizeV0 > upperBoundPartWeight ||
+                (double) sizeV1 < lowerBoundPartWeight ||
+                (double) sizeV1 > upperBoundPartWeight)
+                isBalanced = false;
+        }
 
         if (isBalanced) noImprovement++;
 
