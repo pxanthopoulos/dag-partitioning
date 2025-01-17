@@ -36,14 +36,14 @@ bool checkBalance(const Graph &graph, std::vector<uint8_t> &bisectionInfo, doubl
     return true;
 }
 
-void refinementWrapper(const Graph &graph, std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfoPair,
+void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t edgeCut,
                        RefinementMethod refinementMethod, uint64_t refinementPasses, double upperBoundPartWeight,
                        double lowerBoundPartWeight) {
     uint64_t countPasses = 0;
     while (countPasses < 2) {
-        if (checkBalance(graph, bisectionInfoPair.first, upperBoundPartWeight, lowerBoundPartWeight, 0)) break;
+        if (checkBalance(graph, bisectionInfo, upperBoundPartWeight, lowerBoundPartWeight, 0)) break;
         countPasses++;
-        BoundaryFM boundaryFM = BoundaryFM(graph, bisectionInfoPair.first, bisectionInfoPair.second, 1,
+        BoundaryFM boundaryFM = BoundaryFM(graph, bisectionInfo, edgeCut, 1,
                                            upperBoundPartWeight,
                                            lowerBoundPartWeight);
         boundaryFM.run();
@@ -52,19 +52,16 @@ void refinementWrapper(const Graph &graph, std::pair<std::vector<uint8_t>, uint6
     std::unique_ptr<Refinement> refinement;
     switch (refinementMethod) {
         case RefinementMethod::BOUNDARYFM:
-            refinement = std::make_unique<BoundaryFM>(
-                    graph, bisectionInfoPair.first, bisectionInfoPair.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
+            refinement = std::make_unique<BoundaryFM>(graph, bisectionInfo, edgeCut, refinementPasses,
+                                                      upperBoundPartWeight, lowerBoundPartWeight);
             break;
         case RefinementMethod::BOUNDARYKL:
-            refinement = std::make_unique<BoundaryKL>(
-                    graph, bisectionInfoPair.first, bisectionInfoPair.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
+            refinement = std::make_unique<BoundaryKL>(graph, bisectionInfo, edgeCut, refinementPasses,
+                                                      upperBoundPartWeight, lowerBoundPartWeight);
             break;
         case RefinementMethod::MIXED:
-            refinement = std::make_unique<Mixed>(
-                    graph, bisectionInfoPair.first, bisectionInfoPair.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
+            refinement = std::make_unique<Mixed>(graph, bisectionInfo, edgeCut, refinementPasses, upperBoundPartWeight,
+                                                 lowerBoundPartWeight);
             break;
         default:
             throw std::invalid_argument("Unknown refinement type");

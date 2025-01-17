@@ -106,8 +106,8 @@ void MultilevelBisectioner::runRefinement(
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight = imbalanceRatio * ((double) graph.totalWeight / 2.0);
 
-    refinementWrapper(graph, bisectionInfoPair, refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinementWrapper(graph, bisectionInfoPair.first, bisectionInfoPair.second, refinementMethod, refinementPasses,
+                      upperBoundPartWeight, lowerBoundPartWeight);
 }
 
 std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
