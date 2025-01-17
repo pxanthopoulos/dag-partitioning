@@ -72,7 +72,8 @@ int main(int argc, char **argv) {
     };
 
     const uint64_t maxLevel = 20;
-    const uint64_t minSize = 1;
+    const uint64_t minSize = 50 * partitions;
+    const double vertRatio = 0.9;
     const double maxImbalance = 1.01;
     const uint64_t maxPasses = 10;
 
@@ -87,13 +88,14 @@ int main(int argc, char **argv) {
 
     for (uint64_t i = 0; i < methods.size(); i++) {
         const auto &method = methods[i];
-        threads.emplace_back([&graph, &method, &results, i, maxImbalance, &partitions]() {
+        threads.emplace_back([&graph, &method, &results, i, maxImbalance, &partitions, &minSize, &vertRatio]() {
             RecursivePartitioner partitioner(
                     graph,
                     partitions,
                     method.clustering,
                     maxLevel,
                     minSize,
+                    vertRatio,
                     method.bisection,
                     maxImbalance,
                     method.refinement,

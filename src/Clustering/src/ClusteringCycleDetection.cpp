@@ -10,8 +10,9 @@
 #include <unordered_set>
 #include "llvm/ADT/STLExtras.h"
 
-ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
-        : Clustering(graph, maxRounds, minVertices) {}
+ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices,
+                                                   double vertexRatio)
+        : Clustering(graph, maxRounds, minVertices, vertexRatio) {}
 
 void ClusteringCycleDetection::hardCheckCycle(const std::vector<uint64_t> &leaders, uint64_t newSize) const {
     // Map original leader IDs to consecutive new IDs for the coarsened graph

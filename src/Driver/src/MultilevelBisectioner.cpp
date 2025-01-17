@@ -17,6 +17,7 @@
 MultilevelBisectioner::MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
                                              uint64_t maxClusteringRounds,
                                              uint64_t minClusteringVertices,
+                                             double clusteringVertexRatio,
                                              BisectionMethod bisectionMethod,
                                              double imbalanceRatio,
                                              RefinementMethod refinementMethod,
@@ -25,6 +26,7 @@ MultilevelBisectioner::MultilevelBisectioner(const Graph &graph, ClusteringMetho
           clusteringMethod(clusteringMethod),
           maxClusteringRounds(maxClusteringRounds),
           minClusteringVertices(minClusteringVertices),
+          clusteringVertexRatio(clusteringVertexRatio),
           bisectionMethod(bisectionMethod),
           imbalanceRatio(imbalanceRatio),
           refinementMethod(refinementMethod),
@@ -36,15 +38,15 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> MultilevelBisectioner::runCl
     switch (clusteringMethod) {
         case ClusteringMethod::FORB:
             clustering = std::make_unique<ClusteringForbiddenEdges>(
-                    workingGraph, maxClusteringRounds, minClusteringVertices);
+                    workingGraph, maxClusteringRounds, minClusteringVertices, clusteringVertexRatio);
             break;
         case ClusteringMethod::CYC:
             clustering = std::make_unique<ClusteringCycleDetection>(
-                    workingGraph, maxClusteringRounds, minClusteringVertices);
+                    workingGraph, maxClusteringRounds, minClusteringVertices, clusteringVertexRatio);
             break;
         case ClusteringMethod::HYB:
             clustering = std::make_unique<ClusteringHybrid>(
-                    workingGraph, maxClusteringRounds, minClusteringVertices);
+                    workingGraph, maxClusteringRounds, minClusteringVertices, clusteringVertexRatio);
             break;
         default:
             throw std::invalid_argument("Unknown clustering type");

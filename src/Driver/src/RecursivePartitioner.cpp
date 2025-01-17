@@ -13,13 +13,15 @@
 
 RecursivePartitioner::RecursivePartitioner(const Graph &graph, uint64_t partitions, ClusteringMethod clusteringMethod,
                                            uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
-                                           BisectionMethod bisectionMethod, double imbalanceRatio,
-                                           RefinementMethod refinementMethod, uint64_t refinementPasses)
+                                           double clusteringVertexRatio, BisectionMethod bisectionMethod,
+                                           double imbalanceRatio, RefinementMethod refinementMethod,
+                                           uint64_t refinementPasses)
         : workingGraph(graph),
           partitions(partitions),
           clusteringMethod(clusteringMethod),
           maxClusteringRounds(maxClusteringRounds),
           minClusteringVertices(minClusteringVertices),
+          clusteringVertexRatio(clusteringVertexRatio),
           bisectionMethod(bisectionMethod),
           imbalanceRatio(imbalanceRatio),
           refinementMethod(refinementMethod),
@@ -90,9 +92,9 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
     }
     if (partitions == 2) {
         // Direct bisection
-        MultilevelBisectioner bisectioner(workingGraph, clusteringMethod, maxClusteringRounds,
-                                          minClusteringVertices, bisectionMethod, imbalanceRatio,
-                                          refinementMethod, refinementPasses);
+        MultilevelBisectioner bisectioner(workingGraph, clusteringMethod, maxClusteringRounds, minClusteringVertices,
+                                          clusteringVertexRatio, bisectionMethod, imbalanceRatio, refinementMethod,
+                                          refinementPasses);
         auto [bisectionInfo, edgeCut] = bisectioner.run();
 
         // Convert bool vector to partition numbers (0 and 1)
@@ -104,9 +106,9 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
 
     // Recursive case
     // 1. First bisect the graph
-    MultilevelBisectioner bisectioner(workingGraph, clusteringMethod, maxClusteringRounds,
-                                      minClusteringVertices, bisectionMethod, imbalanceRatio,
-                                      refinementMethod, refinementPasses);
+    MultilevelBisectioner bisectioner(workingGraph, clusteringMethod, maxClusteringRounds, minClusteringVertices,
+                                      clusteringVertexRatio, bisectionMethod, imbalanceRatio, refinementMethod,
+                                      refinementPasses);
     auto [bisectionInfo, edgeCut] = bisectioner.run();
     totalEdgeCut += edgeCut;
 
@@ -133,13 +135,13 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
 
     // 4. Recursively partition each subgraph
     RecursivePartitioner left_partitioner(subGraph0, partsLeft, clusteringMethod, maxClusteringRounds,
-                                          minClusteringVertices, bisectionMethod, imbalanceRatio,
+                                          minClusteringVertices, clusteringVertexRatio, bisectionMethod, imbalanceRatio,
                                           refinementMethod, refinementPasses);
     auto [leftMapping, leftEdgeCut] = left_partitioner.run();
 
     RecursivePartitioner right_partitioner(subGraph1, partsRight, clusteringMethod, maxClusteringRounds,
-                                           minClusteringVertices, bisectionMethod, imbalanceRatio,
-                                           refinementMethod, refinementPasses);
+                                           minClusteringVertices, clusteringVertexRatio, bisectionMethod,
+                                           imbalanceRatio, refinementMethod, refinementPasses);
     auto [rightMapping, rightEdgeCut] = right_partitioner.run();
 
     // 5. Combine results into final mapping

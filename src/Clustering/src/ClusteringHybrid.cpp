@@ -6,8 +6,8 @@
 #include "ClusteringHybrid.h"
 #include <cmath>
 
-ClusteringHybrid::ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
-        : ClusteringCycleDetection(graph, maxRounds, minVertices) {}
+ClusteringHybrid::ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio)
+        : ClusteringCycleDetection(graph, maxRounds, minVertices, vertexRatio) {}
 
 bool ClusteringHybrid::checkLargeDegrees(uint64_t from, uint64_t to) const {
     // Calculate degree threshold as sqrt(|V|)/10 as specified in the paper

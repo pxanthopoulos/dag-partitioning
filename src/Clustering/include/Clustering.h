@@ -20,6 +20,7 @@ protected:
     std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateGraphsAndClusters;  // History of clustering steps
     uint64_t maxRounds;          // Maximum number of clustering rounds to perform
     uint64_t minVertices;        // Minimum number of vertices to stop clustering
+    double vertexRatio;          // If, after a clustering round, this ratio is not surpassed, stop clustering
 
     /**
      * @brief Pure virtual method to implement one round of clustering
@@ -42,8 +43,9 @@ protected:
      * @param graph Original graph to be clustered
      * @param maxRounds Maximum number of clustering iterations
      * @param minVertices Minimum number of vertices to stop at
+     * @param vertexRatio If, after a clustering round, this ratio is not surpassed, stop clustering
      */
-    Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices);
+    Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio);
 
 public:
     /**

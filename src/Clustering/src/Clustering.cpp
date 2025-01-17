@@ -7,11 +7,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <numeric>
 
 // Constructor initializes the working graph and clustering parameters
-Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices) :
-        workingGraph(std::move(graph)), maxRounds(maxRounds), minVertices(minVertices) {}
+Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio) :
+        workingGraph(std::move(graph)), maxRounds(maxRounds), minVertices(minVertices), vertexRatio(vertexRatio) {}
 
 bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize) {
     assert(leaders.size() == workingGraph.size && "Leader value must be specified for all nodes");
@@ -82,6 +81,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
 
     // Stop if minimum size reached or passed
     if (newSize <= minVertices) return false;
+    if ((double) newSize / (double) leaders.size() > vertexRatio) return false;
     return true;
 }
 

@@ -72,8 +72,9 @@ public:
      * @param graph Original graph to be clustered
      * @param maxRounds Maximum number of clustering rounds
      * @param minVertices Minimum number of vertices to stop at
+     * @param vertexRatio If, after a clustering round, this ratio is not surpassed, stop clustering
      */
-    ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices);
+    ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio);
 };
 
 #endif //DAG_PARTITIONING_CLUSTERINGHYBRID_H

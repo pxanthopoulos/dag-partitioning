@@ -8,8 +8,9 @@
 #include <cmath>
 #include <algorithm>
 
-ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices)
-        : Clustering(graph, maxRounds, minVertices) {}
+ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds, uint64_t minVertices,
+                                                   double vertexRatio)
+        : Clustering(graph, maxRounds, minVertices, vertexRatio) {}
 
 std::vector<std::pair<uint64_t, uint64_t>>
 ClusteringForbiddenEdges::findValidNeighbors(uint64_t node,

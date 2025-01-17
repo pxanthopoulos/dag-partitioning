@@ -19,6 +19,7 @@ private:
     ClusteringMethod clusteringMethod;  // Selected clustering strategy
     uint64_t maxClusteringRounds;       // Maximum coarsening levels
     uint64_t minClusteringVertices;     // Stop coarsening at this size
+    double clusteringVertexRatio;       // If, after a clustering round, this ratio is not surpassed, stop clustering
     BisectionMethod bisectionMethod;    // Selected bisection strategy
     double imbalanceRatio;              // Maximum allowed partition imbalance
     RefinementMethod refinementMethod;  // Selected refinement strategy
@@ -46,6 +47,7 @@ public:
      * @param clusteringMethod Coarsening strategy
      * @param maxClusteringRounds Maximum coarsening levels
      * @param minClusteringVertices Minimum coarse graph size
+     * @param clusteringVertexRatio If, after a clustering round, this ratio is not surpassed, stop clustering
      * @param bisectionMethod Initial bisection strategy
      * @param imbalanceRatio Maximum allowed imbalance
      * @param refinementMethod Refinement strategy
@@ -54,6 +56,7 @@ public:
     RecursivePartitioner(const Graph &graph, uint64_t partitions, ClusteringMethod clusteringMethod,
                          uint64_t maxClusteringRounds,
                          uint64_t minClusteringVertices,
+                         double clusteringVertexRatio,
                          BisectionMethod bisectionMethod,
                          double imbalanceRatio,
                          RefinementMethod refinementMethod,
