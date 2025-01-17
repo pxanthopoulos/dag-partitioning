@@ -78,13 +78,15 @@ void Refinement::run() {
         assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
 
         // Attempt one pass of refinement
+        uint64_t initialEdgeCutOld = initialEdgeCut;
         if (!onePassRefinement()) break;  // Stop if no improvement made
+        if ((double) initialEdgeCut >= 0.99 * (double) initialEdgeCutOld) break;
 
         countPasses++;
     }
     // Verify acyclicity maintained
     assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
-    
+
     // Verify that the edge cut is consistent with the bisection info
     assert(checkValidEdgeCut());
 }

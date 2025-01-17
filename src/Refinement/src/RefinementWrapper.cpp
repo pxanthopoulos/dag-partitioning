@@ -36,13 +36,10 @@ bool checkBalance(const Graph &graph, std::vector<uint8_t> &bisectionInfo, doubl
     return true;
 }
 
-void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t edgeCut,
+void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t &edgeCut,
                        RefinementMethod refinementMethod, uint64_t refinementPasses, double upperBoundPartWeight,
                        double lowerBoundPartWeight) {
-    uint64_t countPasses = 0;
-    while (countPasses < 2) {
-        if (checkBalance(graph, bisectionInfo, upperBoundPartWeight, lowerBoundPartWeight, 0)) break;
-        countPasses++;
+    if (!checkBalance(graph, bisectionInfo, upperBoundPartWeight, lowerBoundPartWeight, 0)) {
         BoundaryFM boundaryFM = BoundaryFM(graph, bisectionInfo, edgeCut, 1,
                                            upperBoundPartWeight,
                                            lowerBoundPartWeight);

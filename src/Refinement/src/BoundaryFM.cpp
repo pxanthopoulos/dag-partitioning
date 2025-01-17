@@ -171,7 +171,7 @@ bool BoundaryFM::onePassRefinement() {
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes();
-    bool isBalanced = checkBalance(maxNodeWeight);
+    bool isBalanced = checkBalance(0);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
@@ -264,11 +264,6 @@ bool BoundaryFM::onePassRefinement() {
 
     // If no improvement was found, return false
     if (bestMovePrefix == 0) return false;
-
-    // Check if should keep current solution
-    auto [initialSizeV0, initialSizeV1] = calculatePartSizes();
-    if (initialEdgeCut <= bestEdgeCut && std::max(sizeV0, sizeV1) >= std::max(initialSizeV0, initialSizeV1))
-        return false;
 
     // Apply best move sequence
     for (uint64_t i = 0; i < bestMovePrefix; ++i) {

@@ -8,7 +8,7 @@
 #include "Graph.h"
 #include "Refinement.h"
 
-void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t edgeCut,
+void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t &edgeCut,
                        RefinementMethod refinementMethod, uint64_t refinementPasses, double upperBoundPartWeight,
                        double lowerBoundPartWeight);
 
