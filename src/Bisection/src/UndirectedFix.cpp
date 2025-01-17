@@ -7,9 +7,10 @@
 #include <llvm/ADT/STLExtras.h>
 #include "UndirectedFix.h"
 
-UndirectedFix::UndirectedFix(const Graph &graph, double upperBoundPartWeight,
-                             double lowerBoundPartWeight, bool useMetis, bool useScotch)
-        : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight),
+UndirectedFix::UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
+                             RefinementMethod refinementMethod, uint64_t refinementPasses, bool useMetis,
+                             bool useScotch)
+        : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod, refinementPasses),
           useMetis(useMetis),
           useScotch(useScotch) {
     // Require at least one partitioning method

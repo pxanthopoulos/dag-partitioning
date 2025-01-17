@@ -4,11 +4,11 @@
  */
 
 #include "Bisection.h"
-#include <utility>
 
-Bisection::Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight)
-        : workingGraph(graph), upperBoundPartWeight(upperBoundPartWeight),
-          lowerBoundPartWeight(lowerBoundPartWeight) {}
+Bisection::Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
+                     RefinementMethod refinementMethod, uint64_t refinementPasses)
+        : workingGraph(graph), upperBoundPartWeight(upperBoundPartWeight), lowerBoundPartWeight(lowerBoundPartWeight),
+          refinementMethod(refinementMethod), refinementPasses(refinementPasses) {}
 
 bool Bisection::checkValidBisection(const std::vector<uint8_t> &bisection) const {
     // Check each vertex and its edges for acyclicity violation

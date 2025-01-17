@@ -66,20 +66,20 @@ std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::runBisection(co
     std::unique_ptr<Bisection> bisection;
     switch (bisectionMethod) {
         case BisectionMethod::GGG:
-            bisection = std::make_unique<GreedyDirectedGraphGrowing>(
-                    graph, upperBoundPartWeight, lowerBoundPartWeight);
+            bisection = std::make_unique<GreedyDirectedGraphGrowing>(graph, upperBoundPartWeight, lowerBoundPartWeight,
+                                                                     refinementMethod, refinementPasses);
             break;
         case BisectionMethod::UNDIRMETIS:
-            bisection = std::make_unique<UndirectedFix>(
-                    graph, upperBoundPartWeight, lowerBoundPartWeight, true, false);
+            bisection = std::make_unique<UndirectedFix>(graph, upperBoundPartWeight, lowerBoundPartWeight,
+                                                        refinementMethod, refinementPasses, true, false);
             break;
         case BisectionMethod::UNDIRSCOTCH:
-            bisection = std::make_unique<UndirectedFix>(
-                    graph, upperBoundPartWeight, lowerBoundPartWeight, false, true);
+            bisection = std::make_unique<UndirectedFix>(graph, upperBoundPartWeight, lowerBoundPartWeight,
+                                                        refinementMethod, refinementPasses, false, true);
             break;
         case BisectionMethod::UNDIRBOTH:
-            bisection = std::make_unique<UndirectedFix>(
-                    graph, upperBoundPartWeight, lowerBoundPartWeight, true, true);
+            bisection = std::make_unique<UndirectedFix>(graph, upperBoundPartWeight, lowerBoundPartWeight,
+                                                        refinementMethod, refinementPasses, true, true);
             break;
         default:
             throw std::invalid_argument("Unknown bisection type");

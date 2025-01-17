@@ -10,7 +10,7 @@ target_include_directories(Bisection
 )
 
 target_link_libraries(Bisection
-        PUBLIC Graph
+        PUBLIC Graph Refinement
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotch.a
         ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotcherr.a
         ${CMAKE_BINARY_DIR}/third-party/metis/lib/libmetis.a

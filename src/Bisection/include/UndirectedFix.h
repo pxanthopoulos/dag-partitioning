@@ -124,11 +124,13 @@ public:
      * @param graph Graph to be bisected
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum required partition weight
+     * @param refinementMethod Refinement method
+     * @param refinementPasses Number of refinement passes
      * @param useMetis Whether to try METIS partitioning
      * @param useScotch Whether to try Scotch partitioning
      */
     UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
-                  bool useMetis, bool useScotch);
+                  RefinementMethod refinementMethod, uint64_t refinementPasses, bool useMetis, bool useScotch);
 };
 
 #endif //DAG_PARTITIONING_UNDIRECTEDFIX_H

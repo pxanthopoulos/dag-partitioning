@@ -55,8 +55,11 @@ public:
      * @param graph Graph to be bisected
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum required partition weight
+     * @param refinementMethod Refinement method
+     * @param refinementPasses Number of refinement passes
      */
-    GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
+    GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
+                               RefinementMethod refinementMethod, uint64_t refinementPasses);
 };
 
 #endif //DAG_PARTITIONING_GREEDYDIRECTEDGRAPHGROWING_H

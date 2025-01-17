@@ -11,12 +11,15 @@
 #define DAG_PARTITIONING_BISECTION_H
 
 #include "Graph.h"
+#include "Refinement.h"
 
 class Bisection {
 protected:
     const Graph &workingGraph;                  // Graph to be bisected
     double upperBoundPartWeight;         // Maximum allowed weight for each partition
     double lowerBoundPartWeight;         // Minimum allowed weight for each partition
+    RefinementMethod refinementMethod;   // Refinement method
+    uint64_t refinementPasses;           // Number of refinement passes
 
     /**
      * @brief Verifies that a bisection maintains acyclicity
@@ -46,8 +49,11 @@ protected:
      * @param graph Graph to be bisected
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum required partition weight
+     * @param refinementMethod Refinement method
+     * @param refinementPasses Number of refinement passes
      */
-    Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight);
+    Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
+              RefinementMethod refinementMethod, uint64_t refinementPasses);
 
 public:
     /**

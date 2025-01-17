@@ -10,8 +10,9 @@
 #include <cfloat>
 
 GreedyDirectedGraphGrowing::GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight,
-                                                       double lowerBoundPartWeight)
-        : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight) {}
+                                                       double lowerBoundPartWeight, RefinementMethod refinementMethod,
+                                                       uint64_t refinementPasses)
+        : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod, refinementPasses) {}
 
 /**
  * @brief Comparator for priority queue ordering
