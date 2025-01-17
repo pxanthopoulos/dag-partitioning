@@ -89,24 +89,24 @@ std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::runBisection(co
 }
 
 void MultilevelBisectioner::projectBisection(
-        std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfo,
+        std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfoPair,
         const std::vector<uint64_t> &mapping) {
     // Project partition assignments to finer level using mapping
     std::vector<uint8_t> newBisection(mapping.size());
     for (uint64_t i = 0; i < mapping.size(); ++i) {
-        newBisection[i] = bisectionInfo.first[mapping[i]];
+        newBisection[i] = bisectionInfoPair.first[mapping[i]];
     }
-    bisectionInfo.first = newBisection;
+    bisectionInfoPair.first = newBisection;
 }
 
 void MultilevelBisectioner::runRefinement(
         const Graph &graph,
-        std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfo) const {
+        std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfoPair) const {
     // Calculate partition weight bounds
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight = imbalanceRatio * ((double) graph.totalWeight / 2.0);
 
-    refinementWrapper(graph, bisectionInfo, refinementMethod, refinementPasses, upperBoundPartWeight,
+    refinementWrapper(graph, bisectionInfoPair, refinementMethod, refinementPasses, upperBoundPartWeight,
                       lowerBoundPartWeight);
 }
 
@@ -116,9 +116,9 @@ std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
 
     // If no coarsening occurred, partition original graph and refine it
     if (intermediateClusters.empty()) {
-        std::pair<std::vector<uint8_t>, uint64_t> bisectionInfo = runBisection(workingGraph);
-        runRefinement(workingGraph, bisectionInfo);
-        return bisectionInfo;
+        std::pair<std::vector<uint8_t>, uint64_t> bisectionInfoPair = runBisection(workingGraph);
+        runRefinement(workingGraph, bisectionInfoPair);
+        return bisectionInfoPair;
     }
 
     // Phase 2: Initial Partitioning
@@ -126,27 +126,27 @@ std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
     assert(coarsestGraph.size >= minClusteringVertices &&
            "minimum number of vertices for intermediate graphs violated");
 
-    std::pair<std::vector<uint8_t>, uint64_t> bisectionInfo = runBisection(coarsestGraph);
-    runRefinement(coarsestGraph, bisectionInfo);
+    std::pair<std::vector<uint8_t>, uint64_t> bisectionInfoPair = runBisection(coarsestGraph);
+    runRefinement(coarsestGraph, bisectionInfoPair);
     intermediateClusters.pop();
 
     // Phase 3: Uncoarsening and Refinement
     auto &currentMapping = coarsestMapping;
     while (!intermediateClusters.empty()) {
         // Project to next level (1 level coarser than the current)
-        projectBisection(bisectionInfo, currentMapping);
+        projectBisection(bisectionInfoPair, currentMapping);
         auto [intermediateGraph, intermediateMapping] = intermediateClusters.top();
         assert(intermediateGraph.size >= minClusteringVertices &&
                "minimum number of vertices for intermediate graphs violated");
         currentMapping = intermediateMapping;
 
         // Refine at current level
-        runRefinement(intermediateGraph, bisectionInfo);
+        runRefinement(intermediateGraph, bisectionInfoPair);
         intermediateClusters.pop();
     }
 
     // Final projection and refinement
-    projectBisection(bisectionInfo, currentMapping);
-    runRefinement(workingGraph, bisectionInfo);
-    return bisectionInfo;
+    projectBisection(bisectionInfoPair, currentMapping);
+    runRefinement(workingGraph, bisectionInfoPair);
+    return bisectionInfoPair;
 }
