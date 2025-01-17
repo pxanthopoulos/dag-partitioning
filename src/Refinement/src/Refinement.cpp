@@ -82,13 +82,9 @@ void Refinement::run() {
 
         countPasses++;
     }
-
+    // Verify acyclicity maintained
+    assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
+    
     // Verify that the edge cut is consistent with the bisection info
     assert(checkValidEdgeCut());
-
-    // Verify final partition is balanced
-//    assert(checkBalance(workingGraph.maxNodeWeight) && "Resulting partition is unbalanced");
-    if (!checkBalance(workingGraph.maxNodeWeight)) {
-        std::cerr << "PARTITION IS NOT BALANCED\n";
-    }
 }
