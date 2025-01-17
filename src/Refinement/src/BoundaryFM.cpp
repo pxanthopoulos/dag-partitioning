@@ -166,7 +166,7 @@ bool BoundaryFM::onePassRefinement() {
     std::vector<std::pair<uint64_t, bool>> moveSequence;
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
-    uint64_t bestMovePrefix = 0;
+    uint64_t bestMovePrefix = 0, noImprovement = 0;
     std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
@@ -175,7 +175,8 @@ bool BoundaryFM::onePassRefinement() {
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
-    while (!heapV0.empty() || !heapV1.empty()) {
+    while ((!heapV0.empty() || !heapV1.empty()) && noImprovement <= workingGraph.size / 4 &&
+           moveSequence.size() < workingGraph.size) {
         uint8_t moveFromV0 = 0;
         uint64_t nodeId;
         int64_t gain;
@@ -220,6 +221,7 @@ bool BoundaryFM::onePassRefinement() {
             bestEdgeCut = currentEdgeCut;
             bestMovePrefix = moveSequence.size();
             minMaxPartSize = maxPartSize;
+            noImprovement = 0;
         }
 
         isBalanced = true;
@@ -228,6 +230,8 @@ bool BoundaryFM::onePassRefinement() {
             (double) sizeV1 < lowerBoundPartWeight ||
             (double) sizeV1 > upperBoundPartWeight)
             isBalanced = false;
+
+        if (isBalanced) noImprovement++;
 
         if (moveFromV0 == 1) {
             // Moving from V0 to V1 can make V1 nodes unmovable
