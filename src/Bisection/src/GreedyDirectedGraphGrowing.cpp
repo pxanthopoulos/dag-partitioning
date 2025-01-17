@@ -303,8 +303,10 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::run() cons
     std::pair<std::vector<uint8_t>, uint64_t> bisectionReverse = runOnReverseGraph();
 
     // Verify both solutions maintain acyclicity
-    assert(checkValidBisection(bisectionNormal.first) == true && "bisection on normal graph is invalid");
-    assert(checkValidBisection(bisectionReverse.first) == true && "bisection on reverse graph is invalid");
+    assert(Refinement::checkValidBisection(bisectionNormal.first, workingGraph) == true &&
+           "bisection on normal graph is invalid");
+    assert(Refinement::checkValidBisection(bisectionReverse.first, workingGraph) == true &&
+           "bisection on reverse graph is invalid");
 
     // Return the solution with smaller edge cut
     return (bisectionNormal.second < bisectionReverse.second ?

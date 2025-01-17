@@ -308,8 +308,9 @@ bool BoundaryKL::onePassRefinement() {
     std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
-    auto [sizeV0, sizeV1] = calculatePartSizes();
-    bool isBalanced = checkBalance(maxNodeWeight);
+    auto [sizeV0, sizeV1] = calculatePartSizes(initialBisectionInfo, workingGraph);
+    bool isBalanced = checkBalance(initialBisectionInfo, workingGraph, maxNodeWeight, upperBoundPartWeight,
+                                   lowerBoundPartWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
@@ -382,7 +383,7 @@ bool BoundaryKL::onePassRefinement() {
     if (bestMovePrefix == 0) return false;
 
     // Check if should keep current solution
-    auto [initialSizeV0, initialSizeV1] = calculatePartSizes();
+    auto [initialSizeV0, initialSizeV1] = calculatePartSizes(initialBisectionInfoTemp, workingGraph);
     if (initialEdgeCut <= bestEdgeCut && std::max(sizeV0, sizeV1) >= std::max(initialSizeV0, initialSizeV1))
         return false;
 

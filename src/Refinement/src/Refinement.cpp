@@ -15,35 +15,38 @@ Refinement::Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectio
           upperBoundPartWeight(upperBoundPartWeight),
           lowerBoundPartWeight(lowerBoundPartWeight) {}
 
-bool Refinement::checkValidBisection() const {
+bool Refinement::checkValidBisection(const std::vector<uint8_t> &bisectionInfo, const Graph &graph) {
     // Check each edge to ensure no V1->V0 connections exist
-    for (uint64_t i = 0; i < workingGraph.size; ++i) {
-        const auto &neighbors = workingGraph.adj[i];
+    for (uint64_t i = 0; i < graph.size; ++i) {
+        const auto &neighbors = graph.adj[i];
         for (const auto &[neighborId, _]: neighbors) {
             // If edge from V1 (true) to V0 (false) found, bisection is invalid
-            if (initialBisectionInfo[i] == 1 && initialBisectionInfo[neighborId] == 0)
+            if (bisectionInfo[i] == 1 && bisectionInfo[neighborId] == 0)
                 return false;
         }
     }
     return true;
 }
 
-std::pair<uint64_t, uint64_t> Refinement::calculatePartSizes() const {
+std::pair<uint64_t, uint64_t>
+Refinement::calculatePartSizes(const std::vector<uint8_t> &bisectionInfo, const Graph &graph) {
     uint64_t sizeV0 = 0, sizeV1 = 0;
 
     // Sum weights for each partition
-    for (uint64_t i = 0; i < initialBisectionInfo.size(); ++i) {
-        if (initialBisectionInfo[i] == 0)
-            sizeV0 += workingGraph.nodeWeights[i];
+    for (uint64_t i = 0; i < bisectionInfo.size(); ++i) {
+        if (bisectionInfo[i] == 0)
+            sizeV0 += graph.nodeWeights[i];
         else
-            sizeV1 += workingGraph.nodeWeights[i];
+            sizeV1 += graph.nodeWeights[i];
     }
     return {sizeV0, sizeV1};
 }
 
-bool Refinement::checkBalance(uint64_t maxNodeWeight) const {
+bool
+Refinement::checkBalance(const std::vector<uint8_t> &bisectionInfo, const Graph &graph, uint64_t maxNodeWeight,
+                         double upperBoundPartWeight, double lowerBoundPartWeight) {
     // Get current partition weights
-    auto [sizeV0, sizeV1] = calculatePartSizes();
+    auto [sizeV0, sizeV1] = calculatePartSizes(bisectionInfo, graph);
 
     // Check balance constraints with allowance for heaviest node
     if ((double) sizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
@@ -55,17 +58,18 @@ bool Refinement::checkBalance(uint64_t maxNodeWeight) const {
     return true;
 }
 
-bool Refinement::checkValidEdgeCut() {
+bool
+Refinement::checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo, const Graph &graph, uint64_t currentEdgeCut) {
     uint64_t edgeCut = 0;
     // Check each edge to ensure no V1->V0 connections exist
-    for (uint64_t i = 0; i < workingGraph.size; ++i) {
-        const auto &neighbors = workingGraph.adj[i];
+    for (uint64_t i = 0; i < graph.size; ++i) {
+        const auto &neighbors = graph.adj[i];
         for (const auto &[neighborId, edgeWeight]: neighbors) {
             // If edge from V1 (true) to V0 (false) found, bisection is invalid
-            if (initialBisectionInfo[i] != initialBisectionInfo[neighborId]) edgeCut += edgeWeight;
+            if (bisectionInfo[i] != bisectionInfo[neighborId]) edgeCut += edgeWeight;
         }
     }
-    if (initialEdgeCut != edgeCut) return false;
+    if (currentEdgeCut != edgeCut) return false;
     return true;
 }
 
@@ -75,7 +79,8 @@ void Refinement::run() {
     // Continue refinement until max passes reached or no improvement possible
     while (countPasses < maxNumberOfPasses) {
         // Verify acyclicity maintained
-        assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
+        assert(checkValidBisection(initialBisectionInfo, workingGraph) &&
+               "Bisection is invalid, it has edge from V1 to V0");
 
         // Attempt one pass of refinement
         uint64_t initialEdgeCutOld = initialEdgeCut;
@@ -85,8 +90,9 @@ void Refinement::run() {
         countPasses++;
     }
     // Verify acyclicity maintained
-    assert(checkValidBisection() && "Bisection is invalid, it has edge from V1 to V0");
+    assert(checkValidBisection(initialBisectionInfo, workingGraph) &&
+           "Bisection is invalid, it has edge from V1 to V0");
 
     // Verify that the edge cut is consistent with the bisection info
-    assert(checkValidEdgeCut());
+    assert(checkValidEdgeCut(initialBisectionInfo, workingGraph, initialEdgeCut));
 }
