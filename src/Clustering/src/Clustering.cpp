@@ -86,11 +86,8 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
 }
 
 std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
-    // Handle case where graph is already small enough
+    // Handle case where graph is already small enough (return empty stack)
     if (workingGraph.size <= minVertices) {
-        std::vector<uint64_t> clustering(workingGraph.size);
-        iota(clustering.begin(), clustering.end(), 0);  // Each node in its own cluster
-        intermediateGraphsAndClusters.emplace(workingGraph, clustering);
         return intermediateGraphsAndClusters;
     }
 
