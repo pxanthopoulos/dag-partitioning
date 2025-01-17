@@ -64,22 +64,20 @@ private:
                                          bool checkOutNeighbors) const;
 
     /**
-     * @brief Checks if move maintains or improves partition balance
+     * @brief Checks if move maintains partition balance
      *
-     * If partition is already balanced, move must maintain balance.
-     * If unbalanced, move must improve balance without going too far the other way.
+     * Move must improve balance without going too far the other way.
      *
      * @param moveFromV0 Whether move is from V0->V1 (1) or V1->V0 (0)
      * @param movedNodeId Node being moved
      * @param maxNodeWeight Weight of heaviest node
      * @param sizeV0 Current V0 partition weight
      * @param sizeV1 Current V1 partition weight
-     * @param isBalanced Whether partition is currently balanced
      * @return true if move is acceptable for balance
      */
-    [[nodiscard]] bool isBalanceImprovedOrMaintained(uint8_t moveFromV0, uint64_t movedNodeId,
-                                                     uint64_t maxNodeWeight, uint64_t sizeV0,
-                                                     uint64_t sizeV1, bool isBalanced) const;
+    [[nodiscard]] bool confirmMove(uint8_t moveFromV0, uint64_t movedNodeId,
+                                   uint64_t maxNodeWeight, uint64_t sizeV0,
+                                   uint64_t sizeV1) const;
 
 public:
     /**

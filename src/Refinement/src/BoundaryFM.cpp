@@ -132,9 +132,9 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
     }
 }
 
-bool BoundaryFM::isBalanceImprovedOrMaintained(
+bool BoundaryFM::confirmMove(
         uint8_t moveFromV0, uint64_t movedNodeId, uint64_t maxNodeWeight,
-        uint64_t sizeV0, uint64_t sizeV1, bool isBalanced) const {
+        uint64_t sizeV0, uint64_t sizeV1) const {
 
     // Calculate new partition sizes after proposed move
     uint64_t newSizeV0 = moveFromV0 == 1 ?
@@ -144,26 +144,14 @@ bool BoundaryFM::isBalanceImprovedOrMaintained(
                          sizeV1 + workingGraph.nodeWeights[movedNodeId] :
                          sizeV1 - workingGraph.nodeWeights[movedNodeId];
 
-    // If the partition is already balanced, the move must maintain the balance
-    // If not, the balance will be improved since we are moving from the maximum loaded part
-    // But it must not become reversely unbalanced
-    if (isBalanced) {
-        // Must maintain balance within constraints
-        if ((double) newSizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) newSizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
-            (double) newSizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) newSizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
-            return false;
-        return true;
-    } else {
-        // Moving from larger to smaller partition must not cause reverse imbalance
-        uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
-        uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
-        if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) newSizeOfPreviousSmaller > upperBoundPartWeight + (double) maxNodeWeight)
-            return false;
-        return true;
-    }
+    // Moving from larger to smaller partition must not cause reverse imbalance
+    uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
+    uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
+    if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
+        (double) newSizeOfPreviousSmaller > upperBoundPartWeight + (double) maxNodeWeight)
+        return false;
+    return true;
+
 }
 
 bool BoundaryFM::onePassRefinement() {
@@ -193,48 +181,22 @@ bool BoundaryFM::onePassRefinement() {
         int64_t gain;
         bool isV0Larger = sizeV0 > sizeV1;
 
-        // If the partition is already balanced, move from whichever part (to improve quality)
-        if (isBalanced) {
-            if (heapV0.empty()) {
-                std::tie(gain, nodeId) = heapV1.top();
-                heapV1.pop();
-            } else if (heapV1.empty()) {
-                std::tie(gain, nodeId) = heapV0.top();
-                heapV0.pop();
-                moveFromV0 = 1;
-            } else {
-                auto bestV0 = heapV0.top();
-                auto bestV1 = heapV1.top();
-                if (bestV0.first >= bestV1.first) {
-                    std::tie(gain, nodeId) = bestV0;
-                    heapV0.pop();
-                    moveFromV0 = 1;
-                } else {
-                    std::tie(gain, nodeId) = bestV1;
-                    heapV1.pop();
-                }
-            }
-        }
-            // If the partition is unbalanced, move from the heavier part (to obtain balance)
-        else {
-            if (isV0Larger) {
-                assert(!heapV0.empty() && "Partition is unbalanced but heavy part V0 has no movable nodes");
-                std::tie(gain, nodeId) = heapV0.top();
-                heapV0.pop();
-                moveFromV0 = 1;
-            } else {
-                assert(!heapV1.empty() && "Partition is unbalanced but heavy part V1 has no movable nodes");
-                std::tie(gain, nodeId) = heapV1.top();
-                heapV1.pop();
-                moveFromV0 = 0;
-            }
+        if (isV0Larger) {
+            if (heapV0.empty()) break;
+            std::tie(gain, nodeId) = heapV0.top();
+            heapV0.pop();
+            moveFromV0 = 1;
+        } else {
+            if (heapV1.empty()) break;
+            std::tie(gain, nodeId) = heapV1.top();
+            heapV1.pop();
         }
 
         // If node already moved (or marked move to signify unmovable node), skip
         if (moved[nodeId] == 1)
             continue;
         // If move causes unbalance or does not improve balance, skip
-        if (!isBalanceImprovedOrMaintained(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1, isBalanced))
+        if (!confirmMove(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1))
             continue;
 
         // Tentative move
@@ -261,10 +223,10 @@ bool BoundaryFM::onePassRefinement() {
         }
 
         isBalanced = true;
-        if ((double) sizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) sizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
-            (double) sizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) sizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
+        if ((double) sizeV0 < lowerBoundPartWeight ||
+            (double) sizeV0 > upperBoundPartWeight ||
+            (double) sizeV1 < lowerBoundPartWeight ||
+            (double) sizeV1 > upperBoundPartWeight)
             isBalanced = false;
 
         if (moveFromV0 == 1) {
