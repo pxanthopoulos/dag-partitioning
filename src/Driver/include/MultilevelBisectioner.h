@@ -12,6 +12,7 @@
 #define DAG_PARTITIONING_MULTILEVELBISECTIONER_H
 
 #include <stack>
+#include "Refinement.h"
 #include "Graph.h"
 
 /**
@@ -31,15 +32,6 @@ enum class BisectionMethod {
     UNDIRMETIS,     // Undirected METIS + fix acyclicity (Section 4.2.2)
     UNDIRSCOTCH,    // Undirected Scotch + fix acyclicity (Section 4.2.2)
     UNDIRBOTH       // Try both METIS and Scotch
-};
-
-/**
- * @brief Available refinement methods for refinement phase
- */
-enum class RefinementMethod {
-    BOUNDARYFM,             // Boundary FM adaptation (Section 4.3)
-    BOUNDARYKL,             // Boundary KL adaptation
-    MIXED                   // Mixed (1 pass of KL followed by one pass of FM)
 };
 
 class MultilevelBisectioner {

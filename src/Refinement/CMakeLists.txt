@@ -3,6 +3,7 @@ add_library(Refinement OBJECT
         src/BoundaryFM.cpp
         src/BoundaryKL.cpp
         src/Mixed.cpp
+        src/RefinementWrapper.cpp
 )
 
 target_include_directories(Refinement

@@ -9,9 +9,7 @@
 #include "ClusteringHybrid.h"
 #include "GreedyDirectedGraphGrowing.h"
 #include "UndirectedFix.h"
-#include "BoundaryFM.h"
-#include "BoundaryKL.h"
-#include "Mixed.h"
+#include "RefinementWrapper.h"
 #include <utility>
 
 MultilevelBisectioner::MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
@@ -108,28 +106,8 @@ void MultilevelBisectioner::runRefinement(
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight = imbalanceRatio * ((double) graph.totalWeight / 2.0);
 
-    // Create appropriate refinement algorithm
-    std::unique_ptr<Refinement> refinement;
-    switch (refinementMethod) {
-        case RefinementMethod::BOUNDARYFM:
-            refinement = std::make_unique<BoundaryFM>(
-                    graph, bisectionInfo.first, bisectionInfo.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
-            break;
-        case RefinementMethod::BOUNDARYKL:
-            refinement = std::make_unique<BoundaryKL>(
-                    graph, bisectionInfo.first, bisectionInfo.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
-            break;
-        case RefinementMethod::MIXED:
-            refinement = std::make_unique<Mixed>(
-                    graph, bisectionInfo.first, bisectionInfo.second,
-                    refinementPasses, upperBoundPartWeight, lowerBoundPartWeight);
-            break;
-        default:
-            throw std::invalid_argument("Unknown refinement type");
-    }
-    refinement->run();
+    refinementWrapper(graph, bisectionInfo, refinementMethod, refinementPasses, upperBoundPartWeight,
+                      lowerBoundPartWeight);
 }
 
 std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
