@@ -19,7 +19,8 @@ void
 printResults(const std::vector<uint64_t> &partition, const Graph &graph, uint64_t cutSize, const std::string &methodStr,
              uint64_t duration, uint64_t partitions) {
     uint64_t maxPartSize = calculateMaxPartSize(partition, graph, partitions);
-    double imbalance = ((double) maxPartSize / (double) graph.totalWeight) * 100;
+    double imbalance = std::abs(
+            ((double) maxPartSize / (double) graph.totalWeight) * 100 - ((double) 100 / (double) partitions));
     imbalance = round(imbalance * 10) / 10;
     std::cout << methodStr << "," << cutSize << "," << imbalance << "," << duration << "\n";
 }
@@ -74,7 +75,7 @@ int main(int argc, char **argv) {
     const uint64_t maxLevel = 20;
     const uint64_t minSize = 50 * partitions;
     const double vertRatio = 0.9;
-    const double maxImbalance = 1.01;
+    const double maxImbalance = 1.1;
     const uint64_t maxPasses = 10;
 
     struct ThreadResult {
