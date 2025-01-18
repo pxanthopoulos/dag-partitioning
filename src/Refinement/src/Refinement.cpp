@@ -59,6 +59,19 @@ Refinement::checkBalance(const std::vector<uint8_t> &bisectionInfo, const Graph 
 }
 
 bool
+Refinement::checkBalance(uint64_t sizeV0, uint64_t sizeV1, uint64_t maxNodeWeight, double upperBoundPartWeight,
+                         double lowerBoundPartWeight) {
+    // Check balance constraints with allowance for heaviest node
+    if ((double) sizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
+        (double) sizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
+        (double) sizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
+        (double) sizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
+        return false;
+
+    return true;
+}
+
+bool
 Refinement::checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo, const Graph &graph, uint64_t currentEdgeCut) {
     uint64_t edgeCut = 0;
     // Check each edge to ensure no V1->V0 connections exist

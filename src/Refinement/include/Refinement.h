@@ -88,6 +88,23 @@ public:
                  double upperBoundPartWeight, double lowerBoundPartWeight);
 
     /**
+     * @brief Checks if partition weights are within balance constraints
+     *
+     * Allows for some imbalance up to the weight of the heaviest node,
+     * as moving even one node could be necessary to maintain acyclicity.
+     *
+     * @param sizeV0 Size of V0 part
+     * @param sizeV1 Size of V1 part
+     * @param maxNodeWeight Weight of heaviest node in graph
+     * @param upperBoundPartWeight Upper bound for partition total weight
+     * @param lowerBoundPartWeight Lower bound for partition total weight
+     * @return true if partition weights are valid
+     */
+    [[nodiscard]] static bool
+    checkBalance(uint64_t sizeV0, uint64_t sizeV1, uint64_t maxNodeWeight, double upperBoundPartWeight,
+                 double lowerBoundPartWeight);
+
+    /**
      * @brief Checks if the computed edge cut is consistent with the bisection info
      *
      * @param bisectionInfo Bisection information

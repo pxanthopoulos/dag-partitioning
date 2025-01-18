@@ -171,10 +171,7 @@ BoundaryKL::findBestMovablePairBalanced(std::vector<std::pair<int64_t, uint64_t>
             uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
             uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
             uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
-            if ((double) newSizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
-                (double) newSizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
-                (double) newSizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
-                (double) newSizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
+            if (!checkBalance(newSizeV0, newSizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight))
                 continue;
 
             // Check if nodeIdV0 has edge to nodeIdV1. If so, they cannot be swapped.
@@ -309,8 +306,7 @@ bool BoundaryKL::onePassRefinement() {
 
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes(initialBisectionInfo, workingGraph);
-    bool isBalanced = checkBalance(initialBisectionInfo, workingGraph, maxNodeWeight, upperBoundPartWeight,
-                                   lowerBoundPartWeight);
+    bool isBalanced = checkBalance(sizeV0, sizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
@@ -339,12 +335,7 @@ bool BoundaryKL::onePassRefinement() {
             minMaxPartSize = maxPartSize;
         }
 
-        isBalanced = true;
-        if ((double) sizeV0 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) sizeV0 > upperBoundPartWeight + (double) maxNodeWeight ||
-            (double) sizeV1 < lowerBoundPartWeight - (double) maxNodeWeight ||
-            (double) sizeV1 > upperBoundPartWeight + (double) maxNodeWeight)
-            isBalanced = false;
+        isBalanced = checkBalance(sizeV0, sizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight);
 
 
         // Moving from V0 to V1 can make V1 nodes unmovable
