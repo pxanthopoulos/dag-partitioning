@@ -74,7 +74,7 @@ private:
      * @param sizeV1 Current V1 partition weight
      * @return true if move is acceptable for balance
      */
-    [[nodiscard]] bool confirmMove(uint8_t moveFromV0, uint64_t maxNodeWeight, uint64_t sizeV0, uint64_t sizeV1) const;
+    [[nodiscard]] bool confirmMove(uint8_t moveFromV0, uint64_t movedNodeId, uint64_t sizeV0, uint64_t sizeV1) const;
 
 public:
     /**
