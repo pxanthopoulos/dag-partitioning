@@ -132,9 +132,7 @@ void BoundaryFM::insertMovableNeighborsIntoHeaps(
     }
 }
 
-bool BoundaryFM::confirmMove(
-        uint8_t moveFromV0, uint64_t movedNodeId, uint64_t maxNodeWeight,
-        uint64_t sizeV0, uint64_t sizeV1) const {
+bool BoundaryFM::confirmMove(uint8_t moveFromV0, uint64_t movedNodeId, uint64_t sizeV0, uint64_t sizeV1) const {
 
     // Calculate new partition sizes after proposed move
     uint64_t newSizeV0 = moveFromV0 == 1 ?
@@ -147,8 +145,8 @@ bool BoundaryFM::confirmMove(
     // Moving from larger to smaller partition must not cause reverse imbalance
     uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
     uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
-    if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
-        (double) newSizeOfPreviousSmaller > upperBoundPartWeight + (double) maxNodeWeight)
+    if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight ||
+        (double) newSizeOfPreviousSmaller > upperBoundPartWeight)
         return false;
     return true;
 
@@ -169,7 +167,6 @@ bool BoundaryFM::onePassRefinement() {
     uint64_t bestMovePrefix = 0, noImprovement = 0;
     std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes(initialBisectionInfo, workingGraph);
     bool isBalanced = checkBalance(sizeV0, sizeV1, 0, upperBoundPartWeight, lowerBoundPartWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
@@ -198,7 +195,7 @@ bool BoundaryFM::onePassRefinement() {
             continue;
 
         // If move causes unbalance or does not improve balance, skip
-        if (!confirmMove(moveFromV0, nodeId, maxNodeWeight, sizeV0, sizeV1))
+        if (!confirmMove(moveFromV0, nodeId, sizeV0, sizeV1))
             continue;
 
         // Tentative move
