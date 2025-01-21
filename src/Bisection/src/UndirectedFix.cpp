@@ -321,6 +321,7 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     auto [bestBisection, bestEdgeCut] = bisections[selectBestResult(results)];
 
     assert(Refinement::checkValidBisection(bestBisection, workingGraph) && "Best bisection is cyclic");
+    assert(Refinement::checkValidEdgeCut(bestBisection, workingGraph, bestEdgeCut) && "Computed edge cut is invalid");
     return {bestBisection, bestEdgeCut};
 }
 
@@ -404,6 +405,7 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     auto [bestBisection, bestEdgeCut] = bisections[selectBestResult(results)];
 
     assert(Refinement::checkValidBisection(bestBisection, workingGraph) && "Best bisection is cyclic");
+    assert(Refinement::checkValidEdgeCut(bestBisection, workingGraph, bestEdgeCut) && "Computed edge cut is invalid");
     return {bestBisection, bestEdgeCut};
 }
 

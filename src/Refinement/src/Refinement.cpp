@@ -94,6 +94,8 @@ void Refinement::run() {
         // Verify acyclicity maintained
         assert(checkValidBisection(initialBisectionInfo, workingGraph) &&
                "Bisection is invalid, it has edge from V1 to V0");
+        // Verify that the edge cut is consistent with the bisection info
+        assert(checkValidEdgeCut(initialBisectionInfo, workingGraph, initialEdgeCut) && "Computed edge cut is invalid");
 
         // Attempt one pass of refinement
         uint64_t initialEdgeCutOld = initialEdgeCut;
@@ -105,7 +107,6 @@ void Refinement::run() {
     // Verify acyclicity maintained
     assert(checkValidBisection(initialBisectionInfo, workingGraph) &&
            "Bisection is invalid, it has edge from V1 to V0");
-
     // Verify that the edge cut is consistent with the bisection info
-    assert(checkValidEdgeCut(initialBisectionInfo, workingGraph, initialEdgeCut));
+    assert(checkValidEdgeCut(initialBisectionInfo, workingGraph, initialEdgeCut) && "Computed edge cut is invalid");
 }
