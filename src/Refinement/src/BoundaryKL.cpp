@@ -170,8 +170,7 @@ BoundaryKL::findBestMovablePairBalanced(std::vector<std::pair<int64_t, uint64_t>
             // If this move breaks the balance, skip it
             uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
             uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
-            uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
-            if (!checkBalance(newSizeV0, newSizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight))
+            if (!checkBalance(newSizeV0, newSizeV1, 0, upperBoundPartWeight, lowerBoundPartWeight))
                 continue;
 
             // Check if nodeIdV0 has edge to nodeIdV1. If so, they cannot be swapped.
@@ -239,19 +238,18 @@ BoundaryKL::findBestMovablePairUnbalanced(std::vector<std::pair<int64_t, uint64_
             }
 
             // Check if the move causes reverse imbalance
-            uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0] + workingGraph.nodeWeights[nodeIdV1];
-            uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1] + workingGraph.nodeWeights[nodeIdV0];
+            uint64_t newSizeV0 = sizeV0 - workingGraph.nodeWeights[nodeIdV0];
+            uint64_t newSizeV1 = sizeV1 - workingGraph.nodeWeights[nodeIdV1];
             uint64_t newSizeOfPreviousBigger = sizeV0 > sizeV1 ? newSizeV0 : newSizeV1;
             uint64_t newSizeOfPreviousSmaller = sizeV0 > sizeV1 ? newSizeV1 : newSizeV0;
-            uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
-            if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight - (double) maxNodeWeight ||
-                (double) newSizeOfPreviousSmaller > upperBoundPartWeight + (double) maxNodeWeight)
+            if ((double) newSizeOfPreviousBigger < lowerBoundPartWeight ||
+                (double) newSizeOfPreviousSmaller > upperBoundPartWeight)
                 continue;
 
-            // Pair is swappable AND improves balance more than the rest
             double diffFromPerfectBalanceTemp = std::abs(
                     50.0 - (((double) newSizeV0 * 100.0) / ((double) (newSizeV0 + newSizeV1))));
             if (diffFromPerfectBalanceTemp < diffFromPerfectBalance) {
+                // Pair is swappable AND improves balance more than the rest
                 found = true;
                 bestNodeV0 = nodeIdV0;
                 bestNodeV1 = nodeIdV1;
@@ -301,16 +299,16 @@ bool BoundaryKL::onePassRefinement() {
     std::vector<std::pair<uint64_t, uint64_t>> moveSequence;
     uint64_t currentEdgeCut = initialEdgeCut;
     uint64_t bestEdgeCut = initialEdgeCut;
-    uint64_t bestMovePrefix = 0;
+    uint64_t bestMovePrefix = 0, noImprovement = 0;
     std::vector<uint8_t> initialBisectionInfoTemp = initialBisectionInfo;
 
-    uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
     auto [sizeV0, sizeV1] = calculatePartSizes(initialBisectionInfo, workingGraph);
-    bool isBalanced = checkBalance(sizeV0, sizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight);
+    bool isBalanced = checkBalance(sizeV0, sizeV1, 0, upperBoundPartWeight, lowerBoundPartWeight);
     uint64_t minMaxPartSize = std::max(sizeV0, sizeV1);
 
     // Main refinement loop - make moves until no more vertices can move
-    while (!vecV0.empty() && !vecV1.empty()) {
+    while (!vecV0.empty() && !vecV1.empty() && noImprovement <= workingGraph.size / 4 &&
+           moveSequence.size() < workingGraph.size) {
         auto [found, nodeIdV0, nodeIdV1, gain] = isBalanced
                                                  ? findBestMovablePairBalanced(vecV0, vecV1, moved, sizeV0, sizeV1)
                                                  : findBestMovablePairUnbalanced(vecV0, vecV1, moved, sizeV0, sizeV1);
@@ -328,15 +326,15 @@ bool BoundaryKL::onePassRefinement() {
 
         // If partition is unbalanced, always include this move to the sequence
         // If balanced, include move if it improves edge cut or improves balance quality (without worsening edge cut)
-        if (!isBalanced || currentEdgeCut < bestEdgeCut ||
-            (currentEdgeCut == bestEdgeCut && maxPartSize < minMaxPartSize)) {
+        if (currentEdgeCut < bestEdgeCut || (currentEdgeCut == bestEdgeCut && maxPartSize < minMaxPartSize)) {
             bestEdgeCut = currentEdgeCut;
             bestMovePrefix = moveSequence.size();
             minMaxPartSize = maxPartSize;
+            noImprovement = 0;
         }
 
-        isBalanced = checkBalance(sizeV0, sizeV1, maxNodeWeight, upperBoundPartWeight, lowerBoundPartWeight);
-
+        isBalanced = checkBalance(sizeV0, sizeV1, 0, upperBoundPartWeight, lowerBoundPartWeight);
+        noImprovement++;
 
         // Moving from V0 to V1 can make V1 nodes unmovable
         // If an out-neighbor of the moved nodeIdV0 is in V1 and is not yet moved,
@@ -351,8 +349,7 @@ bool BoundaryKL::onePassRefinement() {
         // If an in-neighbor of the moved nodeIdV0 is in V0 and is not already movable,
         // (if it has already been marked movable by the initial check, we don't recheck)
         // Then the neighbor might become movable if its only out-neighbor in V0 was the moved nodeIdV0
-        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, vecV0, vecV1, inList, nodeIdV0,
-                                        false);
+        insertMovableNeighborsIntoLists(initialBisectionInfoTemp, vecV0, vecV1, inList, nodeIdV0, false);
 
         // Moving from V1 to V0 can make V0 nodes unmovable
         // If an in-neighbor of the moved nodeIdV1 is in V0 and is not yet moved,
@@ -372,11 +369,6 @@ bool BoundaryKL::onePassRefinement() {
 
     // If no improvement was found, return false
     if (bestMovePrefix == 0) return false;
-
-    // Check if should keep current solution
-    auto [initialSizeV0, initialSizeV1] = calculatePartSizes(initialBisectionInfoTemp, workingGraph);
-    if (initialEdgeCut <= bestEdgeCut && std::max(sizeV0, sizeV1) >= std::max(initialSizeV0, initialSizeV1))
-        return false;
 
     // Apply best move sequence
     for (uint64_t i = 0; i < bestMovePrefix; ++i) {
