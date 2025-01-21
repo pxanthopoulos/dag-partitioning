@@ -4,6 +4,7 @@
  */
 
 #include "GreedyDirectedGraphGrowing.h"
+#include "RefinementWrapper.h"
 #include <queue>
 #include <random>
 #include <algorithm>
@@ -34,14 +35,14 @@ struct HeapComparator {
 };
 
 std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNormalGraph() const {
-    // Initialize all vertices in V1
-    std::vector<uint8_t> bisection(workingGraph.size, 1);
-    std::vector<uint8_t> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
-    auto bestImbalanceDiff = DBL_MAX;
+    auto bestImbalance = DBL_MAX;
     uint64_t currentEdgeCut = 0;
     uint64_t partWeightV0 = 0;
     uint64_t partWeightV1 = workingGraph.totalWeight;
+    uint64_t bestMovePrefix = 0;
+    std::vector<uint64_t> moveSequence;
+    bool isValid = false;
 
     // Data structures for two-phase algorithm
     std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
@@ -59,10 +60,10 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNorma
             sources.emplace_back(i);
         }
         // Compute weighted in-degree and out-degree
-        for (const auto &[reverseNeighborId, edgeWeight]: workingGraph.revAdj[i])
-            weightedInDegree[i] += edgeWeight;
-        for (const auto &[neighborId, edgeWeight]: workingGraph.adj[i])
+        for (const auto &[neighborId, edgeWeight]: workingGraph.adj[i]) {
+            weightedInDegree[neighborId] += edgeWeight;
             weightedOutDegree[i] += edgeWeight;
+        }
     }
 
     // Randomly order source vertices
@@ -85,11 +86,11 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNorma
         maxHeapPhase1.pop();
 
         // Move node to V0
-        bisection[nodeId] = 0;
         currentEdgeCut += weightedOutDegree[nodeId];
         currentEdgeCut -= weightedInDegree[nodeId];
         partWeightV0 += workingGraph.nodeWeights[nodeId];
         partWeightV1 -= workingGraph.nodeWeights[nodeId];
+        moveSequence.emplace_back(nodeId);
 
         // Check neighbors for new movable vertices
         for (const auto &[neighborId, edgeWeight]: workingGraph.adj[nodeId]) {
@@ -101,17 +102,29 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNorma
                                       neighborId);
         }
 
-        // Update best solution if current is better
+        double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
+                                       (double) partWeightV1 / upperBoundPartWeight);
+
+        // If no moves yet and balance is improved, update best solution
+        if (bestMovePrefix == 0 && maxImbalance < bestImbalance) {
+            bestEdgeCut = currentEdgeCut;
+            bestImbalance = maxImbalance;
+            bestMovePrefix = moveSequence.size();
+        }
+
+        // If balance is obtained
         if (((double) partWeightV0 < upperBoundPartWeight + (double) maxNodeWeight) &&
             ((double) partWeightV1 < upperBoundPartWeight + (double) maxNodeWeight)) {
-            double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
-                                           (double) partWeightV1 / upperBoundPartWeight);
-
-            if (currentEdgeCut < bestEdgeCut ||
-                (currentEdgeCut == bestEdgeCut && std::abs(maxImbalance - 1.0) < bestImbalanceDiff)) {
+            // If balance is obtained for the first time
+            // Or edge cut is improved
+            // Or edge cut is the same but balance is improved
+            if (!isValid ||
+                (currentEdgeCut < bestEdgeCut ||
+                 (currentEdgeCut == bestEdgeCut && maxImbalance < bestImbalance))) {
                 bestEdgeCut = currentEdgeCut;
-                bestImbalanceDiff = maxImbalance;
-                bestBisection = bisection;
+                bestImbalance = maxImbalance;
+                isValid = true;
+                bestMovePrefix = moveSequence.size();
             }
         }
     }
@@ -140,11 +153,11 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNorma
         maxHeapPhase2.pop();
 
         // Move node to V0
-        bisection[nodeId] = 0;
         currentEdgeCut += weightedOutDegree[nodeId];
         currentEdgeCut -= weightedInDegree[nodeId];
         partWeightV0 += workingGraph.nodeWeights[nodeId];
         partWeightV1 -= workingGraph.nodeWeights[nodeId];
+        moveSequence.emplace_back(nodeId);
 
         // Check neighbors for new movable vertices
         for (const auto &[neighborId, edgeWeight]: workingGraph.adj[nodeId]) {
@@ -156,22 +169,33 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnNorma
                                       neighborId);
         }
 
-        // Update best solution if current is better
+        // If balance is obtained
         if (((double) partWeightV0 < upperBoundPartWeight + (double) maxNodeWeight) &&
             ((double) partWeightV1 < upperBoundPartWeight + (double) maxNodeWeight)) {
             double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
                                            (double) partWeightV1 / upperBoundPartWeight);
 
-            if (currentEdgeCut < bestEdgeCut ||
-                (currentEdgeCut == bestEdgeCut && std::abs(maxImbalance - 1.0) < bestImbalanceDiff)) {
+            // If balance is obtained for the first time
+            // Or edge cut is improved
+            // Or edge cut is the same but balance is improved
+            if (!isValid ||
+                (currentEdgeCut < bestEdgeCut ||
+                 (currentEdgeCut == bestEdgeCut && maxImbalance < bestImbalance))) {
                 bestEdgeCut = currentEdgeCut;
-                bestImbalanceDiff = maxImbalance;
-                bestBisection = bisection;
+                bestImbalance = maxImbalance;
+                isValid = true;
+                bestMovePrefix = moveSequence.size();
             }
         }
     }
 
-    return {bestBisection, bestEdgeCut};
+    assert(bestMovePrefix > 0 && "No possible moves found");
+
+    // Initialize all nodes in V1
+    std::vector<uint8_t> bisection(workingGraph.size, 1);
+    for (uint64_t i = 0; i < bestMovePrefix; ++i) bisection[moveSequence[i]] = 0;
+
+    return {bisection, bestEdgeCut};
 }
 
 std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnReverseGraph() const {
@@ -180,13 +204,15 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
     // 2. Uses out-degree instead of in-degree
     // 3. Moves vertices to V1
     // Structure and logic mirrors runOnNormalGraph with reversed directions
-    std::vector<uint8_t> bisection(workingGraph.size, 0);
-    std::vector<uint8_t> bestBisection;
     uint64_t bestEdgeCut = UINT64_MAX;
-    auto bestImbalanceDiff = DBL_MAX;
+    auto bestImbalance = DBL_MAX;
     uint64_t currentEdgeCut = 0;
     uint64_t partWeightV0 = workingGraph.totalWeight;
     uint64_t partWeightV1 = 0;
+    uint64_t bestMovePrefix = 0;
+    std::vector<uint64_t> moveSequence;
+    bool isValid = false;
+
     std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
             std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>,
             HeapComparator> maxHeapPhase1;
@@ -195,15 +221,17 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
+
     for (uint64_t i = 0; i < workingGraph.size; ++i) {
         localOutDegree[i] = workingGraph.adj[i].size();
         if (localOutDegree[i] == 0) {
             sinks.emplace_back(i);
         }
-        const auto &reverseNeighbors = workingGraph.revAdj[i];
-        for (const auto &[reverseNeighborId, edgeWeight]: reverseNeighbors) weightedInDegree[i] += edgeWeight;
-        const auto &neighbors = workingGraph.adj[i];
-        for (const auto &[neighborId, edgeWeight]: neighbors) weightedOutDegree[i] += edgeWeight;
+
+        for (const auto &[neighborId, edgeWeight]: workingGraph.adj[i]) {
+            weightedInDegree[neighborId] += edgeWeight;
+            weightedOutDegree[i] += edgeWeight;
+        }
     }
 
     std::random_device rd;
@@ -215,35 +243,45 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
         maxHeapPhase1.emplace(weightedOutDegree[sink], distancesFromFirstMovedNode[sink], sink);
     }
 
-    while (!maxHeapPhase1.empty() && ((double) partWeightV1 <= 0.9 * (upperBoundPartWeight + (double) maxNodeWeight)) &&
+    while (!maxHeapPhase1.empty() &&
+           ((double) partWeightV1 <= 0.9 * (upperBoundPartWeight + (double) maxNodeWeight)) &&
            ((double) partWeightV0 >= 1.1 * (lowerBoundPartWeight - (double) maxNodeWeight))) {
         const auto [_, distance, nodeId] = maxHeapPhase1.top();
         maxHeapPhase1.pop();
 
-        bisection[nodeId] = 1;
         currentEdgeCut -= weightedOutDegree[nodeId];
         currentEdgeCut += weightedInDegree[nodeId];
         partWeightV0 -= workingGraph.nodeWeights[nodeId];
         partWeightV1 += workingGraph.nodeWeights[nodeId];
+        moveSequence.emplace_back(nodeId);
 
         for (const auto &[neighborId, edgeWeight]: workingGraph.revAdj[nodeId]) {
             localOutDegree[neighborId]--;
             assert(localOutDegree[neighborId] >= 0 && "out-degree of node became negative");
             if (localOutDegree[neighborId] == 0)
-                maxHeapPhase1.emplace(weightedOutDegree[neighborId], distancesFromFirstMovedNode[neighborId],
+                maxHeapPhase1.emplace(weightedOutDegree[neighborId],
+                                      distancesFromFirstMovedNode[neighborId],
                                       neighborId);
+        }
+
+        double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
+                                       (double) partWeightV1 / upperBoundPartWeight);
+
+        if (bestMovePrefix == 0 && maxImbalance < bestImbalance) {
+            bestEdgeCut = currentEdgeCut;
+            bestImbalance = maxImbalance;
+            bestMovePrefix = moveSequence.size();
         }
 
         if (((double) partWeightV0 < upperBoundPartWeight + (double) maxNodeWeight) &&
             ((double) partWeightV1 < upperBoundPartWeight + (double) maxNodeWeight)) {
-            double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
-                                           (double) partWeightV1 / upperBoundPartWeight);
-
-            if (currentEdgeCut < bestEdgeCut ||
-                (currentEdgeCut == bestEdgeCut && std::abs(maxImbalance - 1.0) < bestImbalanceDiff)) {
+            if (!isValid ||
+                (currentEdgeCut < bestEdgeCut ||
+                 (currentEdgeCut == bestEdgeCut && maxImbalance < bestImbalance))) {
                 bestEdgeCut = currentEdgeCut;
-                bestImbalanceDiff = maxImbalance;
-                bestBisection = bisection;
+                bestImbalance = maxImbalance;
+                isValid = true;
+                bestMovePrefix = moveSequence.size();
             }
         }
     }
@@ -256,20 +294,22 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
     }
     std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>> maxHeapPhase2;
     for (uint64_t nodeId: readyNodes) {
-        maxHeapPhase2.emplace(weightedOutDegree[nodeId] - weightedInDegree[nodeId], workingGraph.nodeWeights[nodeId],
+        maxHeapPhase2.emplace(weightedOutDegree[nodeId] - weightedInDegree[nodeId],
+                              workingGraph.nodeWeights[nodeId],
                               nodeId);
     }
 
-    while (!maxHeapPhase2.empty() && ((double) partWeightV1 <= upperBoundPartWeight + (double) maxNodeWeight) &&
+    while (!maxHeapPhase2.empty() &&
+           ((double) partWeightV1 <= upperBoundPartWeight + (double) maxNodeWeight) &&
            ((double) partWeightV0 >= lowerBoundPartWeight - (double) maxNodeWeight)) {
         const auto [_, distance, nodeId] = maxHeapPhase2.top();
         maxHeapPhase2.pop();
 
-        bisection[nodeId] = 1;
         currentEdgeCut -= weightedOutDegree[nodeId];
         currentEdgeCut += weightedInDegree[nodeId];
         partWeightV0 -= workingGraph.nodeWeights[nodeId];
         partWeightV1 += workingGraph.nodeWeights[nodeId];
+        moveSequence.emplace_back(nodeId);
 
         for (const auto &[neighborId, edgeWeight]: workingGraph.revAdj[nodeId]) {
             localOutDegree[neighborId]--;
@@ -285,22 +325,48 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::runOnRever
             double maxImbalance = std::max((double) partWeightV0 / upperBoundPartWeight,
                                            (double) partWeightV1 / upperBoundPartWeight);
 
-            if (currentEdgeCut < bestEdgeCut ||
-                (currentEdgeCut == bestEdgeCut && std::abs(maxImbalance - 1.0) < bestImbalanceDiff)) {
+            if (!isValid ||
+                (currentEdgeCut < bestEdgeCut ||
+                 (currentEdgeCut == bestEdgeCut && maxImbalance < bestImbalance))) {
                 bestEdgeCut = currentEdgeCut;
-                bestImbalanceDiff = maxImbalance;
-                bestBisection = bisection;
+                bestImbalance = maxImbalance;
+                isValid = true;
+                bestMovePrefix = moveSequence.size();
             }
         }
     }
 
-    return {bestBisection, bestEdgeCut};
+    assert(bestMovePrefix > 0 && "No possible moves found");
+
+    // Initialize all nodes in V1
+    std::vector<uint8_t> bisection(workingGraph.size, 0);
+    for (uint64_t i = 0; i < bestMovePrefix; ++i) bisection[moveSequence[i]] = 1;
+
+    return {bisection, bestEdgeCut};
 }
 
 std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::run() const {
+    std::vector<std::pair<std::vector<uint8_t>, uint64_t>> bisections;
+    std::vector<std::tuple<uint64_t, uint8_t, double>> results;
+
     // Run both normal and reverse algorithms
     std::pair<std::vector<uint8_t>, uint64_t> bisectionNormal = runOnNormalGraph();
+    refinementWrapper(workingGraph, bisectionNormal.first, bisectionNormal.second, refinementMethod, refinementPasses,
+                      upperBoundPartWeight, lowerBoundPartWeight);
+    uint8_t isZero = (bisectionNormal.second == 0) ? 0 : 1;
+    auto [sizeV0, sizeV1] = Refinement::calculatePartSizes(bisectionNormal.first, workingGraph);
+    double imbalance = (((double) std::max(sizeV0, sizeV1) - upperBoundPartWeight) / upperBoundPartWeight) * 100;
+    results.emplace_back(bisectionNormal.second, isZero, imbalance);
+    bisections.emplace_back(bisectionNormal);
+
     std::pair<std::vector<uint8_t>, uint64_t> bisectionReverse = runOnReverseGraph();
+    refinementWrapper(workingGraph, bisectionReverse.first, bisectionReverse.second, refinementMethod, refinementPasses,
+                      upperBoundPartWeight, lowerBoundPartWeight);
+    isZero = (bisectionReverse.second == 0) ? 0 : 1;
+    std::tie(sizeV0, sizeV1) = Refinement::calculatePartSizes(bisectionReverse.first, workingGraph);
+    imbalance = (((double) std::max(sizeV0, sizeV1) - upperBoundPartWeight) / upperBoundPartWeight) * 100;
+    results.emplace_back(bisectionReverse.second, isZero, imbalance);
+    bisections.emplace_back(bisectionReverse);
 
     // Verify both solutions maintain acyclicity and have valid edge cuts
     assert(Refinement::checkValidBisection(bisectionNormal.first, workingGraph) &&
@@ -312,7 +378,5 @@ std::pair<std::vector<uint8_t>, uint64_t> GreedyDirectedGraphGrowing::run() cons
     assert(Refinement::checkValidEdgeCut(bisectionReverse.first, workingGraph, bisectionReverse.second) &&
            "Edge cut on reverse graph is invalid");
 
-    // Return the solution with smaller edge cut
-    return (bisectionNormal.second < bisectionReverse.second ?
-            std::move(bisectionNormal) : std::move(bisectionReverse));
+    return bisections[selectBestResult(results)];
 }
