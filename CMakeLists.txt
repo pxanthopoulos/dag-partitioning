@@ -11,7 +11,7 @@ find_library(GKLIB_LIBRARY GKlib HINTS "${CMAKE_BINARY_DIR}/third_party/gklib/li
 find_path(SCOTCH_INCLUDE_DIR scotch.h HINTS "${CMAKE_BINARY_DIR}/third_party/scotch/include" REQUIRED)
 find_path(METIS_INCLUDE_DIR metis.h HINTS "${CMAKE_BINARY_DIR}/third_party/metis/include" REQUIRED)
 
-include_directories(${SCOTCH_INCLUDE_DIR})
 include_directories(${METIS_INCLUDE_DIR})
+include_directories(${SCOTCH_INCLUDE_DIR})
 
 add_subdirectory(src)
