@@ -23,3 +23,9 @@ target_include_directories(dag_partitioning
         ${CMAKE_CURRENT_SOURCE_DIR}/Driver/include
         ${CMAKE_CURRENT_SOURCE_DIR}/Refinement/include
 )
+
+install(TARGETS dag_partitioning
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+)
