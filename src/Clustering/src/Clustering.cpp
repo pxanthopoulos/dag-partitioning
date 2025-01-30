@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <cassert>
 
 // Constructor initializes the working graph and clustering parameters
 Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio) :

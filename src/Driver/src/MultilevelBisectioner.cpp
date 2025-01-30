@@ -11,6 +11,9 @@
 #include "UndirectedFix.h"
 #include "RefinementWrapper.h"
 #include <utility>
+#include <memory>
+#include <stdexcept>
+#include <cassert>
 
 MultilevelBisectioner::MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
                                              uint64_t maxClusteringRounds,

@@ -6,6 +6,8 @@
 #include "BoundaryFM.h"
 #include "BoundaryKL.h"
 #include "Mixed.h"
+#include <memory>
+#include <stdexcept>
 
 void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t &edgeCut,
                        RefinementMethod refinementMethod, uint64_t refinementPasses, double upperBoundPartWeight,

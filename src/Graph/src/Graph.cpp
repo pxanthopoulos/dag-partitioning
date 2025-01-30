@@ -274,7 +274,7 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
 }
 
 // Print graph information to output stream
-void Graph::print(llvm::raw_ostream &os) const {
+void Graph::print(std::ostream &os) const {
     assert(adj.size() == nodeWeights.size() &&
            "Adjacency-list 2D vectors' size and nodeWeights vectors' size must be equal");
     assert(size == adj.size() && "Adjacency-list 2D vectors' size must be the same as the graph size");
