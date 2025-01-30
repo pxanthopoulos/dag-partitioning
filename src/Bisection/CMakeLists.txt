@@ -7,12 +7,13 @@ add_library(Bisection OBJECT
 target_include_directories(Bisection
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${SCOTCH_INCLUDE_DIR}
+        ${METIS_INCLUDE_DIR}
 )
 
 target_link_libraries(Bisection
         PUBLIC Graph Refinement
-        ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotch.a
-        ${CMAKE_BINARY_DIR}/third-party/scotch/lib/libscotcherr.a
-        ${CMAKE_BINARY_DIR}/third-party/metis/lib/libmetis.a
-        ${CMAKE_BINARY_DIR}/third-party/gklib/lib/libGKlib.a
+        ${SCOTCH_LIBRARY}
+        ${SCOTCHERR_LIBRARY}
+        ${METIS_LIBRARY}
 )
