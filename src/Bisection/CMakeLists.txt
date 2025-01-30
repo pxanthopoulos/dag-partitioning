@@ -16,4 +16,3 @@ target_link_libraries(Bisection
         ${CMAKE_BINARY_DIR}/third-party/metis/lib/libmetis.a
         ${CMAKE_BINARY_DIR}/third-party/gklib/lib/libGKlib.a
 )
-add_dependencies(Bisection scotch metis)
