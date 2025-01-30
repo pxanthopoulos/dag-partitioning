@@ -4,6 +4,7 @@
  */
 
 #include "BoundaryKL.h"
+#include <algorithm>
 
 BoundaryKL::BoundaryKL(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <unordered_set>
-#include "llvm/ADT/STLExtras.h"
+#include <cassert>
 
 ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph, uint64_t maxRounds, uint64_t minVertices,
                                                    double vertexRatio)

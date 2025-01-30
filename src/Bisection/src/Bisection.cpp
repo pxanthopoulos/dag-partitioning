@@ -4,6 +4,8 @@
  */
 
 #include "Bisection.h"
+#include <algorithm>
+#include <limits>
 
 Bisection::Bisection(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
                      RefinementMethod refinementMethod, uint64_t refinementPasses)

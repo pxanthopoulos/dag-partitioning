@@ -9,6 +9,7 @@
 #include <random>
 #include <algorithm>
 #include <cfloat>
+#include <cassert>
 
 GreedyDirectedGraphGrowing::GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight,
                                                        double lowerBoundPartWeight, RefinementMethod refinementMethod,

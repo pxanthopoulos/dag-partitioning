@@ -8,8 +8,9 @@
  * - Minimized edge cut between partitions
  */
 
-#include <llvm/ADT/STLExtras.h>
 #include "RecursivePartitioner.h"
+#include <cassert>
+#include <algorithm>
 
 RecursivePartitioner::RecursivePartitioner(const Graph &graph, uint64_t partitions, ClusteringMethod clusteringMethod,
                                            uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
@@ -114,7 +115,8 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
 
     // 2. Create subgraphs based on bisection
     // If bisection places all nodes in the same part, return like when requesting 1 partition
-    if (llvm::all_of(bisectionInfo, [first = bisectionInfo[0]](bool val) { return val == first; }))
+    if (std::all_of(bisectionInfo.begin(), bisectionInfo.end(),
+                    [first = bisectionInfo[0]](bool val) { return val == first; }))
         return {partitionMapping, totalEdgeCut};
 
     const auto &[subGraph0, map0, subGraph1, map1] = createSubgraphs(bisectionInfo);

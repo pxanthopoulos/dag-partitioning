@@ -3,11 +3,12 @@
  * @brief Implementation of undirected bisection with acyclicity fixing
  */
 
-#include <cmath>
-#include <llvm/ADT/STLExtras.h>
 #include "UndirectedFix.h"
 #include "BoundaryFM.h"
 #include "RefinementWrapper.h"
+#include <cmath>
+#include <cassert>
+#include <algorithm>
 
 UndirectedFix::UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
                              RefinementMethod refinementMethod, uint64_t refinementPasses, bool useMetis,
@@ -161,7 +162,8 @@ void UndirectedFix::fixAcyclicityUp(std::vector<uint8_t> &undirectedBisection) c
     std::vector<uint64_t> topologicalOrder = workingGraph.topologicalSort();
 
     // Process vertices in reverse topological order
-    for (const uint64_t &nodeId: llvm::reverse(topologicalOrder)) {
+    for (auto it = topologicalOrder.rbegin(); it != topologicalOrder.rend(); ++it) {
+        const uint64_t &nodeId = *it;
         if (undirectedBisection[nodeId] == 0) {  // If node is in V0
             // Move all predecessors to V0
             for (const auto &[predecessorId, edgeWeight]: workingGraph.revAdj[nodeId])

@@ -11,6 +11,7 @@
 #define DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 
 #include "MultilevelBisectioner.h"
+#include <unordered_map>
 
 class RecursivePartitioner {
 private:

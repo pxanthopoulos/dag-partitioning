@@ -10,7 +10,6 @@
 #include <string>
 #include <utility>
 #include <tuple>
-#include "llvm/Support/raw_ostream.h"
 
 /**
  * @class Graph
@@ -116,7 +115,7 @@ public:
      * @brief Prints graph information to the specified output stream
      * @param os Output stream to print to
      */
-    void print(llvm::raw_ostream &os) const;
+    void print(std::ostream &os) const;
 
     /**
      * @brief Exports the graph to a DOT file format

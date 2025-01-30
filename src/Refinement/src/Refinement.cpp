@@ -3,8 +3,9 @@
  * @brief Implementation of base refinement class methods
  */
 
-#include <iostream>
 #include "Refinement.h"
+#include <iostream>
+#include <cassert>
 
 Refinement::Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo, uint64_t &initialEdgeCut,
                        uint64_t maxNumberOfPasses, double upperBoundPartWeight, double lowerBoundPartWeight)

@@ -14,6 +14,7 @@
 #include <vector>
 #include <cstdint>
 #include <utility>
+#include <unordered_map>
 
 class ClusteringForbiddenEdges : public Clustering {
 private:

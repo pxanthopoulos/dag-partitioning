@@ -1,10 +1,5 @@
 add_library(dag_partitioning STATIC)
 
-find_package(LLVM REQUIRED CONFIG)
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-llvm_map_components_to_libnames(llvm_libs Support Core)
-
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
 add_subdirectory(Bisection)
