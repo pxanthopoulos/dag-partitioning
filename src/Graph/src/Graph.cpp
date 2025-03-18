@@ -273,6 +273,89 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode, bool reverseG
     return distances;
 }
 
+std::vector<uint64_t> Graph::groupedTopSortPositions(const std::vector<uint64_t> &partitionInfo) const {
+    assert(partitionInfo.size() == size && "Partitioning vector size must match graph size");
+
+    // Step 1: Create a graph of partitions
+    // Find the number of partitions
+    uint64_t numPartitions = 0;
+    for (uint64_t p: partitionInfo) {
+        numPartitions = std::max(numPartitions, p + 1);
+    }
+
+    // Create a condensed graph where nodes are partitions
+    std::vector<std::vector<uint64_t>> coarseGraph(numPartitions);
+    std::vector<uint64_t> coarseInDegree(numPartitions, 0);
+
+    // For each edge in the original graph, add an edge between partitions if needed
+    for (uint64_t from = 0; from < size; ++from) {
+        for (const auto &[to, _]: adj[from]) {
+            uint64_t fromPartition = partitionInfo[from];
+            uint64_t toPartition = partitionInfo[to];
+
+            // If edge crosses partition boundaries, add it to partition graph
+            if (fromPartition != toPartition) {
+                // Check if this edge already exists in the partition graph
+                bool edgeExists = false;
+                for (uint64_t existingTo: coarseGraph[fromPartition]) {
+                    if (existingTo == toPartition) {
+                        edgeExists = true;
+                        break;
+                    }
+                }
+
+                if (!edgeExists) {
+                    coarseGraph[fromPartition].push_back(toPartition);
+                    coarseInDegree[toPartition]++;
+                }
+            }
+        }
+    }
+
+    // Step 2: Topologically sort the partition graph
+    std::vector<uint64_t> coarseTopologicalOrder(numPartitions);
+
+    // Start with nodes having no incoming edges
+    std::queue<uint64_t> q;
+    for (uint64_t i = 0; i < numPartitions; i++) {
+        if (coarseInDegree[i] == 0) {
+            q.push(i);
+        }
+    }
+
+    // Process nodes in topological order
+    while (!q.empty()) {
+        uint64_t curr = q.front();
+        q.pop();
+        coarseTopologicalOrder.push_back(curr);
+
+        // Update in-degrees and add new nodes with zero in-degree
+        for (uint64_t next: coarseGraph[curr]) {
+            coarseInDegree[next]--;
+            if (coarseInDegree[next] == 0) {
+                q.push(next);
+            }
+        }
+    }
+
+    assert(coarseTopologicalOrder.size() == numPartitions && "Coarse graph is cyclic");
+
+    // Step 3: Calculate the position of each partition in the topological order
+    std::vector<uint64_t> coarseTopSortPositions(numPartitions);
+    for (uint64_t i = 0; i < numPartitions; ++i) {
+        coarseTopSortPositions[coarseTopologicalOrder[i]] = i;
+    }
+
+    // Step 4: Assign the same topological position to all nodes in the same partition
+    std::vector<uint64_t> result(size);
+    for (uint64_t i = 0; i < size; ++i) {
+        uint64_t partition = partitionInfo[i];
+        result[i] = coarseTopSortPositions[partition];
+    }
+
+    return result;
+}
+
 // Print graph information to output stream
 void Graph::print(std::ostream &os) const {
     assert(adj.size() == nodeWeights.size() &&
