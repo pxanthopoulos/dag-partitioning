@@ -88,6 +88,9 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
     uint64_t totalEdgeCut = 0;
 
     // Base cases
+    if (workingGraph.totalWeight == 0) {
+        return {partitionMapping, totalEdgeCut}; // All vertices stay in partition 0
+    }
     if (partitions == 1) {
         return {partitionMapping, totalEdgeCut}; // All vertices stay in partition 0
     }

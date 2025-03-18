@@ -316,7 +316,7 @@ public:
             return 1;
         }
 
-        printDistribution(computeTopLevels());
+        if (debug > 0) printDistribution(computeTopLevels());
 
         return 0;
     }
@@ -326,7 +326,7 @@ public:
         dotFile << "// size=" << size << "\n";
         dotFile << "digraph cfg {\n";
         for (uint64_t i = 0; i < size; ++i) {
-            std::uniform_int_distribution<> disW(1, 20);
+            std::uniform_int_distribution<> disW(0, 20);
             uint64_t random_number = disW(gen);
             dotFile << i << "[weight=" << random_number << "];\n";
         }
