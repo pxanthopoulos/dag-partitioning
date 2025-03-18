@@ -113,6 +113,13 @@ public:
     [[nodiscard]] std::vector<uint64_t> distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
 
     /**
+     * @brief Calculates topological positions of nodes based on partitioning
+     * @param partitionInfo Vector mapping node IDs to their partition IDs
+     * @return Vector of topological positions where vec[i] is the position of node i in a topological order
+     */
+    [[nodiscard]] std::vector<uint64_t> groupedTopSortPositions(const std::vector<uint64_t> &partitionInfo) const;
+
+    /**
      * @brief Prints graph information to the specified output stream
      * @param os Output stream to print to
      */
