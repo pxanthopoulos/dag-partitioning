@@ -313,7 +313,9 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(const std::vector<uint64_t>
     }
 
     // Step 2: Topologically sort the partition graph
-    std::vector<uint64_t> coarseTopologicalOrder(numPartitions);
+    std::vector<uint64_t> coarseTopologicalOrder;
+    coarseTopologicalOrder.reserve(numPartitions);
+
 
     // Start with nodes having no incoming edges
     std::queue<uint64_t> q;
