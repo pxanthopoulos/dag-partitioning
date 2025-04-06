@@ -30,9 +30,15 @@ graph into the required number of parts.
 ## Requirements
 
 - C++17 or later
-- CMake 3.29 or later
+- CMake 3.28 or later
 
 ## Building
+
+This project requires the following dependencies which must be built separately before proceeding:
+- [METIS](https://github.com/KarypisLab/METIS) - For graph partitioning
+- [Scotch](https://gitlab.inria.fr/scotch/scotch) - For graph partitioning and sparse matrix ordering
+
+### General Build Instructions
 
 ```bash
 mkdir build
@@ -113,7 +119,6 @@ The program outputs:
 
 - Partition assignments for each vertex
 - Edge cut value
-- Partition sizes
 
 ## Performance
 
@@ -151,13 +156,3 @@ CC BY-NC 4.0
 
 Based on the [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865):
 "Multilevel Algorithms for Acyclic Partitioning of Directed Acyclic Graphs" by Herrmann et al.
-
-## Todo
-
-- [x] Implement coarsening/clustering phase
-- [x] Implement initial partitioning phase
-- [ ] Implement refinement phase
-- [ ] Add comprehensive tests
-- [ ] Add benchmarking suite
-- [ ] Complete documentation
-- [ ] Add examples
