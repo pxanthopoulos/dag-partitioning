@@ -3,7 +3,6 @@ build/*
 install/*
 
 **/*.dot
-**/*.png
 **/*.txt
 **/*.py
 **/*.csv
