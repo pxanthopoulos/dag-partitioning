@@ -36,7 +36,6 @@ ExternalProject_Add(scotch
         <INSTALL_DIR>/lib/libscotch.a
         <INSTALL_DIR>/lib/libscotcherr.a
 )
-include_directories(${CMAKE_BINARY_DIR}/third-party/scotch/include)
 
 ExternalProject_Add(gklib
         SOURCE_DIR ${CMAKE_SOURCE_DIR}/third-party/gklib
@@ -75,7 +74,9 @@ ExternalProject_Add(metis
         BUILD_BYPRODUCTS
         <INSTALL_DIR>/lib/libmetis.a
 )
+
 include_directories(${CMAKE_BINARY_DIR}/third-party/metis/include)
+include_directories(${CMAKE_BINARY_DIR}/third-party/scotch/include)
 
 add_subdirectory(src)
 

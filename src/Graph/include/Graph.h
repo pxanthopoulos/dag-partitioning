@@ -10,6 +10,7 @@
 #include <string>
 #include <utility>
 #include <tuple>
+#include <cstdint>
 
 /**
  * @class Graph
