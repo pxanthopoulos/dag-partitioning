@@ -57,20 +57,18 @@ make
 ```bash
 mkdir build
 cd build
-cmake -DMETIS_INCLUDE_DIR=/home/username/code/METIS/build/install/include \
-      -DSCOTCH_INCLUDE_DIR=/home/username/code/scotch/build/src/include \
-      -DMETIS_LIBRARY=/home/username/code/METIS/build/install/lib/libmetis.a \
-      -DSCOTCH_LIBRARY=/home/username/code/scotch/build/lib/libscotch.a \
-      -DSCOTCHERR_LIBRARY=/home/username/code/scotch/build/lib/libscotcherr.a \
+cmake -DMETIS_INCLUDE_DIR=/home/user/METIS/build/install/include \
+      -DSCOTCH_INCLUDE_DIR=/home/user/scotch/build/src/include \
+      -DMETIS_LIBRARY=/home/user/METIS/build/install/lib/libmetis.a \
+      -DSCOTCH_LIBRARY=/home/user/scotch/build/lib/libscotch.a \
+      -DSCOTCHERR_LIBRARY=/home/user/scotch/build/lib/libscotcherr.a \
       ..
 make
 ```
 
 ## Usage
 
-```cpp
-// Example usage code will be added here
-```
+For example usage, see `main.cpp` at the `aio-executable` branch.
 
 ## Input Format
 
