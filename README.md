@@ -142,12 +142,6 @@ combination was used for each tool.
 
 The results can be found in the `test` directory.
 
-Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with differing messages. This can be 
-seen in the heatmaps as well as there are some white boxes (not the ones at the bottom and left) that show that the original tool 
-crashed in all parameter combinations. There were more crashes but if at least one parameter combination produces a solution, 
-this will not become apparent from the heatmap. This implementation did not crash at any of the experiments I ran. If someone
-finds a case that crashes this tool, feel free to open an issue.
-
 Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with varying error messages. This can be 
 seen in the heatmaps as white boxes (not including those at the bottom and left) indicating the original tool 
 crashed across all parameter combinations. Additional crashes occurred but aren't apparent in the heatmap when at least one parameter 
