@@ -120,6 +120,40 @@ The program outputs:
 - Partition assignments for each vertex
 - Edge cut value
 
+## Performance
+
+This tool was compared to the original [implementation](https://github.com/GT-TDAlab/dagP).
+As input for the 2 partitioning tools, a random DAG was generated using the `rand-dag.cpp` tool found in the `test` directory.
+This tool generates a random DAG with a given node count and a ratio of edges to nodes (in %).
+The generator favours length over width, to mimic DAGs found in ML. The testing script that runs the 2 partitioning tools with
+the different inputs can be found in the `test` directory.
+
+The 2 tools were compared based on the resulting edge cut, the imbalance ratio and the execution time. 
+The imbalance ratio is measured as the absolute difference of two percentages.
+The percentage of the heaviest partition to the total weight minus the ideal percentage. For example, 
+if we request 4 partitions from a graph with total weight 200 and the heaviest is partition has weight 
+70, the imbalance is (70/200 = 35%) - (100/4 = 25%) = 10%.
+
+For each input, each tool ran with all available parameter combinations (clustering/bisection/refinement algorithm). 
+The original implementation offers additional parameterization options (such as node traversal strategies like random, DFS, or BFS) 
+that were not implemented in this tool. For fair comparison, the original implementation was configured to match this tool's fixed 
+approach where possible - for example, using topological ordering for node traversal. For each input, the best performing parameter 
+combination was used for each tool.
+
+The results can be found in the `test` directory.
+
+Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with differing messages. This can be 
+seen in the heatmaps as well as there are some white boxes (not the ones at the bottom and left) that show that the original tool 
+crashed in all parameter combinations. There were more crashes but if at least one parameter combination produces a solution, 
+this will not become apparent from the heatmap. This implementation did not crash at any of the experiments I ran. If someone
+finds a case that crashes this tool, feel free to open an issue.
+
+Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with varying error messages. This can be 
+seen in the heatmaps as white boxes (not including those at the bottom and left) indicating the original tool 
+crashed across all parameter combinations. Additional crashes occurred but aren't apparent in the heatmap when at least one parameter 
+combination produced a solution. This implementation remained stable throughout all experiments. If you
+encounter any cases where this tool crashes, please feel free to open an issue.
+
 ## License
 
 CC BY-NC 4.0
