@@ -37,15 +37,32 @@ graph into the required number of parts.
 ```bash
 mkdir build
 cd build
-cmake ..
+cmake -DMETIS_INCLUDE_DIR=/path/to/metis/include \
+      -DSCOTCH_INCLUDE_DIR=/path/to/scotch/include \
+      -DMETIS_LIBRARY=/path/to/metis/lib/libmetis.a \
+      -DSCOTCH_LIBRARY=/path/to/scotch/lib/libscotch.a \
+      -DSCOTCHERR_LIBRARY=/path/to/scotch/lib/libscotcherr.a \
+      ..
+make
+```
+
+### Example with Custom Paths
+
+```bash
+mkdir build
+cd build
+cmake -DMETIS_INCLUDE_DIR=/home/user/METIS/build/install/include \
+      -DSCOTCH_INCLUDE_DIR=/home/user/scotch/build/src/include \
+      -DMETIS_LIBRARY=/home/user/METIS/build/install/lib/libmetis.a \
+      -DSCOTCH_LIBRARY=/home/user/scotch/build/lib/libscotch.a \
+      -DSCOTCHERR_LIBRARY=/home/user/scotch/build/lib/libscotcherr.a \
+      ..
 make
 ```
 
 ## Usage
 
-```cpp
-// Example usage code will be added here
-```
+For example usage, see `main.cpp` at the `aio-executable` branch.
 
 ## Input Format
 
