@@ -11,6 +11,10 @@
 #include <regex>
 #include <unordered_map>
 
+namespace dag_partitioning {
+
+namespace core {
+
 // Constructor initializes all data structures with given size
 Graph::Graph(uint64_t size)
     : size(size), adj(size), revAdj(size), nodeWeights(size, 0), totalWeight(0),
@@ -473,3 +477,7 @@ Graph readDotFile(const std::string &dotFilename,
 
     return g;
 }
+
+} // namespace core
+
+} // namespace dag_partitioning

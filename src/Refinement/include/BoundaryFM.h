@@ -17,6 +17,10 @@
 
 #include <queue>
 
+namespace dag_partitioning {
+
+namespace refinement {
+
 class BoundaryFM : virtual public Refinement {
   protected:
     /**
@@ -95,9 +99,14 @@ class BoundaryFM : virtual public Refinement {
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    BoundaryFM(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+    BoundaryFM(const core::Graph &graph,
+               std::vector<uint8_t> &initialBisectionInfo,
                uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 };
+
+} // namespace refinement
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_BOUNDARYFM_H

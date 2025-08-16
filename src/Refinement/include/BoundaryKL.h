@@ -16,6 +16,10 @@
 
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace refinement {
+
 class BoundaryKL : virtual public Refinement {
   protected:
     /**
@@ -130,9 +134,14 @@ class BoundaryKL : virtual public Refinement {
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    BoundaryKL(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+    BoundaryKL(const core::Graph &graph,
+               std::vector<uint8_t> &initialBisectionInfo,
                uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 };
+
+} // namespace refinement
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_BOUNDARYKL_H

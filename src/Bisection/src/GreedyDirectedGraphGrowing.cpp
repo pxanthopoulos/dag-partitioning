@@ -14,9 +14,13 @@
 #include <queue>
 #include <random>
 
+namespace dag_partitioning {
+
+namespace bisection {
+
 GreedyDirectedGraphGrowing::GreedyDirectedGraphGrowing(
-    const Graph &graph, double upperBoundPartWeight,
-    double lowerBoundPartWeight, RefinementMethod refinementMethod,
+    const core::Graph &graph, double upperBoundPartWeight,
+    double lowerBoundPartWeight, refinement::RefinementMethod refinementMethod,
     uint64_t refinementPasses)
     : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight,
                 refinementMethod, refinementPasses) {}
@@ -397,13 +401,13 @@ GreedyDirectedGraphGrowing::run() const {
     // Run both normal and reverse algorithms
     std::pair<std::vector<uint8_t>, uint64_t> bisectionNormal =
         runOnNormalGraph();
-    refinementWrapper(workingGraph, bisectionNormal.first,
-                      bisectionNormal.second, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, bisectionNormal.first,
+                                  bisectionNormal.second, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
     uint8_t isZero = (bisectionNormal.second == 0) ? 0 : 1;
-    auto [sizeV0, sizeV1] =
-        Refinement::calculatePartSizes(bisectionNormal.first, workingGraph);
+    auto [sizeV0, sizeV1] = refinement::Refinement::calculatePartSizes(
+        bisectionNormal.first, workingGraph);
     double imbalance =
         (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
          upperBoundPartWeight) *
@@ -413,13 +417,13 @@ GreedyDirectedGraphGrowing::run() const {
 
     std::pair<std::vector<uint8_t>, uint64_t> bisectionReverse =
         runOnReverseGraph();
-    refinementWrapper(workingGraph, bisectionReverse.first,
-                      bisectionReverse.second, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, bisectionReverse.first,
+                                  bisectionReverse.second, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
     isZero = (bisectionReverse.second == 0) ? 0 : 1;
-    std::tie(sizeV0, sizeV1) =
-        Refinement::calculatePartSizes(bisectionReverse.first, workingGraph);
+    std::tie(sizeV0, sizeV1) = refinement::Refinement::calculatePartSizes(
+        bisectionReverse.first, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
                 100;
@@ -427,18 +431,22 @@ GreedyDirectedGraphGrowing::run() const {
     bisections.emplace_back(bisectionReverse);
 
     // Verify both solutions maintain acyclicity and have valid edge cuts
-    assert(
-        Refinement::checkValidBisection(bisectionNormal.first, workingGraph) &&
-        "Bisection on normal graph is invalid");
-    assert(Refinement::checkValidEdgeCut(bisectionNormal.first, workingGraph,
-                                         bisectionNormal.second) &&
+    assert(refinement::Refinement::checkValidBisection(bisectionNormal.first,
+                                                       workingGraph) &&
+           "Bisection on normal graph is invalid");
+    assert(refinement::Refinement::checkValidEdgeCut(
+               bisectionNormal.first, workingGraph, bisectionNormal.second) &&
            "Edge cut on normal graph is invalid");
-    assert(
-        Refinement::checkValidBisection(bisectionReverse.first, workingGraph) &&
-        "Bisection on reverse graph is invalid");
-    assert(Refinement::checkValidEdgeCut(bisectionReverse.first, workingGraph,
-                                         bisectionReverse.second) &&
+    assert(refinement::Refinement::checkValidBisection(bisectionReverse.first,
+                                                       workingGraph) &&
+           "Bisection on reverse graph is invalid");
+    assert(refinement::Refinement::checkValidEdgeCut(
+               bisectionReverse.first, workingGraph, bisectionReverse.second) &&
            "Edge cut on reverse graph is invalid");
 
     return bisections[selectBestResult(results)];
 }
+
+} // namespace bisection
+
+} // namespace dag_partitioning

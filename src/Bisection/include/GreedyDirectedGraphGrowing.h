@@ -13,6 +13,10 @@
 
 #include "Bisection.h"
 
+namespace dag_partitioning {
+
+namespace bisection {
+
 class GreedyDirectedGraphGrowing : public Bisection {
   private:
     /**
@@ -62,10 +66,15 @@ class GreedyDirectedGraphGrowing : public Bisection {
      * @param refinementMethod Refinement method
      * @param refinementPasses Number of refinement passes
      */
-    GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight,
+    GreedyDirectedGraphGrowing(const core::Graph &graph,
+                               double upperBoundPartWeight,
                                double lowerBoundPartWeight,
-                               RefinementMethod refinementMethod,
+                               refinement::RefinementMethod refinementMethod,
                                uint64_t refinementPasses);
 };
+
+} // namespace bisection
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_GREEDYDIRECTEDGRAPHGROWING_H

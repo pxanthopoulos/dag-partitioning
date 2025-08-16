@@ -14,6 +14,10 @@
 
 #include "ClusteringCycleDetection.h"
 
+namespace dag_partitioning {
+
+namespace clustering {
+
 class ClusteringHybrid : public ClusteringCycleDetection {
   private:
     /**
@@ -79,8 +83,12 @@ class ClusteringHybrid : public ClusteringCycleDetection {
      * @param vertexRatio If, after a clustering round, this ratio is not
      * surpassed, stop clustering
      */
-    ClusteringHybrid(const Graph &graph, uint64_t maxRounds,
+    ClusteringHybrid(const core::Graph &graph, uint64_t maxRounds,
                      uint64_t minVertices, double vertexRatio);
 };
+
+} // namespace clustering
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_CLUSTERINGHYBRID_H

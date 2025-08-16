@@ -5,9 +5,14 @@
  */
 
 #include "ClusteringHybrid.h"
+
 #include <cmath>
 
-ClusteringHybrid::ClusteringHybrid(const Graph &graph, uint64_t maxRounds,
+namespace dag_partitioning {
+
+namespace clustering {
+
+ClusteringHybrid::ClusteringHybrid(const core::Graph &graph, uint64_t maxRounds,
                                    uint64_t minVertices, double vertexRatio)
     : ClusteringCycleDetection(graph, maxRounds, minVertices, vertexRatio) {}
 
@@ -222,3 +227,7 @@ ClusteringHybrid::oneRoundClustering() const {
 
     return {leaders, newSize};
 }
+
+} // namespace clustering
+
+} // namespace dag_partitioning

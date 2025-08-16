@@ -19,6 +19,10 @@
 #include <utility>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace clustering {
+
 class ClusteringForbiddenEdges : public Clustering {
   private:
     /**
@@ -92,8 +96,12 @@ class ClusteringForbiddenEdges : public Clustering {
      * @param vertexRatio If, after a clustering round, this ratio is not
      * surpassed, stop clustering
      */
-    ClusteringForbiddenEdges(const Graph &graph, uint64_t maxRounds,
+    ClusteringForbiddenEdges(const core::Graph &graph, uint64_t maxRounds,
                              uint64_t minVertices, double vertexRatio);
 };
+
+} // namespace clustering
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_CLUSTERINGFORBIDDENEDGES_H

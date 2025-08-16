@@ -8,7 +8,11 @@
 
 #include <algorithm>
 
-BoundaryKL::BoundaryKL(const Graph &graph,
+namespace dag_partitioning {
+
+namespace refinement {
+
+BoundaryKL::BoundaryKL(const core::Graph &graph,
                        std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
@@ -448,3 +452,7 @@ bool BoundaryKL::onePassRefinement() {
 
     return true;
 }
+
+} // namespace refinement
+
+} // namespace dag_partitioning

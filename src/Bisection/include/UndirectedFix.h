@@ -19,6 +19,10 @@
 #include "metis.h"
 #include "scotch.h"
 
+namespace dag_partitioning {
+
+namespace bisection {
+
 class UndirectedFix : public Bisection {
   private:
     bool useMetis;  // Whether to try METIS partitioning
@@ -135,10 +139,14 @@ class UndirectedFix : public Bisection {
      * @param useMetis Whether to try METIS partitioning
      * @param useScotch Whether to try Scotch partitioning
      */
-    UndirectedFix(const Graph &graph, double upperBoundPartWeight,
+    UndirectedFix(const core::Graph &graph, double upperBoundPartWeight,
                   double lowerBoundPartWeight,
-                  RefinementMethod refinementMethod, uint64_t refinementPasses,
-                  bool useMetis, bool useScotch);
+                  refinement::RefinementMethod refinementMethod,
+                  uint64_t refinementPasses, bool useMetis, bool useScotch);
 };
+
+} // namespace bisection
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_UNDIRECTEDFIX_H

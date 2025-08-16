@@ -13,9 +13,14 @@
 #include <cassert>
 #include <cmath>
 
-UndirectedFix::UndirectedFix(const Graph &graph, double upperBoundPartWeight,
+namespace dag_partitioning {
+
+namespace bisection {
+
+UndirectedFix::UndirectedFix(const core::Graph &graph,
+                             double upperBoundPartWeight,
                              double lowerBoundPartWeight,
-                             RefinementMethod refinementMethod,
+                             refinement::RefinementMethod refinementMethod,
                              uint64_t refinementPasses, bool useMetis,
                              bool useScotch)
     : Bisection(graph, upperBoundPartWeight, lowerBoundPartWeight,
@@ -225,18 +230,18 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     fixAcyclicityDown(undirectedBisection);
     uint64_t edgeCut = computeEdgeCut(undirectedBisection, workingGraph);
     // One round of FM
-    BoundaryFM boundaryFM1 =
-        BoundaryFM(workingGraph, undirectedBisection, edgeCut, 1,
-                   upperBoundPartWeight, lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM1 =
+        refinement::BoundaryFM(workingGraph, undirectedBisection, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM1.run();
     // One refinement call
-    refinementWrapper(workingGraph, undirectedBisection, edgeCut,
-                      refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, undirectedBisection, edgeCut,
+                                  refinementMethod, refinementPasses,
+                                  upperBoundPartWeight, lowerBoundPartWeight);
     edgeCut = computeEdgeCut(undirectedBisection, workingGraph);
     uint8_t isZero = (edgeCut == 0) ? 0 : 1;
-    auto [sizeV0, sizeV1] =
-        Refinement::calculatePartSizes(undirectedBisection, workingGraph);
+    auto [sizeV0, sizeV1] = refinement::Refinement::calculatePartSizes(
+        undirectedBisection, workingGraph);
     double imbalance =
         (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
          upperBoundPartWeight) *
@@ -247,17 +252,17 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     // Try Approach 2: Fix up from original assignment
     fixAcyclicityUp(copy);
     edgeCut = computeEdgeCut(copy, workingGraph);
-    BoundaryFM boundaryFM2 =
-        BoundaryFM(workingGraph, copy, edgeCut, 1, upperBoundPartWeight,
-                   lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM2 =
+        refinement::BoundaryFM(workingGraph, copy, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM2.run();
-    refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
     edgeCut = computeEdgeCut(copy, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
     std::tie(sizeV0, sizeV1) =
-        Refinement::calculatePartSizes(copy, workingGraph);
+        refinement::Refinement::calculatePartSizes(copy, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
                 100;
@@ -268,16 +273,16 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     copy = reverseUndirectedBisection;
     fixAcyclicityDown(reverseUndirectedBisection);
     edgeCut = computeEdgeCut(reverseUndirectedBisection, workingGraph);
-    BoundaryFM boundaryFM3 =
-        BoundaryFM(workingGraph, reverseUndirectedBisection, edgeCut, 1,
-                   upperBoundPartWeight, lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM3 = refinement::BoundaryFM(
+        workingGraph, reverseUndirectedBisection, edgeCut, 1,
+        upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM3.run();
-    refinementWrapper(workingGraph, reverseUndirectedBisection, edgeCut,
-                      refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, reverseUndirectedBisection,
+                                  edgeCut, refinementMethod, refinementPasses,
+                                  upperBoundPartWeight, lowerBoundPartWeight);
     edgeCut = computeEdgeCut(reverseUndirectedBisection, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
-    std::tie(sizeV0, sizeV1) = Refinement::calculatePartSizes(
+    std::tie(sizeV0, sizeV1) = refinement::Refinement::calculatePartSizes(
         reverseUndirectedBisection, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
@@ -288,18 +293,18 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     // Try Approach 4: Fix up from reversed assignment
     fixAcyclicityUp(copy);
     edgeCut = computeEdgeCut(copy, workingGraph);
-    BoundaryFM boundaryFM4 =
-        BoundaryFM(workingGraph, copy, edgeCut, 1, upperBoundPartWeight,
-                   lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM4 =
+        refinement::BoundaryFM(workingGraph, copy, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM4.run();
-    refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
 
     edgeCut = computeEdgeCut(copy, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
     std::tie(sizeV0, sizeV1) =
-        Refinement::calculatePartSizes(copy, workingGraph);
+        refinement::Refinement::calculatePartSizes(copy, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
                 100;
@@ -308,10 +313,11 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
 
     auto [bestBisection, bestEdgeCut] = bisections[selectBestResult(results)];
 
-    assert(Refinement::checkValidBisection(bestBisection, workingGraph) &&
+    assert(refinement::Refinement::checkValidBisection(bestBisection,
+                                                       workingGraph) &&
            "Best bisection is cyclic");
-    assert(Refinement::checkValidEdgeCut(bestBisection, workingGraph,
-                                         bestEdgeCut) &&
+    assert(refinement::Refinement::checkValidEdgeCut(
+               bestBisection, workingGraph, bestEdgeCut) &&
            "Computed edge cut is invalid");
     return {bestBisection, bestEdgeCut};
 }
@@ -335,18 +341,18 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     fixAcyclicityDown(undirectedBisection);
     uint64_t edgeCut = computeEdgeCut(undirectedBisection, workingGraph);
     // One round of FM
-    BoundaryFM boundaryFM1 =
-        BoundaryFM(workingGraph, undirectedBisection, edgeCut, 1,
-                   upperBoundPartWeight, lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM1 =
+        refinement::BoundaryFM(workingGraph, undirectedBisection, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM1.run();
     // One refinement call
-    refinementWrapper(workingGraph, undirectedBisection, edgeCut,
-                      refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, undirectedBisection, edgeCut,
+                                  refinementMethod, refinementPasses,
+                                  upperBoundPartWeight, lowerBoundPartWeight);
     edgeCut = computeEdgeCut(undirectedBisection, workingGraph);
     uint8_t isZero = (edgeCut == 0) ? 0 : 1;
-    auto [sizeV0, sizeV1] =
-        Refinement::calculatePartSizes(undirectedBisection, workingGraph);
+    auto [sizeV0, sizeV1] = refinement::Refinement::calculatePartSizes(
+        undirectedBisection, workingGraph);
     double imbalance =
         (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
          upperBoundPartWeight) *
@@ -357,17 +363,17 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     // Try Approach 2: Fix up from original assignment
     fixAcyclicityUp(copy);
     edgeCut = computeEdgeCut(copy, workingGraph);
-    BoundaryFM boundaryFM2 =
-        BoundaryFM(workingGraph, copy, edgeCut, 1, upperBoundPartWeight,
-                   lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM2 =
+        refinement::BoundaryFM(workingGraph, copy, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM2.run();
-    refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
     edgeCut = computeEdgeCut(copy, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
     std::tie(sizeV0, sizeV1) =
-        Refinement::calculatePartSizes(copy, workingGraph);
+        refinement::Refinement::calculatePartSizes(copy, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
                 100;
@@ -378,16 +384,16 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     copy = reverseUndirectedBisection;
     fixAcyclicityDown(reverseUndirectedBisection);
     edgeCut = computeEdgeCut(reverseUndirectedBisection, workingGraph);
-    BoundaryFM boundaryFM3 =
-        BoundaryFM(workingGraph, reverseUndirectedBisection, edgeCut, 1,
-                   upperBoundPartWeight, lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM3 = refinement::BoundaryFM(
+        workingGraph, reverseUndirectedBisection, edgeCut, 1,
+        upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM3.run();
-    refinementWrapper(workingGraph, reverseUndirectedBisection, edgeCut,
-                      refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, reverseUndirectedBisection,
+                                  edgeCut, refinementMethod, refinementPasses,
+                                  upperBoundPartWeight, lowerBoundPartWeight);
     edgeCut = computeEdgeCut(reverseUndirectedBisection, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
-    std::tie(sizeV0, sizeV1) = Refinement::calculatePartSizes(
+    std::tie(sizeV0, sizeV1) = refinement::Refinement::calculatePartSizes(
         reverseUndirectedBisection, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
@@ -398,18 +404,18 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     // Try Approach 4: Fix up from reversed assignment
     fixAcyclicityUp(copy);
     edgeCut = computeEdgeCut(copy, workingGraph);
-    BoundaryFM boundaryFM4 =
-        BoundaryFM(workingGraph, copy, edgeCut, 1, upperBoundPartWeight,
-                   lowerBoundPartWeight);
+    refinement::BoundaryFM boundaryFM4 =
+        refinement::BoundaryFM(workingGraph, copy, edgeCut, 1,
+                               upperBoundPartWeight, lowerBoundPartWeight);
     boundaryFM4.run();
-    refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
-                      refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(workingGraph, copy, edgeCut, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
 
     edgeCut = computeEdgeCut(copy, workingGraph);
     isZero = (edgeCut == 0) ? 0 : 1;
     std::tie(sizeV0, sizeV1) =
-        Refinement::calculatePartSizes(copy, workingGraph);
+        refinement::Refinement::calculatePartSizes(copy, workingGraph);
     imbalance = (((double)std::max(sizeV0, sizeV1) - upperBoundPartWeight) /
                  upperBoundPartWeight) *
                 100;
@@ -418,10 +424,11 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
 
     auto [bestBisection, bestEdgeCut] = bisections[selectBestResult(results)];
 
-    assert(Refinement::checkValidBisection(bestBisection, workingGraph) &&
+    assert(refinement::Refinement::checkValidBisection(bestBisection,
+                                                       workingGraph) &&
            "Best bisection is cyclic");
-    assert(Refinement::checkValidEdgeCut(bestBisection, workingGraph,
-                                         bestEdgeCut) &&
+    assert(refinement::Refinement::checkValidEdgeCut(
+               bestBisection, workingGraph, bestEdgeCut) &&
            "Computed edge cut is invalid");
     return {bestBisection, bestEdgeCut};
 }
@@ -443,3 +450,7 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::run() const {
                ? std::move(resultMetis)
                : std::move(resultScotch);
 }
+
+} // namespace bisection
+
+} // namespace dag_partitioning

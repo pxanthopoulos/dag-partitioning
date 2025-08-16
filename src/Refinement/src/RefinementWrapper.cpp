@@ -10,8 +10,13 @@
 #include <memory>
 #include <stdexcept>
 
-void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo,
-                       uint64_t &edgeCut, RefinementMethod refinementMethod,
+namespace dag_partitioning {
+
+namespace refinement {
+
+void refinementWrapper(const core::Graph &graph,
+                       std::vector<uint8_t> &bisectionInfo, uint64_t &edgeCut,
+                       RefinementMethod refinementMethod,
                        uint64_t refinementPasses, double upperBoundPartWeight,
                        double lowerBoundPartWeight) {
     if (!Refinement::checkBalance(bisectionInfo, graph, 0, upperBoundPartWeight,
@@ -44,3 +49,7 @@ void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo,
     }
     refinement->run();
 }
+
+} // namespace refinement
+
+} // namespace dag_partitioning

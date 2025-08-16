@@ -9,9 +9,13 @@
 #include <algorithm>
 #include <limits>
 
-Bisection::Bisection(const Graph &graph, double upperBoundPartWeight,
+namespace dag_partitioning {
+
+namespace bisection {
+
+Bisection::Bisection(const core::Graph &graph, double upperBoundPartWeight,
                      double lowerBoundPartWeight,
-                     RefinementMethod refinementMethod,
+                     refinement::RefinementMethod refinementMethod,
                      uint64_t refinementPasses)
     : workingGraph(graph), upperBoundPartWeight(upperBoundPartWeight),
       lowerBoundPartWeight(lowerBoundPartWeight),
@@ -79,7 +83,7 @@ uint64_t Bisection::selectBestResult(
 }
 
 uint64_t Bisection::computeEdgeCut(const std::vector<uint8_t> &bisection,
-                                   const Graph &graph) {
+                                   const core::Graph &graph) {
     uint64_t edgeCut = 0;
 
     // Check each edge to see if it crosses between partitions
@@ -93,3 +97,7 @@ uint64_t Bisection::computeEdgeCut(const std::vector<uint8_t> &bisection,
     }
     return edgeCut;
 }
+
+} // namespace bisection
+
+} // namespace dag_partitioning

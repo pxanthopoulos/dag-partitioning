@@ -10,19 +10,27 @@
 #ifndef DAG_PARTITIONING_BISECTION_H
 #define DAG_PARTITIONING_BISECTION_H
 
-class Graph;
-enum class RefinementMethod;
-
 #include <cstdint>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
+class Graph;
+}
+namespace refinement {
+enum class RefinementMethod;
+}
+
+namespace bisection {
+
 class Bisection {
   protected:
-    const Graph &workingGraph;   // Graph to be bisected
+    const core::Graph &workingGraph; // Graph to be bisected
     double upperBoundPartWeight; // Maximum allowed weight for each partition
     double lowerBoundPartWeight; // Minimum allowed weight for each partition
-    RefinementMethod refinementMethod; // Refinement method
-    uint64_t refinementPasses;         // Number of refinement passes
+    refinement::RefinementMethod refinementMethod; // Refinement method
+    uint64_t refinementPasses; // Number of refinement passes
 
     /**
      * @brief Protected constructor for derived classes
@@ -32,8 +40,9 @@ class Bisection {
      * @param refinementMethod Refinement method
      * @param refinementPasses Number of refinement passes
      */
-    Bisection(const Graph &graph, double upperBoundPartWeight,
-              double lowerBoundPartWeight, RefinementMethod refinementMethod,
+    Bisection(const core::Graph &graph, double upperBoundPartWeight,
+              double lowerBoundPartWeight,
+              refinement::RefinementMethod refinementMethod,
               uint64_t refinementPasses);
 
     /**
@@ -68,7 +77,8 @@ class Bisection {
      * @return Total weight of edges crossing between partitions
      */
     [[nodiscard]] static uint64_t
-    computeEdgeCut(const std::vector<uint8_t> &bisection, const Graph &graph);
+    computeEdgeCut(const std::vector<uint8_t> &bisection,
+                   const core::Graph &graph);
 
     /**
      * @brief Pure virtual method to execute the bisection algorithm
@@ -79,5 +89,19 @@ class Bisection {
     [[nodiscard]] virtual std::pair<std::vector<uint8_t>, uint64_t>
     run() const = 0;
 };
+
+/**
+ * @brief Available methods for initial bisection
+ */
+enum class BisectionMethod {
+    GGG,         // Greedy directed graph growing (Section 4.2.1)
+    UNDIRMETIS,  // Undirected METIS + fix acyclicity (Section 4.2.2)
+    UNDIRSCOTCH, // Undirected Scotch + fix acyclicity (Section 4.2.2)
+    UNDIRBOTH    // Try both METIS and Scotch
+};
+
+} // namespace bisection
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_BISECTION_H

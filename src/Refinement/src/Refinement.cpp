@@ -8,7 +8,11 @@
 
 #include <cassert>
 
-Refinement::Refinement(const Graph &graph,
+namespace dag_partitioning {
+
+namespace refinement {
+
+Refinement::Refinement(const core::Graph &graph,
                        std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
@@ -18,7 +22,7 @@ Refinement::Refinement(const Graph &graph,
       lowerBoundPartWeight(lowerBoundPartWeight) {}
 
 bool Refinement::checkValidBisection(const std::vector<uint8_t> &bisectionInfo,
-                                     const Graph &graph) {
+                                     const core::Graph &graph) {
     // Check each edge to ensure no V1->V0 connections exist
     for (uint64_t i = 0; i < graph.size; ++i) {
         const auto &neighbors = graph.adj[i];
@@ -33,7 +37,7 @@ bool Refinement::checkValidBisection(const std::vector<uint8_t> &bisectionInfo,
 
 std::pair<uint64_t, uint64_t>
 Refinement::calculatePartSizes(const std::vector<uint8_t> &bisectionInfo,
-                               const Graph &graph) {
+                               const core::Graph &graph) {
     uint64_t sizeV0 = 0, sizeV1 = 0;
 
     // Sum weights for each partition
@@ -47,7 +51,7 @@ Refinement::calculatePartSizes(const std::vector<uint8_t> &bisectionInfo,
 }
 
 bool Refinement::checkBalance(const std::vector<uint8_t> &bisectionInfo,
-                              const Graph &graph, uint64_t maxNodeWeight,
+                              const core::Graph &graph, uint64_t maxNodeWeight,
                               double upperBoundPartWeight,
                               double lowerBoundPartWeight) {
     // Get current partition weights
@@ -78,7 +82,7 @@ bool Refinement::checkBalance(uint64_t sizeV0, uint64_t sizeV1,
 }
 
 bool Refinement::checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo,
-                                   const Graph &graph,
+                                   const core::Graph &graph,
                                    uint64_t currentEdgeCut) {
     uint64_t edgeCut = 0;
     // Check each edge to ensure no V1->V0 connections exist
@@ -125,3 +129,7 @@ void Refinement::run() {
         checkValidEdgeCut(initialBisectionInfo, workingGraph, initialEdgeCut) &&
         "Computed edge cut is invalid");
 }
+
+} // namespace refinement
+
+} // namespace dag_partitioning
