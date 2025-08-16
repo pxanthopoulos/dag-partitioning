@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <stdexcept>
 
 namespace dag_partitioning {
 
@@ -27,8 +28,10 @@ UndirectedFix::UndirectedFix(const core::Graph &graph,
                 refinementMethod, refinementPasses),
       useMetis(useMetis), useScotch(useScotch) {
     // Require at least one partitioning method
-    assert((useMetis || useScotch) &&
-           "Specify at least 1 undirected partitioning algorithm");
+    if (!useMetis && !useScotch) {
+        throw std::invalid_argument("Must specify at least one undirected "
+                                    "partitioning algorithm (METIS or Scotch)");
+    }
 }
 
 // Count edges in both directions for CSR format
