@@ -10,12 +10,12 @@
 Mixed::Mixed(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
              uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
              double upperBoundPartWeight, double lowerBoundPartWeight)
-        : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
-                     upperBoundPartWeight, lowerBoundPartWeight),
-          BoundaryKL(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
-                     upperBoundPartWeight, lowerBoundPartWeight),
-          BoundaryFM(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
-                     upperBoundPartWeight, lowerBoundPartWeight) {}
+    : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
+                 upperBoundPartWeight, lowerBoundPartWeight),
+      BoundaryKL(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
+                 upperBoundPartWeight, lowerBoundPartWeight),
+      BoundaryFM(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
+                 upperBoundPartWeight, lowerBoundPartWeight) {}
 
 bool Mixed::onePassRefinement() {
     bool changed = BoundaryKL::onePassRefinement();

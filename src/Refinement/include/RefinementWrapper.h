@@ -8,9 +8,9 @@
 #include "Graph.h"
 #include "Refinement.h"
 
-void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo, uint64_t &edgeCut,
-                       RefinementMethod refinementMethod, uint64_t refinementPasses, double upperBoundPartWeight,
+void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo,
+                       uint64_t &edgeCut, RefinementMethod refinementMethod,
+                       uint64_t refinementPasses, double upperBoundPartWeight,
                        double lowerBoundPartWeight);
 
-
-#endif //DAG_PARTITIONING_REFINEMENTWRAPPER_H
+#endif // DAG_PARTITIONING_REFINEMENTWRAPPER_H

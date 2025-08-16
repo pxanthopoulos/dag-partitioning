@@ -1,34 +1,38 @@
 /**
  * @file Graph.h
- * @brief Header file for the Graph class representing a weighted directed graph (DAG)
+ * @brief Header file for the Graph class representing a weighted directed graph
+ * (DAG)
  */
 
 #ifndef DAG_PARTITIONING_GRAPH_H
 #define DAG_PARTITIONING_GRAPH_H
 
-#include <vector>
-#include <string>
-#include <utility>
-#include <tuple>
 #include <cstdint>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 /**
  * @class Graph
- * @brief Represents a weighted directed graph (DAG) with node weights and edge weights
+ * @brief Represents a weighted directed graph (DAG) with node weights and edge
+ * weights
  *
- * This class provides functionality for creating and manipulating directed acyclic graphs
- * with weighted nodes and edges. It supports operations like cycle detection, topological
- * sorting, and distance calculations.
+ * This class provides functionality for creating and manipulating directed
+ * acyclic graphs with weighted nodes and edges. It supports operations like
+ * cycle detection, topological sorting, and distance calculations.
  */
 class Graph {
-public:
-    uint64_t size;                                                    // Number of nodes in the graph
-    std::vector<std::vector<std::pair<uint64_t, uint64_t>>> adj;     // Forward adjacency list (node_id, edge_weight)
-    std::vector<std::vector<std::pair<uint64_t, uint64_t>>> revAdj;  // Reverse adjacency list for backward traversal
-    std::vector<uint64_t> nodeWeights;                               // Weights of nodes
-    uint64_t totalWeight;                                            // Sum of all node weights
-    std::vector<uint64_t> inDegree;                                 // Number of incoming edges for each node
-    uint64_t maxNodeWeight;                                         // Maximum node weight
+  public:
+    uint64_t size; // Number of nodes in the graph
+    std::vector<std::vector<std::pair<uint64_t, uint64_t>>>
+        adj; // Forward adjacency list (node_id, edge_weight)
+    std::vector<std::vector<std::pair<uint64_t, uint64_t>>>
+        revAdj; // Reverse adjacency list for backward traversal
+    std::vector<uint64_t> nodeWeights; // Weights of nodes
+    uint64_t totalWeight;              // Sum of all node weights
+    std::vector<uint64_t> inDegree;    // Number of incoming edges for each node
+    uint64_t maxNodeWeight;            // Maximum node weight
 
     /**
      * @brief Constructs a graph with the specified number of nodes
@@ -54,9 +58,11 @@ public:
     /**
      * @brief Gets both incoming and outgoing neighbors of a node
      * @param node Node ID to get neighbors for
-     * @return Vector of tuples containing (neighbor_id, edge_weight, is_outgoing)
+     * @return Vector of tuples containing (neighbor_id, edge_weight,
+     * is_outgoing)
      */
-    [[nodiscard]] std::vector<std::tuple<uint64_t, uint64_t, bool>> getNeighbors(uint64_t node) const;
+    [[nodiscard]] std::vector<std::tuple<uint64_t, uint64_t, bool>>
+    getNeighbors(uint64_t node) const;
 
     /**
      * @brief Gets neighbors sorted by edge weight in ascending order
@@ -86,7 +92,8 @@ public:
     [[nodiscard]] std::vector<uint64_t> topologicalSort() const;
 
     /**
-     * @brief Computes the top level (longest path length from any root) for each node
+     * @brief Computes the top level (longest path length from any root) for
+     * each node
      * @return Vector of top levels for each node
      */
     [[nodiscard]] std::vector<uint64_t> computeTopLevels() const;
@@ -96,28 +103,34 @@ public:
      * @param topologicalOrder Vector containing nodes in topological order
      * @return Vector of top levels for each node
      */
-    [[nodiscard]] std::vector<uint64_t> computeTopLevels(const std::vector<uint64_t> &topologicalOrder) const;
+    [[nodiscard]] std::vector<uint64_t>
+    computeTopLevels(const std::vector<uint64_t> &topologicalOrder) const;
 
     /**
      * @brief Computes both topological sort and top levels in a single pass
      * @return Pair of vectors containing topological order and top levels
      */
-    [[nodiscard]] std::pair<std::vector<uint64_t>, std::vector<uint64_t>> topologicalSortAndTopLevels() const;
+    [[nodiscard]] std::pair<std::vector<uint64_t>, std::vector<uint64_t>>
+    topologicalSortAndTopLevels() const;
 
     /**
-     * @brief Computes shortest distances from a start node using Dijkstra's algorithm
+     * @brief Computes shortest distances from a start node using Dijkstra's
+     * algorithm
      * @param startNode Starting node for distance calculation
      * @param reverseGraph If true, computes distances using reverse edges
      * @return Vector of distances from start node to all other nodes
      */
-    [[nodiscard]] std::vector<uint64_t> distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
+    [[nodiscard]] std::vector<uint64_t>
+    distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
 
     /**
      * @brief Calculates topological positions of nodes based on partitioning
      * @param partitionInfo Vector mapping node IDs to their partition IDs
-     * @return Vector of topological positions where vec[i] is the position of node i in a topological order
+     * @return Vector of topological positions where vec[i] is the position of
+     * node i in a topological order
      */
-    [[nodiscard]] std::vector<uint64_t> groupedTopSortPositions(const std::vector<uint64_t> &partitionInfo) const;
+    [[nodiscard]] std::vector<uint64_t>
+    groupedTopSortPositions(const std::vector<uint64_t> &partitionInfo) const;
 
     /**
      * @brief Prints graph information to the specified output stream
@@ -138,6 +151,7 @@ public:
  * @param mappingFilename Output file for node name to ID mapping
  * @return Constructed Graph object
  */
-Graph readDotFile(const std::string &dotFilename, const std::string &mappingFilename);
+Graph readDotFile(const std::string &dotFilename,
+                  const std::string &mappingFilename);
 
-#endif //DAG_PARTITIONING_GRAPH_H
+#endif // DAG_PARTITIONING_GRAPH_H

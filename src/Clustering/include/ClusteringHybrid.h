@@ -1,10 +1,12 @@
 /**
  * @file ClusteringHybrid.h
- * @brief Implementation of hybrid acyclic clustering as described in Section 4.1.3
+ * @brief Implementation of hybrid acyclic clustering as described in
+ * Section 4.1.3
  *
- * This class implements a hybrid approach that combines cycle detection and forbidden
- * edges strategies. It uses cycle detection by default but switches to forbidden edges
- * rules for vertices with large degrees to avoid the quadratic runtime behavior.
+ * This class implements a hybrid approach that combines cycle detection and
+ * forbidden edges strategies. It uses cycle detection by default but switches
+ * to forbidden edges rules for vertices with large degrees to avoid the
+ * quadratic runtime behavior.
  */
 
 #ifndef DAG_PARTITIONING_CLUSTERINGHYBRID_H
@@ -13,7 +15,7 @@
 #include "ClusteringCycleDetection.h"
 
 class ClusteringHybrid : public ClusteringCycleDetection {
-private:
+  private:
     /**
      * @brief Determines if edge endpoints have large degrees
      *
@@ -27,11 +29,12 @@ private:
     [[nodiscard]] bool checkLargeDegrees(uint64_t from, uint64_t to) const;
 
     /**
-     * @brief Updates forbidden edge tracking data when using forbidden edges strategy
+     * @brief Updates forbidden edge tracking data when using forbidden edges
+     * strategy
      *
-     * This function maintains the bad neighbor tracking data structures described
-     * in section 4.1.1, for when the algorithm switches to forbidden edges mode
-     * for high-degree vertices.
+     * This function maintains the bad neighbor tracking data structures
+     * described in section 4.1.1, for when the algorithm switches to forbidden
+     * edges mode for high-degree vertices.
      *
      * @param topLevels Top-level values for all nodes
      * @param node Current node being processed
@@ -43,38 +46,41 @@ private:
      * @param numberOfBadNeighbors Count of bad neighbor clusters per node
      * @param leaderOfBadNeighbors Leader of first bad neighbor cluster per node
      */
-    void bookKeepingForForbiddenEdges(const std::vector<uint64_t> &topLevels,
-                                      uint64_t node,
-                                      const std::vector<std::tuple<uint64_t, uint64_t, bool>> &sortedNeighbors,
-                                      uint64_t neighborId,
-                                      uint64_t leaderOfNeighbor,
-                                      const std::vector<uint8_t> &markup,
-                                      const std::vector<uint8_t> &markdown,
-                                      std::vector<uint64_t> &numberOfBadNeighbors,
-                                      std::vector<uint64_t> &leaderOfBadNeighbors) const;
+    void bookKeepingForForbiddenEdges(
+        const std::vector<uint64_t> &topLevels, uint64_t node,
+        const std::vector<std::tuple<uint64_t, uint64_t, bool>>
+            &sortedNeighbors,
+        uint64_t neighborId, uint64_t leaderOfNeighbor,
+        const std::vector<uint8_t> &markup,
+        const std::vector<uint8_t> &markdown,
+        std::vector<uint64_t> &numberOfBadNeighbors,
+        std::vector<uint64_t> &leaderOfBadNeighbors) const;
 
     /**
      * @brief Implements one round of hybrid clustering
      *
-     * Processes nodes in topological order, using cycle detection for normal vertices
-     * and forbidden edges rules for high-degree vertices. Combines data structures
-     * from both approaches to maintain consistency.
+     * Processes nodes in topological order, using cycle detection for normal
+     * vertices and forbidden edges rules for high-degree vertices. Combines
+     * data structures from both approaches to maintain consistency.
      *
      * @return Pair containing:
      *         - Vector mapping nodes to cluster leaders
      *         - Number of clusters after this round
      */
-    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> oneRoundClustering() const override;
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
+    oneRoundClustering() const override;
 
-public:
+  public:
     /**
      * @brief Constructs the hybrid clustering algorithm instance
      * @param graph Original graph to be clustered
      * @param maxRounds Maximum number of clustering rounds
      * @param minVertices Minimum number of vertices to stop at
-     * @param vertexRatio If, after a clustering round, this ratio is not surpassed, stop clustering
+     * @param vertexRatio If, after a clustering round, this ratio is not
+     * surpassed, stop clustering
      */
-    ClusteringHybrid(const Graph &graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio);
+    ClusteringHybrid(const Graph &graph, uint64_t maxRounds,
+                     uint64_t minVertices, double vertexRatio);
 };
 
-#endif //DAG_PARTITIONING_CLUSTERINGHYBRID_H
+#endif // DAG_PARTITIONING_CLUSTERINGHYBRID_H
