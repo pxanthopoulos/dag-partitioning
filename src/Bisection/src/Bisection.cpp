@@ -26,7 +26,9 @@ uint64_t Bisection::selectBestResult(
     using Result = std::tuple<uint64_t, uint8_t,
                               double>; // (edge_cut, is_balanced, imbalance)
     std::vector<std::pair<uint64_t, Result>> balancedResults;
+    balancedResults.reserve(results.size());
     std::vector<std::pair<uint64_t, Result>> unbalancedResults;
+    unbalancedResults.reserve(results.size());
 
     // Separate balanced and unbalanced results, keeping track of original
     // indices

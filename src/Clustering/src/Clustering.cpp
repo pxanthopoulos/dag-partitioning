@@ -88,7 +88,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders,
     }
 
     // Update working graph and save intermediate result
-    workingGraph = newGraph;
+    workingGraph = std::move(newGraph);
     std::vector<uint64_t> clustering(leaders.size());
     for (uint64_t i = 0; i < clustering.size(); ++i)
         clustering[i] = leadersToNewNodeIds[leaders[i]];

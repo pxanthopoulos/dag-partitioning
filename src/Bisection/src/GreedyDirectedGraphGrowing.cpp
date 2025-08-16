@@ -62,6 +62,7 @@ GreedyDirectedGraphGrowing::runOnNormalGraph() const {
         maxHeapPhase1;
     std::vector<uint64_t> localInDegree = workingGraph.inDegree;
     std::vector<uint64_t> sources;
+    sources.reserve(workingGraph.size);
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
@@ -151,6 +152,7 @@ GreedyDirectedGraphGrowing::runOnNormalGraph() const {
 
     // Prepare for Phase 2
     std::vector<uint64_t> readyNodes;
+    readyNodes.reserve(maxHeapPhase1.size());
     while (!maxHeapPhase1.empty()) {
         const auto [_, distance, nodeId] = maxHeapPhase1.top();
         readyNodes.push_back(nodeId);
@@ -248,6 +250,7 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
         maxHeapPhase1;
     std::vector<uint64_t> localOutDegree(workingGraph.size);
     std::vector<uint64_t> sinks;
+    sinks.reserve(workingGraph.size);
     std::vector<uint64_t> weightedInDegree(workingGraph.size, 0);
     std::vector<uint64_t> weightedOutDegree(workingGraph.size, 0);
     uint64_t maxNodeWeight = workingGraph.maxNodeWeight;
@@ -326,6 +329,7 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
     }
 
     std::vector<uint64_t> readyNodes;
+    readyNodes.reserve(maxHeapPhase1.size());
     while (!maxHeapPhase1.empty()) {
         const auto [_, distance, nodeId] = maxHeapPhase1.top();
         readyNodes.push_back(nodeId);
@@ -396,7 +400,9 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
 std::pair<std::vector<uint8_t>, uint64_t>
 GreedyDirectedGraphGrowing::run() const {
     std::vector<std::pair<std::vector<uint8_t>, uint64_t>> bisections;
+    bisections.reserve(2);
     std::vector<std::tuple<uint64_t, uint8_t, double>> results;
+    results.reserve(2);
 
     // Run both normal and reverse algorithms
     std::pair<std::vector<uint8_t>, uint64_t> bisectionNormal =

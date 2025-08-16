@@ -213,7 +213,9 @@ void UndirectedFix::fixAcyclicityDown(
 
 std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
     std::vector<std::pair<std::vector<uint8_t>, uint64_t>> bisections;
+    bisections.reserve(4);
     std::vector<std::tuple<uint64_t, uint8_t, double>> results;
+    results.reserve(4);
 
     // Get initial undirected bisection
     std::vector<uint8_t> undirectedBisection = getUndirectedBisectionMetis();
@@ -324,7 +326,9 @@ std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runMetis() const {
 
 std::pair<std::vector<uint8_t>, uint64_t> UndirectedFix::runScotch() const {
     std::vector<std::pair<std::vector<uint8_t>, uint64_t>> bisections;
+    bisections.reserve(4);
     std::vector<std::tuple<uint64_t, uint8_t, double>> results;
+    results.reserve(4);
 
     // Get initial undirected bisection
     std::vector<uint8_t> undirectedBisection = getUndirectedBisectionScotch();
