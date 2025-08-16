@@ -23,8 +23,8 @@ Graph::Graph(uint64_t size)
 // Add a node with given weight to the graph
 void Graph::addNode(uint64_t id, uint64_t weight) {
     if (id >= size) {
-        throw std::out_of_range("Node ID " + std::to_string(id) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Node ID " + std::to_string(id) +
+                                " exceeds graph size " + std::to_string(size));
     }
     nodeWeights[id] = weight;
     totalWeight += weight;
@@ -36,12 +36,12 @@ void Graph::addNode(uint64_t id, uint64_t weight) {
 // Add a weighted edge between two nodes
 void Graph::addEdge(uint64_t from, uint64_t to, uint64_t weight) {
     if (from >= size) {
-        throw std::out_of_range("Source node ID " + std::to_string(from) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Source node ID " + std::to_string(from) +
+                                " exceeds graph size " + std::to_string(size));
     }
     if (to >= size) {
-        throw std::out_of_range("Target node ID " + std::to_string(to) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Target node ID " + std::to_string(to) +
+                                " exceeds graph size " + std::to_string(size));
     }
     // Add forward edge
     adj[from].emplace_back(to, weight);
@@ -55,8 +55,8 @@ void Graph::addEdge(uint64_t from, uint64_t to, uint64_t weight) {
 std::vector<std::tuple<uint64_t, uint64_t, bool>>
 Graph::getNeighbors(uint64_t node) const {
     if (node >= size) {
-        throw std::out_of_range("Node ID " + std::to_string(node) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Node ID " + std::to_string(node) +
+                                " exceeds graph size " + std::to_string(size));
     }
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors;
     neighbors.reserve(adj[node].size() + revAdj[node].size());
@@ -78,8 +78,8 @@ Graph::getNeighbors(uint64_t node) const {
 std::vector<std::tuple<uint64_t, uint64_t, bool>>
 Graph::getNeighborsSortedByEdgeWeightAsc(uint64_t node) const {
     if (node >= size) {
-        throw std::out_of_range("Node ID " + std::to_string(node) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Node ID " + std::to_string(node) +
+                                " exceeds graph size " + std::to_string(size));
     }
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors =
         getNeighbors(node);
@@ -97,8 +97,8 @@ Graph::getNeighborsSortedByEdgeWeightAsc(uint64_t node) const {
 // Check for cycles using iterative DFS from a start node
 bool Graph::iterativeDfsHasCycle(uint64_t start) const {
     if (start >= size) {
-        throw std::out_of_range("Start node ID " + std::to_string(start) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Start node ID " + std::to_string(start) +
+                                " exceeds graph size " + std::to_string(size));
     }
     std::vector<uint8_t> visited(size, 0);
     std::vector<uint8_t> inStack(size, 0); // Track nodes in current DFS path
@@ -150,7 +150,8 @@ bool Graph::hasCycle() const {
 
 // Perform topological sort using Kahn's algorithm
 std::vector<uint64_t> Graph::topologicalSort() const {
-    std::vector<uint64_t> topologicalOrder(size);
+    std::vector<uint64_t> topologicalOrder;
+    topologicalOrder.reserve(size);
     std::vector<uint64_t> localInDegree = inDegree;
 
     // Start with nodes having no incoming edges
@@ -177,7 +178,8 @@ std::vector<uint64_t> Graph::topologicalSort() const {
     }
 
     if (topologicalOrder.size() != size) {
-        throw std::runtime_error("Graph contains cycles - cannot perform topological sort");
+        throw std::runtime_error(
+            "Graph contains cycles - cannot perform topological sort");
     }
     return topologicalOrder;
 }
@@ -207,7 +209,8 @@ std::vector<uint64_t> Graph::computeTopLevels() const {
                 q.push(next);
             }
             if (localInDegree[next] < 0) {
-                throw std::runtime_error("Graph contains cycles - invalid in-degree during computation");
+                throw std::runtime_error("Graph contains cycles - invalid "
+                                         "in-degree during computation");
             }
         }
     }
@@ -223,8 +226,10 @@ Graph::computeTopLevels(const std::vector<uint64_t> &topologicalOrder) const {
     // Process nodes in topological order
     for (uint64_t u : topologicalOrder) {
         if (u >= size) {
-            throw std::out_of_range("Node ID " + std::to_string(u) + 
-                " in topological order exceeds graph size " + std::to_string(size));
+            throw std::out_of_range(
+                "Node ID " + std::to_string(u) +
+                " in topological order exceeds graph size " +
+                std::to_string(size));
         }
         for (const auto &[v, weight] : adj[u]) {
             topLevels[v] = std::max(topLevels[v], topLevels[u] + 1);
@@ -241,7 +246,6 @@ Graph::topologicalSortAndTopLevels() const {
     std::vector<uint64_t> topologicalOrder;
     topologicalOrder.reserve(size);
     std::vector<uint64_t> topLevels(size, 0);
-    topologicalOrder.reserve(size);
 
     // Initialize with nodes having no incoming edges
     std::queue<uint64_t> q;
@@ -265,13 +269,15 @@ Graph::topologicalSortAndTopLevels() const {
                 q.push(next);
             }
             if (localInDegree[next] < 0) {
-                throw std::runtime_error("Graph contains cycles - invalid in-degree during computation");
+                throw std::runtime_error("Graph contains cycles - invalid "
+                                         "in-degree during computation");
             }
         }
     }
 
     if (topologicalOrder.size() != size) {
-        throw std::runtime_error("Graph contains cycles - cannot perform topological sort");
+        throw std::runtime_error(
+            "Graph contains cycles - cannot perform topological sort");
     }
     return {topologicalOrder, topLevels};
 }
@@ -280,8 +286,8 @@ Graph::topologicalSortAndTopLevels() const {
 std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode,
                                                bool reverseGraph) const {
     if (startNode >= size) {
-        throw std::out_of_range("Start node ID " + std::to_string(startNode) + 
-            " exceeds graph size " + std::to_string(size));
+        throw std::out_of_range("Start node ID " + std::to_string(startNode) +
+                                " exceeds graph size " + std::to_string(size));
     }
     std::vector<uint64_t> distances(size, UINT64_MAX);
 
@@ -321,8 +327,8 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode,
 std::vector<uint64_t> Graph::groupedTopSortPositions(
     const std::vector<uint64_t> &partitionInfo) const {
     if (partitionInfo.size() != size) {
-        throw std::invalid_argument("Partition info size (" + 
-            std::to_string(partitionInfo.size()) + 
+        throw std::invalid_argument(
+            "Partition info size (" + std::to_string(partitionInfo.size()) +
             ") must match graph size (" + std::to_string(size) + ")");
     }
 
@@ -391,7 +397,8 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(
     }
 
     if (coarseTopologicalOrder.size() != numPartitions) {
-        throw std::runtime_error("Partition graph contains cycles - cannot determine ordering");
+        throw std::runtime_error(
+            "Partition graph contains cycles - cannot determine ordering");
     }
 
     // Step 3: Calculate the position of each partition in the topological order
@@ -414,13 +421,15 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(
 // Print graph information to output stream
 void Graph::print(std::ostream &os) const {
     if (adj.size() != nodeWeights.size()) {
-        throw std::runtime_error("Graph internal inconsistency: adjacency list size (" + 
-            std::to_string(adj.size()) + ") != node weights size (" + 
+        throw std::runtime_error(
+            "Graph internal inconsistency: adjacency list size (" +
+            std::to_string(adj.size()) + ") != node weights size (" +
             std::to_string(nodeWeights.size()) + ")");
     }
     if (size != adj.size()) {
-        throw std::runtime_error("Graph internal inconsistency: declared size (" + 
-            std::to_string(size) + ") != adjacency list size (" + 
+        throw std::runtime_error(
+            "Graph internal inconsistency: declared size (" +
+            std::to_string(size) + ") != adjacency list size (" +
             std::to_string(adj.size()) + ")");
     }
 
@@ -481,7 +490,8 @@ Graph readDotFile(const std::string &dotFilename,
     }
 
     if (graphSize == UINT64_MAX) {
-        throw std::runtime_error("Failed to extract graph size from DOT file: " + dotFilename);
+        throw std::runtime_error(
+            "Failed to extract graph size from DOT file: " + dotFilename);
     }
 
     Graph g(graphSize);
@@ -511,8 +521,9 @@ Graph readDotFile(const std::string &dotFilename,
     }
 
     if (g.adj.size() != graphSize) {
-        throw std::runtime_error("DOT file parsing error: computed graph size (" + 
-            std::to_string(g.adj.size()) + ") != declared size (" + 
+        throw std::runtime_error(
+            "DOT file parsing error: computed graph size (" +
+            std::to_string(g.adj.size()) + ") != declared size (" +
             std::to_string(graphSize) + ")");
     }
 
