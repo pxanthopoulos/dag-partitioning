@@ -30,6 +30,7 @@ ClusteringForbiddenEdges::findValidNeighbors(
     const std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
         &leadersToMinMaxTopValues) const {
     std::vector<std::pair<uint64_t, uint64_t>> validNeighbors;
+    validNeighbors.reserve(neighbors.size());
 
     // If node has two bad neighbors, it must remain singleton (Theorem 4.2)
     if (numberOfBadNeighbors[node] == 2)

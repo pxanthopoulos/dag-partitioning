@@ -47,6 +47,7 @@ std::vector<std::tuple<uint64_t, uint64_t, bool>>
 Graph::getNeighbors(uint64_t node) const {
     assert(node < size && "node id must be smaller than graph size");
     std::vector<std::tuple<uint64_t, uint64_t, bool>> neighbors;
+    neighbors.reserve(adj[node].size() + revAdj[node].size());
 
     // Add outgoing neighbors (marked with true)
     for (const auto &[outNeighbor, edgeWeight] : adj[node]) {
@@ -131,8 +132,7 @@ bool Graph::hasCycle() const {
 
 // Perform topological sort using Kahn's algorithm
 std::vector<uint64_t> Graph::topologicalSort() const {
-    std::vector<uint64_t> topologicalOrder;
-    topologicalOrder.reserve(size);
+    std::vector<uint64_t> topologicalOrder(size);
     std::vector<uint64_t> localInDegree = inDegree;
 
     // Start with nodes having no incoming edges
@@ -215,6 +215,7 @@ std::pair<std::vector<uint64_t>, std::vector<uint64_t>>
 Graph::topologicalSortAndTopLevels() const {
     std::vector<uint64_t> localInDegree = inDegree;
     std::vector<uint64_t> topologicalOrder;
+    topologicalOrder.reserve(size);
     std::vector<uint64_t> topLevels(size, 0);
     topologicalOrder.reserve(size);
 

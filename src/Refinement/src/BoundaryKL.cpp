@@ -326,6 +326,8 @@ bool BoundaryKL::onePassRefinement() {
     std::vector<uint8_t> inList(workingGraph.size, 0);
 
     std::vector<std::pair<int64_t, uint64_t>> vecV0, vecV1;
+    vecV0.reserve(workingGraph.size);
+    vecV1.reserve(workingGraph.size);
 
     // Find initially movable vertices
     insertMovableNodesIntoLists(vecV0, vecV1, inList);
