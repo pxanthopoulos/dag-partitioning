@@ -4,13 +4,18 @@
  */
 
 #include "ClusteringCycleDetection.h"
+
 #include <cassert>
 #include <cmath>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
-ClusteringCycleDetection::ClusteringCycleDetection(const Graph &graph,
+namespace dag_partitioning {
+
+namespace clustering {
+
+ClusteringCycleDetection::ClusteringCycleDetection(const core::Graph &graph,
                                                    uint64_t maxRounds,
                                                    uint64_t minVertices,
                                                    double vertexRatio)
@@ -39,7 +44,7 @@ void ClusteringCycleDetection::hardCheckCycle(
     }
 
     // Construct the coarsened graph
-    Graph newGraph(newSize);
+    core::Graph newGraph(newSize);
     std::vector<std::unordered_map<uint64_t, uint64_t>> newAdj(newSize);
 
     // Add nodes and combine edges
@@ -227,3 +232,7 @@ ClusteringCycleDetection::oneRoundClustering() const {
 
     return {leaders, newSize};
 }
+
+} // namespace clustering
+
+} // namespace dag_partitioning

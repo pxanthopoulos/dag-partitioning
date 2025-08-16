@@ -15,12 +15,16 @@
 #include <algorithm>
 #include <cassert>
 
+namespace dag_partitioning {
+
+namespace driver {
+
 RecursivePartitioner::RecursivePartitioner(
-    const Graph &graph, uint64_t partitions, ClusteringMethod clusteringMethod,
-    uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
-    double clusteringVertexRatio, BisectionMethod bisectionMethod,
-    double imbalanceRatio, RefinementMethod refinementMethod,
-    uint64_t refinementPasses)
+    const core::Graph &graph, uint64_t partitions,
+    clustering::ClusteringMethod clusteringMethod, uint64_t maxClusteringRounds,
+    uint64_t minClusteringVertices, double clusteringVertexRatio,
+    bisection::BisectionMethod bisectionMethod, double imbalanceRatio,
+    refinement::RefinementMethod refinementMethod, uint64_t refinementPasses)
     : workingGraph(graph), partitions(partitions),
       clusteringMethod(clusteringMethod),
       maxClusteringRounds(maxClusteringRounds),
@@ -32,7 +36,7 @@ RecursivePartitioner::RecursivePartitioner(
            "Cannot create more partitions than the number of nodes");
 }
 
-std::tuple<Graph, std::unordered_map<uint64_t, uint64_t>, Graph,
+std::tuple<core::Graph, std::unordered_map<uint64_t, uint64_t>, core::Graph,
            std::unordered_map<uint64_t, uint64_t>>
 RecursivePartitioner::createSubgraphs(
     const std::vector<uint8_t> &bisection) const {
@@ -46,8 +50,8 @@ RecursivePartitioner::createSubgraphs(
     uint64_t subGraphSize1 = bisection.size() - subGraphSize0;
 
     // Create subgraphs with appropriate sizes
-    Graph subGraph0(subGraphSize0);
-    Graph subGraph1(subGraphSize1);
+    core::Graph subGraph0(subGraphSize0);
+    core::Graph subGraph1(subGraphSize1);
 
     uint64_t newNodeId0 = 0, newNodeId1 = 0;
 
@@ -176,3 +180,7 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
 
     return {partitionMapping, totalEdgeCut + leftEdgeCut + rightEdgeCut};
 }
+
+} // namespace driver
+
+} // namespace dag_partitioning

@@ -13,11 +13,17 @@
 #include <cstdint>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
 class Graph;
+}
+
+namespace refinement {
 
 class Refinement {
   protected:
-    const Graph &workingGraph;                  // Graph being partitioned
+    const core::Graph &workingGraph;            // Graph being partitioned
     std::vector<uint8_t> &initialBisectionInfo; // Current partition assignment
                                                 // (modified by refinement)
     uint64_t
@@ -45,7 +51,8 @@ class Refinement {
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+    Refinement(const core::Graph &graph,
+               std::vector<uint8_t> &initialBisectionInfo,
                uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                double upperBoundPartWeight, double lowerBoundPartWeight);
 
@@ -67,7 +74,7 @@ class Refinement {
      */
     [[nodiscard]] static bool
     checkValidBisection(const std::vector<uint8_t> &bisectionInfo,
-                        const Graph &graph);
+                        const core::Graph &graph);
 
     /**
      * @brief Computes current weight of both partitions
@@ -77,7 +84,7 @@ class Refinement {
      */
     [[nodiscard]] static std::pair<uint64_t, uint64_t>
     calculatePartSizes(const std::vector<uint8_t> &bisectionInfo,
-                       const Graph &graph);
+                       const core::Graph &graph);
 
     /**
      * @brief Checks if partition weights are within balance constraints
@@ -93,9 +100,9 @@ class Refinement {
      * @return true if partition weights are valid
      */
     [[nodiscard]] static bool
-    checkBalance(const std::vector<uint8_t> &bisectionInfo, const Graph &graph,
-                 uint64_t maxNodeWeight, double upperBoundPartWeight,
-                 double lowerBoundPartWeight);
+    checkBalance(const std::vector<uint8_t> &bisectionInfo,
+                 const core::Graph &graph, uint64_t maxNodeWeight,
+                 double upperBoundPartWeight, double lowerBoundPartWeight);
 
     /**
      * @brief Checks if partition weights are within balance constraints
@@ -126,7 +133,7 @@ class Refinement {
      */
     [[nodiscard]] static bool
     checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo,
-                      const Graph &graph, uint64_t currentEdgeCut);
+                      const core::Graph &graph, uint64_t currentEdgeCut);
 
     /**
      * @brief Executes refinement process
@@ -147,5 +154,9 @@ enum class RefinementMethod {
     BOUNDARYKL, // Boundary KL adaptation
     MIXED       // Mixed (1 pass of KL followed by one pass of FM)
 };
+
+} // namespace refinement
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_REFINEMENT_H

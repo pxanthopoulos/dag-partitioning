@@ -4,10 +4,15 @@
  */
 
 #include "ClusteringForbiddenEdges.h"
+
 #include <algorithm>
 #include <cmath>
 
-ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph,
+namespace dag_partitioning {
+
+namespace clustering {
+
+ClusteringForbiddenEdges::ClusteringForbiddenEdges(const core::Graph &graph,
                                                    uint64_t maxRounds,
                                                    uint64_t minVertices,
                                                    double vertexRatio)
@@ -208,3 +213,7 @@ ClusteringForbiddenEdges::oneRoundClustering() const {
 
     return {leaders, newSize};
 }
+
+} // namespace clustering
+
+} // namespace dag_partitioning

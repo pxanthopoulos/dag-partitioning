@@ -10,9 +10,13 @@
 #include <unordered_set>
 #include <utility>
 
+namespace dag_partitioning {
+
+namespace clustering {
+
 // Constructor initializes the working graph and clustering parameters
-Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices,
-                       double vertexRatio)
+Clustering::Clustering(core::Graph graph, uint64_t maxRounds,
+                       uint64_t minVertices, double vertexRatio)
     : workingGraph(std::move(graph)), maxRounds(maxRounds),
       minVertices(minVertices), vertexRatio(vertexRatio) {}
 
@@ -47,7 +51,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders,
     }
 
     // Create new graph with merged nodes
-    Graph newGraph(newSize);
+    core::Graph newGraph(newSize);
     std::vector<std::unordered_map<uint64_t, uint64_t>> newAdj(newSize);
 
     // Second pass: Build new graph structure
@@ -98,7 +102,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders,
     return true;
 }
 
-std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
+std::stack<std::pair<core::Graph, std::vector<uint64_t>>> Clustering::run() {
     // Handle case where graph is already small enough (return empty stack)
     if (workingGraph.size <= minVertices) {
         return intermediateGraphsAndClusters;
@@ -121,3 +125,7 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
 
     return intermediateGraphsAndClusters;
 }
+
+} // namespace clustering
+
+} // namespace dag_partitioning

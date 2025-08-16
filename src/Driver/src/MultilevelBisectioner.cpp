@@ -16,11 +16,15 @@
 #include <stdexcept>
 #include <utility>
 
+namespace dag_partitioning {
+
+namespace driver {
+
 MultilevelBisectioner::MultilevelBisectioner(
-    const Graph &graph, ClusteringMethod clusteringMethod,
+    const core::Graph &graph, clustering::ClusteringMethod clusteringMethod,
     uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
-    double clusteringVertexRatio, BisectionMethod bisectionMethod,
-    double imbalanceRatio, RefinementMethod refinementMethod,
+    double clusteringVertexRatio, bisection::BisectionMethod bisectionMethod,
+    double imbalanceRatio, refinement::RefinementMethod refinementMethod,
     uint64_t refinementPasses)
     : workingGraph(graph), clusteringMethod(clusteringMethod),
       maxClusteringRounds(maxClusteringRounds),
@@ -29,23 +33,23 @@ MultilevelBisectioner::MultilevelBisectioner(
       bisectionMethod(bisectionMethod), imbalanceRatio(imbalanceRatio),
       refinementMethod(refinementMethod), refinementPasses(refinementPasses) {}
 
-std::stack<std::pair<Graph, std::vector<uint64_t>>>
+std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
 MultilevelBisectioner::runClustering() const {
     // Create appropriate clustering algorithm based on selected method
-    std::unique_ptr<Clustering> clustering;
+    std::unique_ptr<clustering::Clustering> clustering;
     switch (clusteringMethod) {
-    case ClusteringMethod::FORB:
-        clustering = std::make_unique<ClusteringForbiddenEdges>(
+    case clustering::ClusteringMethod::FORB:
+        clustering = std::make_unique<clustering::ClusteringForbiddenEdges>(
             workingGraph, maxClusteringRounds, minClusteringVertices,
             clusteringVertexRatio);
         break;
-    case ClusteringMethod::CYC:
-        clustering = std::make_unique<ClusteringCycleDetection>(
+    case clustering::ClusteringMethod::CYC:
+        clustering = std::make_unique<clustering::ClusteringCycleDetection>(
             workingGraph, maxClusteringRounds, minClusteringVertices,
             clusteringVertexRatio);
         break;
-    case ClusteringMethod::HYB:
-        clustering = std::make_unique<ClusteringHybrid>(
+    case clustering::ClusteringMethod::HYB:
+        clustering = std::make_unique<clustering::ClusteringHybrid>(
             workingGraph, maxClusteringRounds, minClusteringVertices,
             clusteringVertexRatio);
         break;
@@ -54,40 +58,40 @@ MultilevelBisectioner::runClustering() const {
     }
 
     // Execute coarsening and verify constraints
-    std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters =
-        clustering->run();
+    std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
+        intermediateClusters = clustering->run();
     assert(intermediateClusters.size() <= maxClusteringRounds &&
            "maximum number of clustering rounds exceeded");
     return intermediateClusters;
 }
 
 std::pair<std::vector<uint8_t>, uint64_t>
-MultilevelBisectioner::runBisection(const Graph &graph) const {
+MultilevelBisectioner::runBisection(const core::Graph &graph) const {
     // Calculate partition weight bounds based on imbalance ratio
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight =
         imbalanceRatio * ((double)graph.totalWeight / 2.0);
 
     // Create appropriate bisection algorithm
-    std::unique_ptr<Bisection> bisection;
+    std::unique_ptr<bisection::Bisection> bisection;
     switch (bisectionMethod) {
-    case BisectionMethod::GGG:
-        bisection = std::make_unique<GreedyDirectedGraphGrowing>(
+    case bisection::BisectionMethod::GGG:
+        bisection = std::make_unique<bisection::GreedyDirectedGraphGrowing>(
             graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod,
             refinementPasses);
         break;
-    case BisectionMethod::UNDIRMETIS:
-        bisection = std::make_unique<UndirectedFix>(
+    case bisection::BisectionMethod::UNDIRMETIS:
+        bisection = std::make_unique<bisection::UndirectedFix>(
             graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod,
             refinementPasses, true, false);
         break;
-    case BisectionMethod::UNDIRSCOTCH:
-        bisection = std::make_unique<UndirectedFix>(
+    case bisection::BisectionMethod::UNDIRSCOTCH:
+        bisection = std::make_unique<bisection::UndirectedFix>(
             graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod,
             refinementPasses, false, true);
         break;
-    case BisectionMethod::UNDIRBOTH:
-        bisection = std::make_unique<UndirectedFix>(
+    case bisection::BisectionMethod::UNDIRBOTH:
+        bisection = std::make_unique<bisection::UndirectedFix>(
             graph, upperBoundPartWeight, lowerBoundPartWeight, refinementMethod,
             refinementPasses, true, true);
         break;
@@ -110,22 +114,23 @@ void MultilevelBisectioner::projectBisection(
 }
 
 void MultilevelBisectioner::runRefinement(
-    const Graph &graph,
+    const core::Graph &graph,
     std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfoPair) const {
     // Calculate partition weight bounds
     double lowerBoundPartWeight = 1.0;
     double upperBoundPartWeight =
         imbalanceRatio * ((double)graph.totalWeight / 2.0);
 
-    refinementWrapper(graph, bisectionInfoPair.first, bisectionInfoPair.second,
-                      refinementMethod, refinementPasses, upperBoundPartWeight,
-                      lowerBoundPartWeight);
+    refinement::refinementWrapper(graph, bisectionInfoPair.first,
+                                  bisectionInfoPair.second, refinementMethod,
+                                  refinementPasses, upperBoundPartWeight,
+                                  lowerBoundPartWeight);
 }
 
 std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
     // Phase 1: Coarsening
-    std::stack<std::pair<Graph, std::vector<uint64_t>>> intermediateClusters =
-        runClustering();
+    std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
+        intermediateClusters = runClustering();
 
     // If no coarsening occurred, partition original graph and refine it
     if (intermediateClusters.empty()) {
@@ -166,3 +171,7 @@ std::pair<std::vector<uint8_t>, uint64_t> MultilevelBisectioner::run() const {
     runRefinement(workingGraph, bisectionInfoPair);
     return bisectionInfoPair;
 }
+
+} // namespace driver
+
+} // namespace dag_partitioning

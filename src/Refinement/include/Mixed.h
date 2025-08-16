@@ -11,6 +11,10 @@
 #include "BoundaryFM.h"
 #include "BoundaryKL.h"
 
+namespace dag_partitioning {
+
+namespace refinement {
+
 class Mixed : public BoundaryKL, public BoundaryFM {
   private:
     /**
@@ -32,9 +36,13 @@ class Mixed : public BoundaryKL, public BoundaryFM {
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    Mixed(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+    Mixed(const core::Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
           uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
           double upperBoundPartWeight, double lowerBoundPartWeight);
 };
+
+} // namespace refinement
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_MIXED_H

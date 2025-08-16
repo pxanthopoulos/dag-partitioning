@@ -6,7 +6,11 @@
 #include "BoundaryFM.h"
 #include "Graph.h"
 
-BoundaryFM::BoundaryFM(const Graph &graph,
+namespace dag_partitioning {
+
+namespace refinement {
+
+BoundaryFM::BoundaryFM(const core::Graph &graph,
                        std::vector<uint8_t> &initialBisectionInfo,
                        uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
                        double upperBoundPartWeight, double lowerBoundPartWeight)
@@ -303,3 +307,7 @@ bool BoundaryFM::onePassRefinement() {
 
     return true;
 }
+
+} // namespace refinement
+
+} // namespace dag_partitioning

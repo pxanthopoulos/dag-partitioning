@@ -13,6 +13,10 @@
 #include <utility>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
+
 /**
  * @class Graph
  * @brief Represents a weighted directed graph (DAG) with node weights and edge
@@ -153,5 +157,9 @@ class Graph {
  */
 Graph readDotFile(const std::string &dotFilename,
                   const std::string &mappingFilename);
+
+} // namespace core
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_GRAPH_H

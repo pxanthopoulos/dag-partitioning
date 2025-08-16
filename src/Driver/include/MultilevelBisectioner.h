@@ -15,40 +15,39 @@
 #include <stack>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
 class Graph;
+}
+namespace refinement {
 enum class RefinementMethod;
+}
 
-/**
- * @brief Available clustering methods for coarsening phase
- */
-enum class ClusteringMethod {
-    FORB, // Forbidden edges (Section 4.1.1)
-    CYC,  // Cycle detection (Section 4.1.2)
-    HYB   // Hybrid approach (Section 4.1.3)
-};
+namespace clustering {
+enum class ClusteringMethod;
+}
 
-/**
- * @brief Available methods for initial bisection
- */
-enum class BisectionMethod {
-    GGG,         // Greedy directed graph growing (Section 4.2.1)
-    UNDIRMETIS,  // Undirected METIS + fix acyclicity (Section 4.2.2)
-    UNDIRSCOTCH, // Undirected Scotch + fix acyclicity (Section 4.2.2)
-    UNDIRBOTH    // Try both METIS and Scotch
-};
+namespace bisection {
+enum class BisectionMethod;
+}
+
+namespace driver {
 
 class MultilevelBisectioner {
   private:
-    const Graph &workingGraph;         // Graph to be partitioned
-    ClusteringMethod clusteringMethod; // Selected clustering strategy
-    uint64_t maxClusteringRounds;      // Maximum coarsening levels
-    uint64_t minClusteringVertices;    // Stop coarsening at this size
+    const core::Graph &workingGraph; // Graph to be partitioned
+    clustering::ClusteringMethod
+        clusteringMethod;           // Selected clustering strategy
+    uint64_t maxClusteringRounds;   // Maximum coarsening levels
+    uint64_t minClusteringVertices; // Stop coarsening at this size
     double clusteringVertexRatio; // If, after a clustering round, this ratio is
                                   // not surpassed, stop clustering
-    BisectionMethod bisectionMethod;   // Selected bisection strategy
-    double imbalanceRatio;             // Maximum allowed partition imbalance
-    RefinementMethod refinementMethod; // Selected refinement strategy
-    uint64_t refinementPasses;         // Maximum refinement passes per level
+    bisection::BisectionMethod bisectionMethod; // Selected bisection strategy
+    double imbalanceRatio; // Maximum allowed partition imbalance
+    refinement::RefinementMethod
+        refinementMethod;      // Selected refinement strategy
+    uint64_t refinementPasses; // Maximum refinement passes per level
 
   public:
     /**
@@ -64,20 +63,21 @@ class MultilevelBisectioner {
      * @param refinementMethod Refinement strategy
      * @param refinementPasses Maximum refinement passes per level
      */
-    MultilevelBisectioner(const Graph &graph, ClusteringMethod clusteringMethod,
+    MultilevelBisectioner(const core::Graph &graph,
+                          clustering::ClusteringMethod clusteringMethod,
                           uint64_t maxClusteringRounds,
                           uint64_t minClusteringVertices,
                           double clusteringVertexRatio,
-                          BisectionMethod bisectionMethod,
+                          bisection::BisectionMethod bisectionMethod,
                           double imbalanceRatio,
-                          RefinementMethod refinementMethod,
+                          refinement::RefinementMethod refinementMethod,
                           uint64_t refinementPasses);
 
     /**
      * @brief Executes coarsening phase
      * @return Stack of intermediate graphs and mappings
      */
-    [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>>
+    [[nodiscard]] std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
     runClustering() const;
 
     /**
@@ -86,7 +86,7 @@ class MultilevelBisectioner {
      * @return Pair of bisection vector and edge cut weight
      */
     [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t>
-    runBisection(const Graph &graph) const;
+    runBisection(const core::Graph &graph) const;
 
     /**
      * @brief Projects bisection to finer level using node mapping
@@ -103,7 +103,7 @@ class MultilevelBisectioner {
      * @param bisectionInfoPair Bisection to be refined
      */
     void runRefinement(
-        const Graph &graph,
+        const core::Graph &graph,
         std::pair<std::vector<uint8_t>, uint64_t> &bisectionInfoPair) const;
 
     /**
@@ -112,5 +112,9 @@ class MultilevelBisectioner {
      */
     [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const;
 };
+
+} // namespace driver
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_MULTILEVELBISECTIONER_H

@@ -14,24 +14,40 @@
 #include <unordered_map>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
 class Graph;
-enum class ClusteringMethod;
-enum class BisectionMethod;
+}
+namespace refinement {
 enum class RefinementMethod;
+}
+
+namespace clustering {
+enum class ClusteringMethod;
+}
+
+namespace bisection {
+enum class BisectionMethod;
+}
+
+namespace driver {
 
 class RecursivePartitioner {
   private:
-    const Graph &workingGraph;         // Graph to be partitioned
-    uint64_t partitions;               // Number of partitions to create
-    ClusteringMethod clusteringMethod; // Selected clustering strategy
-    uint64_t maxClusteringRounds;      // Maximum coarsening levels
-    uint64_t minClusteringVertices;    // Stop coarsening at this size
+    const core::Graph &workingGraph; // Graph to be partitioned
+    uint64_t partitions;             // Number of partitions to create
+    clustering::ClusteringMethod
+        clusteringMethod;           // Selected clustering strategy
+    uint64_t maxClusteringRounds;   // Maximum coarsening levels
+    uint64_t minClusteringVertices; // Stop coarsening at this size
     double clusteringVertexRatio; // If, after a clustering round, this ratio is
                                   // not surpassed, stop clustering
-    BisectionMethod bisectionMethod;   // Selected bisection strategy
-    double imbalanceRatio;             // Maximum allowed partition imbalance
-    RefinementMethod refinementMethod; // Selected refinement strategy
-    uint64_t refinementPasses;         // Maximum refinement passes per level
+    bisection::BisectionMethod bisectionMethod; // Selected bisection strategy
+    double imbalanceRatio; // Maximum allowed partition imbalance
+    refinement::RefinementMethod
+        refinementMethod;      // Selected refinement strategy
+    uint64_t refinementPasses; // Maximum refinement passes per level
 
     /**
      * @brief Creates two subgraphs by splitting the input graph based on a
@@ -45,8 +61,9 @@ class RecursivePartitioner {
      * (0=V0, 1=V1) vertex i belongs to
      * @return The two resulting subgraphs (V0, V1) and the two maps
      */
-    [[nodiscard]] std::tuple<Graph, std::unordered_map<uint64_t, uint64_t>,
-                             Graph, std::unordered_map<uint64_t, uint64_t>>
+    [[nodiscard]] std::tuple<
+        core::Graph, std::unordered_map<uint64_t, uint64_t>, core::Graph,
+        std::unordered_map<uint64_t, uint64_t>>
     createSubgraphs(const std::vector<uint8_t> &bisection) const;
 
   public:
@@ -64,13 +81,14 @@ class RecursivePartitioner {
      * @param refinementMethod Refinement strategy
      * @param refinementPasses Maximum refinement passes per level
      */
-    RecursivePartitioner(const Graph &graph, uint64_t partitions,
-                         ClusteringMethod clusteringMethod,
+    RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
+                         clustering::ClusteringMethod clusteringMethod,
                          uint64_t maxClusteringRounds,
                          uint64_t minClusteringVertices,
                          double clusteringVertexRatio,
-                         BisectionMethod bisectionMethod, double imbalanceRatio,
-                         RefinementMethod refinementMethod,
+                         bisection::BisectionMethod bisectionMethod,
+                         double imbalanceRatio,
+                         refinement::RefinementMethod refinementMethod,
                          uint64_t refinementPasses);
 
     /**
@@ -92,5 +110,9 @@ class RecursivePartitioner {
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> run() const;
 };
+
+} // namespace driver
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_RECURSIVEPARTITIONER_H

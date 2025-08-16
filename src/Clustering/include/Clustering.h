@@ -15,10 +15,18 @@
 #include <stack>
 #include <vector>
 
+namespace dag_partitioning {
+
+namespace core {
+class Graph;
+}
+
+namespace clustering {
+
 class Clustering {
   protected:
-    Graph workingGraph; // Current state of the graph being clustered
-    std::stack<std::pair<Graph, std::vector<uint64_t>>>
+    core::Graph workingGraph; // Current state of the graph being clustered
+    std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
         intermediateGraphsAndClusters; // History of clustering steps
     uint64_t maxRounds;   // Maximum number of clustering rounds to perform
     uint64_t minVertices; // Minimum number of vertices to stop clustering
@@ -53,7 +61,7 @@ class Clustering {
      * @param vertexRatio If, after a clustering round, this ratio is not
      * surpassed, stop clustering
      */
-    Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices,
+    Clustering(core::Graph graph, uint64_t maxRounds, uint64_t minVertices,
                double vertexRatio);
 
   public:
@@ -70,7 +78,21 @@ class Clustering {
      *         - The graph state at that step
      *         - Vector mapping original nodes to cluster IDs
      */
-    [[nodiscard]] std::stack<std::pair<Graph, std::vector<uint64_t>>> run();
+    [[nodiscard]] std::stack<std::pair<core::Graph, std::vector<uint64_t>>>
+    run();
 };
+
+/**
+ * @brief Available clustering methods for coarsening phase
+ */
+enum class ClusteringMethod {
+    FORB, // Forbidden edges (Section 4.1.1)
+    CYC,  // Cycle detection (Section 4.1.2)
+    HYB   // Hybrid approach (Section 4.1.3)
+};
+
+} // namespace clustering
+
+} // namespace dag_partitioning
 
 #endif // DAG_PARTITIONING_CLUSTERING_H

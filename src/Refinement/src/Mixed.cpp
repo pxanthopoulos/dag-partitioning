@@ -7,7 +7,12 @@
 
 #include "Mixed.h"
 
-Mixed::Mixed(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+namespace dag_partitioning {
+
+namespace refinement {
+
+Mixed::Mixed(const core::Graph &graph,
+             std::vector<uint8_t> &initialBisectionInfo,
              uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
              double upperBoundPartWeight, double lowerBoundPartWeight)
     : Refinement(graph, initialBisectionInfo, initialEdgeCut, maxNumberOfPasses,
@@ -22,3 +27,7 @@ bool Mixed::onePassRefinement() {
     changed = changed || BoundaryFM::onePassRefinement();
     return changed;
 }
+
+} // namespace refinement
+
+} // namespace dag_partitioning
