@@ -13,6 +13,7 @@
 #define DAG_PARTITIONING_BOUNDARYKL_H
 
 #include "Refinement.h"
+
 #include <vector>
 
 class BoundaryKL : virtual public Refinement {

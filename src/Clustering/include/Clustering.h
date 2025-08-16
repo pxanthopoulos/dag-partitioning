@@ -11,6 +11,7 @@
 #define DAG_PARTITIONING_CLUSTERING_H
 
 #include "Graph.h"
+
 #include <stack>
 #include <vector>
 

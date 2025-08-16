@@ -10,8 +10,11 @@
 #ifndef DAG_PARTITIONING_BISECTION_H
 #define DAG_PARTITIONING_BISECTION_H
 
-#include "Graph.h"
-#include "Refinement.h"
+class Graph;
+enum class RefinementMethod;
+
+#include <cstdint>
+#include <vector>
 
 class Bisection {
   protected:

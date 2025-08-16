@@ -4,6 +4,8 @@
  */
 
 #include "BoundaryKL.h"
+#include "Graph.h"
+
 #include <algorithm>
 
 BoundaryKL::BoundaryKL(const Graph &graph,

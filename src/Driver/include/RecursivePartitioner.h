@@ -10,8 +10,14 @@
 #ifndef DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 #define DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 
-#include "MultilevelBisectioner.h"
+#include <cstdint>
 #include <unordered_map>
+#include <vector>
+
+class Graph;
+enum class ClusteringMethod;
+enum class BisectionMethod;
+enum class RefinementMethod;
 
 class RecursivePartitioner {
   private:

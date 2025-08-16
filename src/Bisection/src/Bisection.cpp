@@ -4,6 +4,8 @@
  */
 
 #include "Bisection.h"
+#include "Graph.h"
+
 #include <algorithm>
 #include <limits>
 

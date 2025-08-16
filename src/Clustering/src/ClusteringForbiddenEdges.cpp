@@ -6,7 +6,6 @@
 #include "ClusteringForbiddenEdges.h"
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 
 ClusteringForbiddenEdges::ClusteringForbiddenEdges(const Graph &graph,
                                                    uint64_t maxRounds,

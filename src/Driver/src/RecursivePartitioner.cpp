@@ -9,6 +9,9 @@
  */
 
 #include "RecursivePartitioner.h"
+#include "Graph.h"
+#include "MultilevelBisectioner.h"
+
 #include <algorithm>
 #include <cassert>
 

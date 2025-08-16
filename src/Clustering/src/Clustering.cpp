@@ -4,6 +4,7 @@
  */
 
 #include "Clustering.h"
+
 #include <cassert>
 #include <unordered_map>
 #include <unordered_set>

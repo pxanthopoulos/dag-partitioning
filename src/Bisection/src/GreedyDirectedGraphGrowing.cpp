@@ -4,7 +4,10 @@
  */
 
 #include "GreedyDirectedGraphGrowing.h"
+#include "Graph.h"
+#include "Refinement.h"
 #include "RefinementWrapper.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cfloat>

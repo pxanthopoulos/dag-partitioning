@@ -11,9 +11,12 @@
 #ifndef DAG_PARTITIONING_MULTILEVELBISECTIONER_H
 #define DAG_PARTITIONING_MULTILEVELBISECTIONER_H
 
-#include "Graph.h"
-#include "Refinement.h"
+#include <cstdint>
 #include <stack>
+#include <vector>
+
+class Graph;
+enum class RefinementMethod;
 
 /**
  * @brief Available clustering methods for coarsening phase
