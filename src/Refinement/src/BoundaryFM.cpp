@@ -4,6 +4,7 @@
  */
 
 #include "BoundaryFM.h"
+#include "Graph.h"
 
 BoundaryFM::BoundaryFM(const Graph &graph,
                        std::vector<uint8_t> &initialBisectionInfo,

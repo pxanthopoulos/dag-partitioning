@@ -5,8 +5,11 @@
 #ifndef DAG_PARTITIONING_REFINEMENTWRAPPER_H
 #define DAG_PARTITIONING_REFINEMENTWRAPPER_H
 
-#include "Graph.h"
-#include "Refinement.h"
+#include <cstdint>
+#include <vector>
+
+class Graph;
+enum class RefinementMethod;
 
 void refinementWrapper(const Graph &graph, std::vector<uint8_t> &bisectionInfo,
                        uint64_t &edgeCut, RefinementMethod refinementMethod,

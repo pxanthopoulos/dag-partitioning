@@ -10,6 +10,7 @@
 #include "GreedyDirectedGraphGrowing.h"
 #include "RefinementWrapper.h"
 #include "UndirectedFix.h"
+
 #include <cassert>
 #include <memory>
 #include <stdexcept>

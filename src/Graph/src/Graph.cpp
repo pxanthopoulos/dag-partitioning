@@ -4,6 +4,7 @@
  */
 
 #include "Graph.h"
+
 #include <cassert>
 #include <fstream>
 #include <queue>

@@ -4,8 +4,9 @@
  */
 
 #include "Refinement.h"
+#include "Graph.h"
+
 #include <cassert>
-#include <iostream>
 
 Refinement::Refinement(const Graph &graph,
                        std::vector<uint8_t> &initialBisectionInfo,

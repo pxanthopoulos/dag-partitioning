@@ -14,6 +14,7 @@
 #define DAG_PARTITIONING_BOUNDARYFM_H
 
 #include "Refinement.h"
+
 #include <queue>
 
 class BoundaryFM : virtual public Refinement {

@@ -13,6 +13,7 @@
 #define DAG_PARTITIONING_CLUSTERINGFORBIDDENEDGES_H
 
 #include "Clustering.h"
+
 #include <cstdint>
 #include <unordered_map>
 #include <utility>

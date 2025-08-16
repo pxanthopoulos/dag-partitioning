@@ -5,7 +5,10 @@
 
 #include "UndirectedFix.h"
 #include "BoundaryFM.h"
+#include "Graph.h"
+#include "Refinement.h"
 #include "RefinementWrapper.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>

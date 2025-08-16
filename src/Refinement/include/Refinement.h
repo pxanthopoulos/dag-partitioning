@@ -10,7 +10,10 @@
 #ifndef DAG_PARTITIONING_REFINEMENT_H
 #define DAG_PARTITIONING_REFINEMENT_H
 
-#include "Graph.h"
+#include <cstdint>
+#include <vector>
+
+class Graph;
 
 class Refinement {
   protected:

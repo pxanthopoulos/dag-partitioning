@@ -13,9 +13,11 @@
 #define DAG_PARTITIONING_UNDIRECTEDFIX_H
 
 #include "Bisection.h"
+
+#include <stdio.h>
+
 #include "metis.h"
 #include "scotch.h"
-#include <stdio.h>
 
 class UndirectedFix : public Bisection {
   private:
