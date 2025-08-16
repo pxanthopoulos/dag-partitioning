@@ -13,13 +13,15 @@
 #include "Graph.h"
 
 class Refinement {
-protected:
-    const Graph &workingGraph;               // Graph being partitioned
-    std::vector<uint8_t> &initialBisectionInfo; // Current partition assignment (modified by refinement)
-    uint64_t &initialEdgeCut;               // Current edge cut weight (modified by refinement)
-    uint64_t maxNumberOfPasses;             // Maximum refinement iterations
-    double upperBoundPartWeight;            // Maximum allowed partition weight
-    double lowerBoundPartWeight;            // Minimum allowed partition weight
+  protected:
+    const Graph &workingGraph;                  // Graph being partitioned
+    std::vector<uint8_t> &initialBisectionInfo; // Current partition assignment
+                                                // (modified by refinement)
+    uint64_t
+        &initialEdgeCut; // Current edge cut weight (modified by refinement)
+    uint64_t maxNumberOfPasses;  // Maximum refinement iterations
+    double upperBoundPartWeight; // Maximum allowed partition weight
+    double lowerBoundPartWeight; // Minimum allowed partition weight
 
     /**
      * @brief Pure virtual method for one refinement pass
@@ -40,10 +42,11 @@ protected:
      * @param upperBoundPartWeight Maximum allowed partition weight
      * @param lowerBoundPartWeight Minimum allowed partition weight
      */
-    Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo, uint64_t &initialEdgeCut,
-               uint64_t maxNumberOfPasses, double upperBoundPartWeight, double lowerBoundPartWeight);
+    Refinement(const Graph &graph, std::vector<uint8_t> &initialBisectionInfo,
+               uint64_t &initialEdgeCut, uint64_t maxNumberOfPasses,
+               double upperBoundPartWeight, double lowerBoundPartWeight);
 
-public:
+  public:
     /**
      * @brief Virtual destructor for proper cleanup
      */
@@ -59,7 +62,9 @@ public:
      * @param graph Corresponding graph
      * @return true if bisection is acyclic
      */
-    [[nodiscard]] static bool checkValidBisection(const std::vector<uint8_t> &bisectionInfo, const Graph &graph);
+    [[nodiscard]] static bool
+    checkValidBisection(const std::vector<uint8_t> &bisectionInfo,
+                        const Graph &graph);
 
     /**
      * @brief Computes current weight of both partitions
@@ -68,7 +73,8 @@ public:
      * @return Pair containing (V0 weight, V1 weight)
      */
     [[nodiscard]] static std::pair<uint64_t, uint64_t>
-    calculatePartSizes(const std::vector<uint8_t> &bisectionInfo, const Graph &graph);
+    calculatePartSizes(const std::vector<uint8_t> &bisectionInfo,
+                       const Graph &graph);
 
     /**
      * @brief Checks if partition weights are within balance constraints
@@ -84,8 +90,9 @@ public:
      * @return true if partition weights are valid
      */
     [[nodiscard]] static bool
-    checkBalance(const std::vector<uint8_t> &bisectionInfo, const Graph &graph, uint64_t maxNodeWeight,
-                 double upperBoundPartWeight, double lowerBoundPartWeight);
+    checkBalance(const std::vector<uint8_t> &bisectionInfo, const Graph &graph,
+                 uint64_t maxNodeWeight, double upperBoundPartWeight,
+                 double lowerBoundPartWeight);
 
     /**
      * @brief Checks if partition weights are within balance constraints
@@ -100,12 +107,14 @@ public:
      * @param lowerBoundPartWeight Lower bound for partition total weight
      * @return true if partition weights are valid
      */
-    [[nodiscard]] static bool
-    checkBalance(uint64_t sizeV0, uint64_t sizeV1, uint64_t maxNodeWeight, double upperBoundPartWeight,
-                 double lowerBoundPartWeight);
+    [[nodiscard]] static bool checkBalance(uint64_t sizeV0, uint64_t sizeV1,
+                                           uint64_t maxNodeWeight,
+                                           double upperBoundPartWeight,
+                                           double lowerBoundPartWeight);
 
     /**
-     * @brief Checks if the computed edge cut is consistent with the bisection info
+     * @brief Checks if the computed edge cut is consistent with the bisection
+     * info
      *
      * @param bisectionInfo Bisection information
      * @param graph Corresponding graph
@@ -113,7 +122,8 @@ public:
      * @return true if edge cut is correct
      */
     [[nodiscard]] static bool
-    checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo, const Graph &graph, uint64_t currentEdgeCut);
+    checkValidEdgeCut(const std::vector<uint8_t> &bisectionInfo,
+                      const Graph &graph, uint64_t currentEdgeCut);
 
     /**
      * @brief Executes refinement process
@@ -130,9 +140,9 @@ public:
  * @brief Available refinement methods for refinement phase
  */
 enum class RefinementMethod {
-    BOUNDARYFM,             // Boundary FM adaptation (Section 4.3)
-    BOUNDARYKL,             // Boundary KL adaptation
-    MIXED                   // Mixed (1 pass of KL followed by one pass of FM)
+    BOUNDARYFM, // Boundary FM adaptation (Section 4.3)
+    BOUNDARYKL, // Boundary KL adaptation
+    MIXED       // Mixed (1 pass of KL followed by one pass of FM)
 };
 
-#endif //DAG_PARTITIONING_REFINEMENT_H
+#endif // DAG_PARTITIONING_REFINEMENT_H

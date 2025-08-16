@@ -4,20 +4,25 @@
  */
 
 #include "Clustering.h"
+#include <cassert>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <cassert>
 
 // Constructor initializes the working graph and clustering parameters
-Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices, double vertexRatio) :
-        workingGraph(std::move(graph)), maxRounds(maxRounds), minVertices(minVertices), vertexRatio(vertexRatio) {}
+Clustering::Clustering(Graph graph, uint64_t maxRounds, uint64_t minVertices,
+                       double vertexRatio)
+    : workingGraph(std::move(graph)), maxRounds(maxRounds),
+      minVertices(minVertices), vertexRatio(vertexRatio) {}
 
-bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, uint64_t newSize) {
-    assert(leaders.size() == workingGraph.size && "Leader value must be specified for all nodes");
+bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders,
+                                        uint64_t newSize) {
+    assert(leaders.size() == workingGraph.size &&
+           "Leader value must be specified for all nodes");
 
     // If no clustering occurred, return false to stop
-    if (newSize == workingGraph.size) return false;
+    if (newSize == workingGraph.size)
+        return false;
 
     // Create mapping from leader nodes to new node IDs
     uint64_t maxNewNodeId = -1;
@@ -36,7 +41,8 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
 
         // Add node to its cluster and accumulate weights
         newNodes[leadersToNewNodeIds[leader]].first.emplace_back(nodeId);
-        newNodes[leadersToNewNodeIds[leader]].second += workingGraph.nodeWeights[nodeId];
+        newNodes[leadersToNewNodeIds[leader]].second +=
+            workingGraph.nodeWeights[nodeId];
     }
 
     // Create new graph with merged nodes
@@ -49,10 +55,11 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
         newGraph.addNode(i, newNodes[i].second);
 
         // Process edges for all nodes in this cluster
-        for (uint64_t containedNode: newNodes[i].first) {
-            for (const auto &edge: workingGraph.adj[containedNode]) {
+        for (uint64_t containedNode : newNodes[i].first) {
+            for (const auto &edge : workingGraph.adj[containedNode]) {
                 // Skip self-loops within same cluster
-                if (leadersToNewNodeIds[leaders[edge.first]] == i) continue;
+                if (leadersToNewNodeIds[leaders[edge.first]] == i)
+                    continue;
 
                 // Combine parallel edges between clusters
                 auto &subAdj = newAdj[i];
@@ -60,7 +67,8 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
                 if (it != subAdj.end()) {
                     it->second = it->second + edge.second;
                 } else {
-                    subAdj[leadersToNewNodeIds[leaders[edge.first]]] = edge.second;
+                    subAdj[leadersToNewNodeIds[leaders[edge.first]]] =
+                        edge.second;
                 }
             }
         }
@@ -69,7 +77,7 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     // Add combined edges to new graph
     for (uint64_t i = 0; i < newSize; ++i) {
         auto &subAdj = newAdj[i];
-        for (const auto &[to, weight]: subAdj) {
+        for (const auto &[to, weight] : subAdj) {
             newGraph.addEdge(i, to, weight);
         }
     }
@@ -77,12 +85,15 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders, ui
     // Update working graph and save intermediate result
     workingGraph = newGraph;
     std::vector<uint64_t> clustering(leaders.size());
-    for (uint64_t i = 0; i < clustering.size(); ++i) clustering[i] = leadersToNewNodeIds[leaders[i]];
+    for (uint64_t i = 0; i < clustering.size(); ++i)
+        clustering[i] = leadersToNewNodeIds[leaders[i]];
     intermediateGraphsAndClusters.emplace(workingGraph, clustering);
 
     // Stop if minimum size reached or passed
-    if (newSize <= minVertices) return false;
-    if ((double) newSize / (double) leaders.size() > vertexRatio) return false;
+    if (newSize <= minVertices)
+        return false;
+    if ((double)newSize / (double)leaders.size() > vertexRatio)
+        return false;
     return true;
 }
 
@@ -99,10 +110,12 @@ std::stack<std::pair<Graph, std::vector<uint64_t>>> Clustering::run() {
         const auto &pair = oneRoundClustering();
 
         // Update graph and check if the min vertices stopping criteria is met
-        if (!updateGraphAndClusters(pair.first, pair.second)) break;
+        if (!updateGraphAndClusters(pair.first, pair.second))
+            break;
 
         // Check if maximum rounds reached
-        if (++countRounds == maxRounds) break;
+        if (++countRounds == maxRounds)
+            break;
     }
 
     return intermediateGraphsAndClusters;

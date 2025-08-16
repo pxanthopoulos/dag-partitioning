@@ -1,9 +1,11 @@
 /**
  * @file UndirectedFix.h
- * @brief Implementation of undirected bisection with acyclicity fixing as described in Section 4.2.2
+ * @brief Implementation of undirected bisection with acyclicity fixing as
+ * described in Section 4.2.2
  *
  * This class implements a two-step approach:
- * 1. Use standard undirected graph partitioners (METIS/Scotch) to get initial bisection
+ * 1. Use standard undirected graph partitioners (METIS/Scotch) to get initial
+ * bisection
  * 2. Fix acyclicity by propagating partition assignments up or down the graph
  */
 
@@ -11,14 +13,14 @@
 #define DAG_PARTITIONING_UNDIRECTEDFIX_H
 
 #include "Bisection.h"
-#include <stdio.h>
-#include "scotch.h"
 #include "metis.h"
+#include "scotch.h"
+#include <stdio.h>
 
 class UndirectedFix : public Bisection {
-private:
-    bool useMetis;   // Whether to try METIS partitioning
-    bool useScotch;  // Whether to try Scotch partitioning
+  private:
+    bool useMetis;  // Whether to try METIS partitioning
+    bool useScotch; // Whether to try Scotch partitioning
 
     /**
      * @brief Computes total number of edges in the graph
@@ -27,7 +29,8 @@ private:
     [[nodiscard]] int64_t computeNumberOfEdges() const;
 
     /**
-     * @brief Converts graph to Compressed Sparse Row format for external partitioners
+     * @brief Converts graph to Compressed Sparse Row format for external
+     * partitioners
      *
      * Creates CSR representation treating the graph as undirected by combining
      * forward and reverse edges.
@@ -116,9 +119,10 @@ private:
      *         - Acyclic bisection vector
      *         - Edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const override;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t>
+    run() const override;
 
-public:
+  public:
     /**
      * @brief Constructs the undirected fix bisection algorithm
      * @param graph Graph to be bisected
@@ -129,8 +133,10 @@ public:
      * @param useMetis Whether to try METIS partitioning
      * @param useScotch Whether to try Scotch partitioning
      */
-    UndirectedFix(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
-                  RefinementMethod refinementMethod, uint64_t refinementPasses, bool useMetis, bool useScotch);
+    UndirectedFix(const Graph &graph, double upperBoundPartWeight,
+                  double lowerBoundPartWeight,
+                  RefinementMethod refinementMethod, uint64_t refinementPasses,
+                  bool useMetis, bool useScotch);
 };
 
-#endif //DAG_PARTITIONING_UNDIRECTEDFIX_H
+#endif // DAG_PARTITIONING_UNDIRECTEDFIX_H

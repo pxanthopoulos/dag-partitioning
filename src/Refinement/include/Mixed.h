@@ -8,11 +8,11 @@
 #ifndef DAG_PARTITIONING_MIXED_H
 #define DAG_PARTITIONING_MIXED_H
 
-#include "BoundaryKL.h"
 #include "BoundaryFM.h"
+#include "BoundaryKL.h"
 
 class Mixed : public BoundaryKL, public BoundaryFM {
-private:
+  private:
     /**
      * @brief Runs one pass of boundary KL and one pass of boundary FM.
      *
@@ -22,7 +22,7 @@ private:
      */
     [[nodiscard]] bool onePassRefinement() override;
 
-public:
+  public:
     /**
      * @brief Constructs the boundary KL refinement algorithm
      * @param graph Graph being refined
@@ -37,5 +37,4 @@ public:
           double upperBoundPartWeight, double lowerBoundPartWeight);
 };
 
-
-#endif //DAG_PARTITIONING_MIXED_H
+#endif // DAG_PARTITIONING_MIXED_H

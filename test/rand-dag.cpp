@@ -1,15 +1,15 @@
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <map>
+#include <queue>
 #include <random>
 #include <set>
 #include <stack>
 #include <vector>
-#include <queue>
-#include <map>
-#include <iomanip>
 
 class DAGGenerator {
-private:
+  private:
     std::vector<std::vector<std::pair<uint64_t, uint64_t>>> adj;
     uint64_t size;
     std::random_device rd;
@@ -32,7 +32,7 @@ private:
             visited[v] = 1;
             recursionStack[v] = 1;
 
-            for (const auto &neighbor: adj[v]) {
+            for (const auto &neighbor : adj[v]) {
                 if (visited[neighbor.first] == 0 &&
                     dfs(neighbor.first, visited, recursionStack))
                     return true;
@@ -55,7 +55,7 @@ private:
             uint64_t v = s.top();
             s.pop();
 
-            for (const auto &neighbor: adj[v]) {
+            for (const auto &neighbor : adj[v]) {
                 if (!visited[neighbor.first]) {
                     visited[neighbor.first] = true;
                     s.push(neighbor.first);
@@ -81,13 +81,15 @@ private:
             if (debug > 2) {
                 uint64_t percentage = (usedCount * 100 / size) / 5 * 5;
                 if (percentage != last5perc) {
-                    std::cout << "At " << percentage << "% of size ..." << std::endl;
+                    std::cout << "At " << percentage << "% of size ..."
+                              << std::endl;
                     last5perc = percentage;
                 }
             } else if (debug > 1) {
                 uint64_t percentage = (usedCount * 100 / size) / 10 * 10;
                 if (percentage != last10perc) {
-                    std::cout << "At " << percentage << "% of size ..." << std::endl;
+                    std::cout << "At " << percentage << "% of size ..."
+                              << std::endl;
                     last10perc = percentage;
                 }
             }
@@ -122,7 +124,8 @@ private:
                 from = recent.back();
             } else {
                 from = dis(gen);
-                if (!used[from]) continue;
+                if (!used[from])
+                    continue;
             }
 
             uint64_t to = dis(gen);
@@ -131,7 +134,8 @@ private:
                 used[to] = true;
                 usedCount++;
                 recent.push_back(to);
-                if (recent.size() > 10) recent.pop_front();
+                if (recent.size() > 10)
+                    recent.pop_front();
             }
         }
     }
@@ -139,7 +143,7 @@ private:
     [[nodiscard]] std::vector<uint64_t> calculateInDegrees() const {
         std::vector<uint64_t> inDegree(size, 0);
         for (uint64_t i = 0; i < size; i++) {
-            for (const auto &[neighbor, weight]: adj[i]) {
+            for (const auto &[neighbor, weight] : adj[i]) {
                 inDegree[neighbor]++;
             }
         }
@@ -153,7 +157,8 @@ private:
         uint64_t pos = 0;
 
         for (uint64_t i = 0; i < size; i++) {
-            if (localInDegree[i] == 0) q.push(i);
+            if (localInDegree[i] == 0)
+                q.push(i);
         }
 
         while (!q.empty()) {
@@ -161,8 +166,9 @@ private:
             q.pop();
             order[curr] = pos++;
 
-            for (const auto &[next, weight]: adj[curr]) {
-                if (--localInDegree[next] == 0) q.push(next);
+            for (const auto &[next, weight] : adj[curr]) {
+                if (--localInDegree[next] == 0)
+                    q.push(next);
             }
         }
         return order;
@@ -183,8 +189,9 @@ private:
             uint64_t curr = q.front();
             q.pop();
 
-            for (const auto &[next, weight]: adj[curr]) {
-                topLevels[next] = std::max(topLevels[next], topLevels[curr] + 1);
+            for (const auto &[next, weight] : adj[curr]) {
+                topLevels[next] =
+                    std::max(topLevels[next], topLevels[curr] + 1);
                 localInDegree[next]--;
                 if (localInDegree[next] == 0) {
                     q.push(next);
@@ -197,10 +204,11 @@ private:
 
     static void printDistribution(const std::vector<uint64_t> &values) {
         std::map<uint64_t, uint64_t> freq;
-        for (auto v: values) freq[v]++;
+        for (auto v : values)
+            freq[v]++;
 
         uint64_t maxFreq = 0;
-        for (const auto &[_, count]: freq)
+        for (const auto &[_, count] : freq)
             maxFreq = std::max(maxFreq, count);
 
         const int width = 50;
@@ -208,27 +216,33 @@ private:
         uint64_t maxVal = freq.rbegin()->first;
         uint64_t padding = std::to_string(maxVal).length();
 
-        for (const auto &[value, count]: freq) {
+        for (const auto &[value, count] : freq) {
             int bars = static_cast<int>((count * width) / maxFreq);
-            std::cout << std::setw((int) padding) << value << " |"
+            std::cout << std::setw((int)padding) << value << " |"
                       << std::string(bars, '#') << "\n";
         }
     }
 
-public:
-    explicit DAGGenerator(uint64_t n, uint64_t debug) : size(n), gen(rd()), debug(debug) { adj.resize(n); }
+  public:
+    explicit DAGGenerator(uint64_t n, uint64_t debug)
+        : size(n), gen(rd()), debug(debug) {
+        adj.resize(n);
+    }
 
     int generate(double edgeRatio) {
         std::uniform_int_distribution<uint64_t> dis(0, size - 1);
         std::set<std::pair<uint64_t, uint64_t>> edges;
 
-        if (debug > 0) std::cout << "Generating spanning tree ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Generating spanning tree ..." << std::endl;
         // First create a spanning tree to ensure connectivity
         createLongSpanningTree();
-        if (debug > 0) std::cout << "Finished generating spanning tree, copying edges ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Finished generating spanning tree, copying edges ..."
+                      << std::endl;
         // Copy existing edges to set
         for (uint64_t i = 0; i < size; i++) {
-            for (const auto &edge: adj[i]) {
+            for (const auto &edge : adj[i]) {
                 edges.insert({i, edge.first});
             }
         }
@@ -236,30 +250,37 @@ public:
         auto toporder = topologicalSort();
 
         // Add additional random edges
-        auto targetEdges = (uint64_t) ((double) size * edgeRatio);
+        auto targetEdges = (uint64_t)((double)size * edgeRatio);
         uint64_t attempts = 0;
         uint64_t maxAttempts = size * size;
         uint64_t last2perc = 0, last5perc = 0, last10perc = 0;
         uint64_t last2percatt = 0, last5percatt = 0, last10percatt = 0;
 
-        if (debug > 0) std::cout << "Adding additional edges ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Adding additional edges ..." << std::endl;
         while (edges.size() < targetEdges && attempts < maxAttempts) {
             if (debug > 3) {
-                uint64_t percentage = (edges.size() * 100 / targetEdges) / 2 * 2;
+                uint64_t percentage =
+                    (edges.size() * 100 / targetEdges) / 2 * 2;
                 if (percentage != last2perc) {
-                    std::cout << "At " << percentage << "% of target edges ..." << std::endl;
+                    std::cout << "At " << percentage << "% of target edges ..."
+                              << std::endl;
                     last2perc = percentage;
                 }
             } else if (debug > 2) {
-                uint64_t percentage = (edges.size() * 100 / targetEdges) / 5 * 5;
+                uint64_t percentage =
+                    (edges.size() * 100 / targetEdges) / 5 * 5;
                 if (percentage != last5perc) {
-                    std::cout << "At " << percentage << "% of target edges ..." << std::endl;
+                    std::cout << "At " << percentage << "% of target edges ..."
+                              << std::endl;
                     last5perc = percentage;
                 }
             } else if (debug > 1) {
-                uint64_t percentage = (edges.size() * 100 / targetEdges) / 10 * 10;
+                uint64_t percentage =
+                    (edges.size() * 100 / targetEdges) / 10 * 10;
                 if (percentage != last10perc) {
-                    std::cout << "At " << percentage << "% of target edges ..." << std::endl;
+                    std::cout << "At " << percentage << "% of target edges ..."
+                              << std::endl;
                     last10perc = percentage;
                 }
             }
@@ -267,19 +288,22 @@ public:
             if (debug > 6) {
                 uint64_t percentage = (attempts * 100 / maxAttempts) / 2 * 2;
                 if (percentage != last2percatt) {
-                    std::cout << "At " << percentage << "% of max attempts ..." << std::endl;
+                    std::cout << "At " << percentage << "% of max attempts ..."
+                              << std::endl;
                     last2percatt = percentage;
                 }
             } else if (debug > 5) {
                 uint64_t percentage = (attempts * 100 / maxAttempts) / 5 * 5;
                 if (percentage != last5percatt) {
-                    std::cout << "At " << percentage << "% of max attempts ..." << std::endl;
+                    std::cout << "At " << percentage << "% of max attempts ..."
+                              << std::endl;
                     last5percatt = percentage;
                 }
             } else if (debug > 4) {
                 uint64_t percentage = (attempts * 100 / maxAttempts) / 10 * 10;
                 if (percentage != last10percatt) {
-                    std::cout << "At " << percentage << "% of max attempts ..." << std::endl;
+                    std::cout << "At " << percentage << "% of max attempts ..."
+                              << std::endl;
                     last10percatt = percentage;
                 }
             }
@@ -287,36 +311,41 @@ public:
             uint64_t from = dis(gen);
             uint64_t to = dis(gen);
 
-            if (toporder[from] < toporder[to] && edges.find({from, to}) == edges.end()) {
+            if (toporder[from] < toporder[to] &&
+                edges.find({from, to}) == edges.end()) {
                 edges.insert({from, to});
             }
             attempts++;
         }
 
-        if (debug > 0) std::cout << "Rebuilding graph ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Rebuilding graph ..." << std::endl;
 
         // Rebuild adjacency list
         adj.clear();
         adj.resize(size);
-        for (const auto &edge: edges) {
+        for (const auto &edge : edges) {
             std::uniform_int_distribution<> disW(1, 20);
             uint64_t random_number = disW(gen);
             adj[edge.first].emplace_back(edge.second, random_number);
         }
 
-        if (debug > 0) std::cout << "Checking for cycles ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Checking for cycles ..." << std::endl;
         if (hasCycle()) {
             std::cout << "CYCLIC\n";
             return 1;
         }
 
-        if (debug > 0) std::cout << "Checking if connected ..." << std::endl;
+        if (debug > 0)
+            std::cout << "Checking if connected ..." << std::endl;
         if (!isConnected()) {
             std::cout << "NOT CONNECTED\n";
             return 1;
         }
 
-        if (debug > 0) printDistribution(computeTopLevels());
+        if (debug > 0)
+            printDistribution(computeTopLevels());
 
         return 0;
     }
@@ -331,7 +360,7 @@ public:
             dotFile << i << "[weight=" << random_number << "];\n";
         }
         for (uint64_t i = 0; i < size; ++i) {
-            for (const auto &[neighborId, edgeWeight]: adj[i]) {
+            for (const auto &[neighborId, edgeWeight] : adj[i]) {
                 dotFile << i << "->" << neighborId << "[weight=" << edgeWeight
                         << "];\n";
             }
@@ -347,7 +376,7 @@ int main(int argc, char *argv[]) {
     }
 
     uint64_t size = std::stoi(argv[1]);
-    double ratio = (double) std::stoi(argv[2]) / 100;
+    double ratio = (double)std::stoi(argv[2]) / 100;
     uint64_t debug = std::stoi(argv[3]);
     DAGGenerator generator(size, debug);
     int result = generator.generate(ratio);

@@ -1,9 +1,11 @@
 /**
  * @file BoundaryFM.h
- * @brief Implementation of boundary Fiduccia-Mattheyses refinement for directed graphs
+ * @brief Implementation of boundary Fiduccia-Mattheyses refinement for directed
+ * graphs
  *
- * Adapts the FM algorithm for directed graphs by defining vertex movability based on
- * neighbor conditions and using static gain calculations. A vertex can move:
+ * Adapts the FM algorithm for directed graphs by defining vertex movability
+ * based on neighbor conditions and using static gain calculations. A vertex can
+ * move:
  * - V0->V1: if all out-neighbors in V1 or no out-neighbors
  * - V1->V0: if all in-neighbors in V0 or no in-neighbors
  */
@@ -15,35 +17,38 @@
 #include <queue>
 
 class BoundaryFM : virtual public Refinement {
-protected:
+  protected:
     /**
      * @brief Implements one pass of boundary FM refinement
      *
      * Repeatedly selects highest gain movable vertex and tentatively moves it.
-     * At each round, only vertices from the heavier part are considered for moving.
-     * At end of pass, realizes most profitable prefix of moves.
-     * Each vertex can move at most once per pass.
+     * At each round, only vertices from the heavier part are considered for
+     * moving. At end of pass, realizes most profitable prefix of moves. Each
+     * vertex can move at most once per pass.
      *
      * @return true if improvements were made in this pass
      */
     [[nodiscard]] bool onePassRefinement() override;
 
-private:
+  private:
     /**
-     * @brief Identifies initially movable vertices and adds them to appropriate heaps
+     * @brief Identifies initially movable vertices and adds them to appropriate
+     * heaps
      *
      * A vertex is movable if:
      * - From V0: all out-neighbors in V1 or no out-neighbors
      * - From V1: all in-neighbors in V0 or no in-neighbors
-     * Gain is calculated as sum of outgoing weights minus sum of incoming weights
+     * Gain is calculated as sum of outgoing weights minus sum of incoming
+     * weights
      *
      * @param heapV0 Priority queue for V0 vertices
      * @param heapV1 Priority queue for V1 vertices
      * @param inHeap Tracks which vertices are in heaps
      */
-    void insertMovableNodesIntoHeaps(std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
-                                     std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                     std::vector<uint8_t> &inHeap) const;
+    void insertMovableNodesIntoHeaps(
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
+        std::vector<uint8_t> &inHeap) const;
 
     /**
      * @brief Updates movable vertices after a move
@@ -55,13 +60,15 @@ private:
      * @param heapV1 Priority queue for V1 vertices
      * @param inHeap Tracks which vertices are in heaps
      * @param movedNodeId Node that was just moved
-     * @param checkOutNeighbors Whether to check outgoing (true) or incoming (false) neighbors
+     * @param checkOutNeighbors Whether to check outgoing (true) or incoming
+     * (false) neighbors
      */
-    void insertMovableNeighborsIntoHeaps(const std::vector<uint8_t> &currentBisectionInfo,
-                                         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
-                                         std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
-                                         std::vector<uint8_t> &inHeap, uint64_t movedNodeId,
-                                         bool checkOutNeighbors) const;
+    void insertMovableNeighborsIntoHeaps(
+        const std::vector<uint8_t> &currentBisectionInfo,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV0,
+        std::priority_queue<std::pair<int64_t, uint64_t>> &heapV1,
+        std::vector<uint8_t> &inHeap, uint64_t movedNodeId,
+        bool checkOutNeighbors) const;
 
     /**
      * @brief Checks if move maintains partition balance
@@ -74,9 +81,10 @@ private:
      * @param sizeV1 Current V1 partition weight
      * @return true if move is acceptable for balance
      */
-    [[nodiscard]] bool confirmMove(uint8_t moveFromV0, uint64_t movedNodeId, uint64_t sizeV0, uint64_t sizeV1) const;
+    [[nodiscard]] bool confirmMove(uint8_t moveFromV0, uint64_t movedNodeId,
+                                   uint64_t sizeV0, uint64_t sizeV1) const;
 
-public:
+  public:
     /**
      * @brief Constructs the boundary FM refinement algorithm
      * @param graph Graph being refined
@@ -91,4 +99,4 @@ public:
                double upperBoundPartWeight, double lowerBoundPartWeight);
 };
 
-#endif //DAG_PARTITIONING_BOUNDARYFM_H
+#endif // DAG_PARTITIONING_BOUNDARYFM_H

@@ -1,10 +1,11 @@
 /**
  * @file GreedyDirectedGraphGrowing.h
- * @brief Implementation of greedy directed graph growing bisection as described in Section 4.2.1
+ * @brief Implementation of greedy directed graph growing bisection as described
+ * in Section 4.2.1
  *
- * This class implements a two-phase greedy algorithm that moves vertices between partitions
- * while maintaining acyclicity. It tries both directions (V1->V0 and V0->V1) and selects
- * the better result.
+ * This class implements a two-phase greedy algorithm that moves vertices
+ * between partitions while maintaining acyclicity. It tries both directions
+ * (V1->V0 and V0->V1) and selects the better result.
  */
 
 #ifndef DAG_PARTITIONING_GREEDYDIRECTEDGRAPHGROWING_H
@@ -13,7 +14,7 @@
 #include "Bisection.h"
 
 class GreedyDirectedGraphGrowing : public Bisection {
-private:
+  private:
     /**
      * @brief Runs the greedy algorithm in normal direction (V1->V0)
      *
@@ -25,19 +26,21 @@ private:
      *         - Bisection vector (0=V0, 1=V1)
      *         - Total edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runOnNormalGraph() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t>
+    runOnNormalGraph() const;
 
     /**
      * @brief Runs the greedy algorithm in reverse direction (V0->V1)
      *
-     * Similar to normal direction but starts with all vertices in V0 and moves to V1,
-     * considering out-neighbors instead of in-neighbors.
+     * Similar to normal direction but starts with all vertices in V0 and moves
+     * to V1, considering out-neighbors instead of in-neighbors.
      *
      * @return Pair containing:
      *         - Bisection vector (0=V0, 1=V1)
      *         - Total edge cut weight
      */
-    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> runOnReverseGraph() const;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t>
+    runOnReverseGraph() const;
 
     /**
      * @brief Runs both normal and reverse algorithms and selects better result
@@ -47,9 +50,10 @@ private:
      *
      * @return Best bisection result from either direction
      */
-    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t> run() const override;
+    [[nodiscard]] std::pair<std::vector<uint8_t>, uint64_t>
+    run() const override;
 
-public:
+  public:
     /**
      * @brief Constructs the greedy bisection algorithm instance
      * @param graph Graph to be bisected
@@ -58,8 +62,10 @@ public:
      * @param refinementMethod Refinement method
      * @param refinementPasses Number of refinement passes
      */
-    GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight, double lowerBoundPartWeight,
-                               RefinementMethod refinementMethod, uint64_t refinementPasses);
+    GreedyDirectedGraphGrowing(const Graph &graph, double upperBoundPartWeight,
+                               double lowerBoundPartWeight,
+                               RefinementMethod refinementMethod,
+                               uint64_t refinementPasses);
 };
 
-#endif //DAG_PARTITIONING_GREEDYDIRECTEDGRAPHGROWING_H
+#endif // DAG_PARTITIONING_GREEDYDIRECTEDGRAPHGROWING_H
