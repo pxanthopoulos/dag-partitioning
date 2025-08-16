@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <stdexcept>
 
 namespace dag_partitioning {
 
@@ -32,8 +33,11 @@ RecursivePartitioner::RecursivePartitioner(
       clusteringVertexRatio(clusteringVertexRatio),
       bisectionMethod(bisectionMethod), imbalanceRatio(imbalanceRatio),
       refinementMethod(refinementMethod), refinementPasses(refinementPasses) {
-    assert(partitions <= workingGraph.size &&
-           "Cannot create more partitions than the number of nodes");
+    if (partitions > workingGraph.size) {
+        throw std::invalid_argument("Cannot create more partitions (" + 
+            std::to_string(partitions) + ") than the number of nodes (" + 
+            std::to_string(workingGraph.size) + ")");
+    }
 }
 
 std::tuple<core::Graph, std::unordered_map<uint64_t, uint64_t>, core::Graph,

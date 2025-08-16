@@ -111,6 +111,10 @@ std::stack<std::pair<core::Graph, std::vector<uint64_t>>> Clustering::run() {
     // Main clustering loop
     uint64_t countRounds = 0;
     while (true) {
+        // Check if maximum rounds reached
+        if (countRounds == maxRounds)
+            break;
+
         // Perform one round of clustering
         const auto &pair = oneRoundClustering();
 
@@ -118,9 +122,7 @@ std::stack<std::pair<core::Graph, std::vector<uint64_t>>> Clustering::run() {
         if (!updateGraphAndClusters(pair.first, pair.second))
             break;
 
-        // Check if maximum rounds reached
-        if (++countRounds == maxRounds)
-            break;
+        countRounds++;
     }
 
     return intermediateGraphsAndClusters;
