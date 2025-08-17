@@ -7,13 +7,11 @@ add_library(Bisection OBJECT
 target_include_directories(Bisection
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${METIS_INCLUDE_DIR}
         ${SCOTCH_INCLUDE_DIR}
 )
 
 target_link_libraries(Bisection
-        PUBLIC Graph Refinement
+        PUBLIC Graph Refinement METIS::METIS
         ${SCOTCH_LIBRARY}
         ${SCOTCHERR_LIBRARY}
-        ${METIS_LIBRARY}
 )

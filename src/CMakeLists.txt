@@ -13,6 +13,8 @@ target_link_libraries(dag_partitioning
         Bisection
         Driver
         Refinement
+        METIS::METIS
+        GKlib::GKlib
 )
 
 target_include_directories(dag_partitioning
@@ -24,8 +26,3 @@ target_include_directories(dag_partitioning
         ${CMAKE_CURRENT_SOURCE_DIR}/Refinement/include
 )
 
-install(TARGETS dag_partitioning
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin
-)
