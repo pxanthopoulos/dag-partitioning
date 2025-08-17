@@ -1,8 +1,5 @@
-#include "Bisection.h"
-#include "Clustering.h"
 #include "Graph.h"
 #include "RecursivePartitioner.h"
-#include "Refinement.h"
 
 #include <algorithm>
 #include <chrono>
@@ -35,9 +32,6 @@ void printResults(const std::vector<uint64_t> &partition,
 }
 
 struct MethodCombination {
-    dag_partitioning::clustering::ClusteringMethod clustering;
-    dag_partitioning::bisection::BisectionMethod bisection;
-    dag_partitioning::refinement::RefinementMethod refinement;
     std::string clusteringStr;
     std::string bisectionStr;
     std::string refinementStr;
@@ -64,78 +58,24 @@ int main(int argc, char **argv) {
         dotPath, dotPath + ".node-mappings.txt");
 
     std::vector<MethodCombination> methods = {
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "FORB",
-         "UNDIR", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "CYC",
-         "UNDIR", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "HYB",
-         "UNDIR", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "FORB",
-         "GGG", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "CYC",
-         "GGG", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYFM, "HYB",
-         "GGG", "FM"},
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "FORB",
-         "UNDIR", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "CYC",
-         "UNDIR", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "HYB",
-         "UNDIR", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "FORB",
-         "GGG", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "CYC",
-         "GGG", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::BOUNDARYKL, "HYB",
-         "GGG", "KL"},
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "FORB", "UNDIR",
-         "MIX"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "CYC", "UNDIR",
-         "MIX"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::UNDIRBOTH,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "HYB", "UNDIR",
-         "MIX"},
-        {dag_partitioning::clustering::ClusteringMethod::FORB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "FORB", "GGG",
-         "MIX"},
-        {dag_partitioning::clustering::ClusteringMethod::CYC,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "CYC", "GGG",
-         "MIX"},
-        {dag_partitioning::clustering::ClusteringMethod::HYB,
-         dag_partitioning::bisection::BisectionMethod::GGG,
-         dag_partitioning::refinement::RefinementMethod::MIXED, "HYB", "GGG",
-         "MIX"}};
+        {"FORB", "UNDIRBOTH", "BOUNDARYFM"},
+        {"CYC", "UNDIRBOTH", "BOUNDARYFM"},
+        {"HYB", "UNDIRBOTH", "BOUNDARYFM"},
+        {"FORB", "GGG", "BOUNDARYFM"},
+        {"CYC", "GGG", "BOUNDARYFM"},
+        {"HYB", "GGG", "BOUNDARYFM"},
+        {"FORB", "UNDIRBOTH", "BOUNDARYKL"},
+        {"CYC", "UNDIRBOTH", "BOUNDARYKL"},
+        {"HYB", "UNDIRBOTH", "BOUNDARYKL"},
+        {"FORB", "GGG", "BOUNDARYKL"},
+        {"CYC", "GGG", "BOUNDARYKL"},
+        {"HYB", "GGG", "BOUNDARYKL"},
+        {"FORB", "UNDIRBOTH", "MIXED"},
+        {"CYC", "UNDIRBOTH", "MIXED"},
+        {"HYB", "UNDIRBOTH", "MIXED"},
+        {"FORB", "GGG", "MIXED"},
+        {"CYC", "GGG", "MIXED"},
+        {"HYB", "GGG", "MIXED"}};
 
     const uint64_t maxLevel = 20;
     const uint64_t minSize = 50 * partitions;
@@ -146,8 +86,9 @@ int main(int argc, char **argv) {
     for (uint64_t i = 0; i < methods.size(); i++) {
         const auto &method = methods[i];
         dag_partitioning::driver::RecursivePartitioner partitioner(
-            graph, partitions, method.clustering, maxLevel, minSize, vertRatio,
-            method.bisection, maxImbalance, method.refinement, maxPasses);
+            graph, partitions, method.clusteringStr, maxLevel, minSize,
+            vertRatio, method.bisectionStr, maxImbalance, method.refinementStr,
+            maxPasses);
 
         auto start = std::chrono::high_resolution_clock::now();
         auto [partition, cutSize] = partitioner.run();

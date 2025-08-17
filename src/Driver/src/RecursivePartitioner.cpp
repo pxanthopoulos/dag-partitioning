@@ -9,8 +9,11 @@
  */
 
 #include "RecursivePartitioner.h"
+#include "Bisection.h"
+#include "Clustering.h"
 #include "Graph.h"
 #include "MultilevelBisectioner.h"
+#include "Refinement.h"
 
 #include <algorithm>
 #include <cassert>
@@ -34,9 +37,61 @@ RecursivePartitioner::RecursivePartitioner(
       bisectionMethod(bisectionMethod), imbalanceRatio(imbalanceRatio),
       refinementMethod(refinementMethod), refinementPasses(refinementPasses) {
     if (partitions > workingGraph.size) {
-        throw std::invalid_argument("Cannot create more partitions (" + 
-            std::to_string(partitions) + ") than the number of nodes (" + 
-            std::to_string(workingGraph.size) + ")");
+        throw std::invalid_argument("Cannot create more partitions (" +
+                                    std::to_string(partitions) +
+                                    ") than the number of nodes (" +
+                                    std::to_string(workingGraph.size) + ")");
+    }
+}
+
+RecursivePartitioner::RecursivePartitioner(
+    const core::Graph &graph, uint64_t partitions, std::string clusteringMethod,
+    uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
+    double clusteringVertexRatio, std::string bisectionMethod,
+    double imbalanceRatio, std::string refinementMethod,
+    uint64_t refinementPasses)
+    : workingGraph(graph), partitions(partitions),
+      maxClusteringRounds(maxClusteringRounds),
+      minClusteringVertices(minClusteringVertices),
+      clusteringVertexRatio(clusteringVertexRatio),
+      imbalanceRatio(imbalanceRatio), refinementPasses(refinementPasses) {
+    if (partitions > workingGraph.size) {
+        throw std::invalid_argument("Cannot create more partitions (" +
+                                    std::to_string(partitions) +
+                                    ") than the number of nodes (" +
+                                    std::to_string(workingGraph.size) + ")");
+    }
+
+    if (clusteringMethod == "FORB") {
+        this->clusteringMethod = clustering::ClusteringMethod::FORB;
+    } else if (clusteringMethod == "CYC") {
+        this->clusteringMethod = clustering::ClusteringMethod::CYC;
+    } else if (clusteringMethod == "HYB") {
+        this->clusteringMethod = clustering::ClusteringMethod::HYB;
+    } else {
+        this->clusteringMethod = clustering::ClusteringMethod::HYB;
+    }
+
+    if (bisectionMethod == "GGG") {
+        this->bisectionMethod = bisection::BisectionMethod::GGG;
+    } else if (bisectionMethod == "UNDIRMETIS") {
+        this->bisectionMethod = bisection::BisectionMethod::UNDIRMETIS;
+    } else if (bisectionMethod == "UNDIRSCOTCH") {
+        this->bisectionMethod = bisection::BisectionMethod::UNDIRSCOTCH;
+    } else if (bisectionMethod == "UNDIRBOTH") {
+        this->bisectionMethod = bisection::BisectionMethod::UNDIRBOTH;
+    } else {
+        this->bisectionMethod = bisection::BisectionMethod::UNDIRBOTH;
+    }
+
+    if (refinementMethod == "BOUNDARYFM") {
+        this->refinementMethod = refinement::RefinementMethod::BOUNDARYFM;
+    } else if (refinementMethod == "BOUNDARYKL") {
+        this->refinementMethod = refinement::RefinementMethod::BOUNDARYKL;
+    } else if (refinementMethod == "MIXED") {
+        this->refinementMethod = refinement::RefinementMethod::MIXED;
+    } else {
+        this->refinementMethod = refinement::RefinementMethod::MIXED;
     }
 }
 

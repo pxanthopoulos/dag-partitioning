@@ -11,6 +11,7 @@
 #define DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -66,7 +67,6 @@ class RecursivePartitioner {
         std::unordered_map<uint64_t, uint64_t>>
     createSubgraphs(const std::vector<uint8_t> &bisection) const;
 
-  public:
     /**
      * @brief Constructs recursive partitioner with selected strategies
      * @param graph Graph to be partitioned
@@ -89,6 +89,30 @@ class RecursivePartitioner {
                          bisection::BisectionMethod bisectionMethod,
                          double imbalanceRatio,
                          refinement::RefinementMethod refinementMethod,
+                         uint64_t refinementPasses);
+
+  public:
+    /**
+     * @brief Public constructor overload with strings
+     * @param graph Graph to be partitioned
+     * @param partitions Number of partitions to create
+     * @param clusteringMethod Coarsening strategy
+     * @param maxClusteringRounds Maximum coarsening levels
+     * @param minClusteringVertices Minimum coarse graph size
+     * @param clusteringVertexRatio If, after a clustering round, this ratio is
+     * not surpassed, stop clustering
+     * @param bisectionMethod Initial bisection strategy
+     * @param imbalanceRatio Maximum allowed imbalance
+     * @param refinementMethod Refinement strategy
+     * @param refinementPasses Maximum refinement passes per level
+     */
+    RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
+                         std::string clusteringMethod,
+                         uint64_t maxClusteringRounds,
+                         uint64_t minClusteringVertices,
+                         double clusteringVertexRatio,
+                         std::string bisectionMethod, double imbalanceRatio,
+                         std::string refinementMethod,
                          uint64_t refinementPasses);
 
     /**
