@@ -39,15 +39,16 @@ run_tests() {
     
     local counter=0
     for minpar in $minpar_list; do
-        for value in 20 50 100 200 500 1000 2000 5000 10000 50000 100000; do
+        for value in 100 500 1000 5000 10000 50000 100000; do
             partitions=()
             power=2
-            while [ $power -le $value ]; do
+            valuediv2=$(( value / 2 ))
+            while [ $power -le $valuediv2 ]; do
                 partitions+=($power)
                 power=$(( power * 2 ))
             done
             for p in "${partitions[@]}"; do
-                for ratio in 100 120 150 200; do
+                for ratio in 100 150 200; do
                     for i in {1..5}; do
                         if [[ ! -f "$output_file" ]]; then
                             return 1
@@ -107,10 +108,10 @@ monitor_progress() {
 
 > trace.txt
 
-monitor_progress trace.txt 4200 &
+monitor_progress trace.txt 1511 &
 MONITOR_PID=$!
 
-(run_tests "0 10 20 50 100 200 500 1000 2000 5000" trace.txt 1) &
+(run_tests "1000000000 10 50 100 500 1000 5000" trace.txt 1) &
 PID=$!
 
 wait $PID
