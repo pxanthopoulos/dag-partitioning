@@ -370,19 +370,28 @@ class DAGGenerator {
 };
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <size> <ratio * 100> <debug>\n";
+    if (argc != 5) {
+        std::cerr << "Usage: " << argv[0] << " <size> <ratio * 100> <debug> <output_filename>\n";
+        std::cerr << "  size: number of nodes in the graph\n";
+        std::cerr << "  ratio * 100: edge ratio multiplied by 100 (e.g., 150 for 1.5x ratio)\n";
+        std::cerr << "  debug: debug level (0-7)\n";
+        std::cerr << "  output_filename: path for the output .dot file\n";
         return 1;
     }
 
     uint64_t size = std::stoi(argv[1]);
     double ratio = (double)std::stoi(argv[2]) / 100;
     uint64_t debug = std::stoi(argv[3]);
+    std::string outputFilename = argv[4];
+    
     DAGGenerator generator(size, debug);
     int result = generator.generate(ratio);
 
     if (result == 0) {
-        generator.printToDot("./dag.dot");
+        generator.printToDot(outputFilename);
+        if (debug > 0) {
+            std::cout << "Successfully generated DAG with " << size << " nodes and wrote to " << outputFilename << std::endl;
+        }
     } else {
         std::cout << "FAILED\n";
     }
