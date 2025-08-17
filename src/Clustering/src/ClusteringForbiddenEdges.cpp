@@ -27,7 +27,7 @@ ClusteringForbiddenEdges::findValidNeighbors(
     const std::vector<uint64_t> &topLevels,
     const std::vector<uint64_t> &numberOfBadNeighbors,
     const std::vector<uint64_t> &leaderOfBadNeighbors,
-    const std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
+    const robin_hood::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
         &leadersToMinMaxTopValues) const {
     std::vector<std::pair<uint64_t, uint64_t>> validNeighbors;
     validNeighbors.reserve(neighbors.size());
@@ -117,7 +117,7 @@ ClusteringForbiddenEdges::oneRoundClustering() const {
     // Data structures for tracking bad neighbors (Theorem 4.2)
     std::vector<uint64_t> numberOfBadNeighbors(workingGraph.size, 0);
     std::vector<uint64_t> leaderOfBadNeighbors(workingGraph.size, UINT64_MAX);
-    std::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
+    robin_hood::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
         leadersToMinMaxTopValues;
 
     // Get topological order and top-level values

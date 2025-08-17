@@ -10,9 +10,9 @@
 #ifndef DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 #define DAG_PARTITIONING_RECURSIVEPARTITIONER_H
 
+#include "robin_hood.h"
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace dag_partitioning {
@@ -68,8 +68,8 @@ class RecursivePartitioner {
      * @return The two resulting subgraphs (V0, V1) and the two maps
      */
     [[nodiscard]] std::tuple<
-        core::Graph, std::unordered_map<uint64_t, uint64_t>, core::Graph,
-        std::unordered_map<uint64_t, uint64_t>>
+        core::Graph, robin_hood::unordered_map<uint64_t, uint64_t>, core::Graph,
+        robin_hood::unordered_map<uint64_t, uint64_t>>
     createSubgraphs(const std::vector<uint8_t> &bisection) const;
 
     /**

@@ -5,11 +5,10 @@
 
 #include "ClusteringCycleDetection.h"
 
+#include "robin_hood.h"
 #include <cassert>
 #include <cmath>
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 
 namespace dag_partitioning {
 
@@ -25,9 +24,9 @@ void ClusteringCycleDetection::hardCheckCycle(
     const std::vector<uint64_t> &leaders, uint64_t newSize) const {
     // Map original leader IDs to consecutive new IDs for the coarsened graph
     uint64_t maxNewNodeId = -1;
-    std::unordered_map<uint64_t, uint64_t> leadersToNewNodeIds;
+    robin_hood::unordered_map<uint64_t, uint64_t> leadersToNewNodeIds;
     std::vector<std::pair<std::vector<uint64_t>, uint64_t>> newNodes(newSize);
-    std::unordered_set<uint64_t> seenLeaders;
+    robin_hood::unordered_set<uint64_t> seenLeaders;
 
     // First pass: Create mapping and collect nodes for each cluster
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {
@@ -45,7 +44,7 @@ void ClusteringCycleDetection::hardCheckCycle(
 
     // Construct the coarsened graph
     core::Graph newGraph(newSize);
-    std::vector<std::unordered_map<uint64_t, uint64_t>> newAdj(newSize);
+    std::vector<robin_hood::unordered_map<uint64_t, uint64_t>> newAdj(newSize);
 
     // Add nodes and combine edges
     for (uint64_t i = 0; i < newSize; ++i) {

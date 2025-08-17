@@ -106,8 +106,8 @@ RecursivePartitioner::RecursivePartitioner(
     }
 }
 
-std::tuple<core::Graph, std::unordered_map<uint64_t, uint64_t>, core::Graph,
-           std::unordered_map<uint64_t, uint64_t>>
+std::tuple<core::Graph, robin_hood::unordered_map<uint64_t, uint64_t>,
+           core::Graph, robin_hood::unordered_map<uint64_t, uint64_t>>
 RecursivePartitioner::createSubgraphs(
     const std::vector<uint8_t> &bisection) const {
     // Track sizes for resulting subgraphs
@@ -126,10 +126,10 @@ RecursivePartitioner::createSubgraphs(
     uint64_t newNodeId0 = 0, newNodeId1 = 0;
 
     // Maps that map new node IDs to old node IDs
-    std::unordered_map<uint64_t, uint64_t> map0, map1;
+    robin_hood::unordered_map<uint64_t, uint64_t> map0, map1;
 
     // Map that maps old node IDs to new node IDs
-    std::unordered_map<uint64_t, uint64_t> map;
+    robin_hood::unordered_map<uint64_t, uint64_t> map;
 
     for (uint64_t i = 0; i < bisection.size(); ++i) {
         if (bisection[i] == 0) {

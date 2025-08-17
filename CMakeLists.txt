@@ -106,7 +106,11 @@ add_subdirectory(src)
 add_executable(rand-dag test/rand-dag.cpp)
 
 add_executable(test test/test.cpp)
-target_link_libraries(test PRIVATE dag_partitioning)
+target_link_libraries(test
+        PRIVATE
+        dag_partitioning
+        robin_hood::robin_hood
+)
 
 # Installation
 include(cmake/Install.cmake)

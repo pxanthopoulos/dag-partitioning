@@ -1,11 +1,4 @@
 .idea/*
+.vscode/*
 build/*
 install/*
-
-**/*.dot
-**/*.txt
-**/*.py
-**/*.csv
-!**/CMakeLists.txt
-
-test/rand-dag

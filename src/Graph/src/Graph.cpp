@@ -5,11 +5,11 @@
 
 #include "Graph.h"
 
+#include "robin_hood.h"
 #include <fstream>
 #include <queue>
 #include <regex>
 #include <stdexcept>
-#include <unordered_map>
 
 namespace dag_partitioning {
 
@@ -497,7 +497,7 @@ Graph readDotFile(const std::string &dotFilename,
     Graph g(graphSize);
 
     // Parse nodes and edges
-    std::unordered_map<std::string, uint64_t> nodeMap;
+    robin_hood::unordered_map<std::string, uint64_t> nodeMap;
     std::regex nodeRegex(R"(([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
     std::regex edgeRegex(
         R"(([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
