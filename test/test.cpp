@@ -82,6 +82,9 @@ int main(int argc, char **argv) {
     const double maxImbalance = 1.1;
     const uint64_t maxPasses = 10;
 
+    std::cout << "CLUSTERING,BISECTION,REFINEMENT,CUTSIZE,IMBALANCE,DURATION"
+              << std::endl;
+
     for (uint64_t i = 0; i < methods.size(); i++) {
         const auto &method = methods[i];
         dag_partitioning::driver::RecursivePartitioner partitioner(
