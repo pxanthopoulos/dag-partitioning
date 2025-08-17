@@ -37,9 +37,16 @@ struct MethodCombination {
 };
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
+    if (argc < 4 || argc > 5) {
         std::cerr << "Usage: " << argv[0]
-                  << " <# of partitions> <dot file path>" << std::endl;
+                  << " <# of partitions> <dot file path> <enable_parallel> "
+                     "[min_size_for_parallel]"
+                  << std::endl;
+        std::cerr << "  enable_parallel: 1 for parallel, 0 for sequential"
+                  << std::endl;
+        std::cerr << "  min_size_for_parallel: minimum subgraph size to "
+                     "parallelize (default: 1000)"
+                  << std::endl;
         return 1;
     }
 
@@ -47,12 +54,41 @@ int main(int argc, char **argv) {
     try {
         partitions = std::stoull(argv[1]);
     } catch (const std::exception &e) {
-        std::cerr << "Error: Please provide a valid positive integer"
-                  << std::endl;
+        std::cerr
+            << "Error: Please provide a valid positive integer for partitions"
+            << std::endl;
         return 1;
     }
 
     std::string dotPath = argv[2];
+
+    // Parse enable parallel flag (required)
+    bool enableParallel;
+    try {
+        int parallelFlag = std::stoi(argv[3]);
+        if (parallelFlag != 0 && parallelFlag != 1) {
+            std::cerr << "Error: enable_parallel must be 0 or 1" << std::endl;
+            return 1;
+        }
+        enableParallel = (parallelFlag == 1);
+    } catch (const std::exception &e) {
+        std::cerr << "Error: Please provide a valid integer for "
+                     "enable_parallel (0 or 1)"
+                  << std::endl;
+        return 1;
+    }
+
+    uint64_t minSizeForParallel = 100;
+    if (argc == 5) {
+        try {
+            minSizeForParallel = std::stoull(argv[4]);
+        } catch (const std::exception &e) {
+            std::cerr << "Error: Please provide a valid positive integer for "
+                         "min_size_for_parallel"
+                      << std::endl;
+            return 1;
+        }
+    }
     dag_partitioning::core::Graph graph = dag_partitioning::core::readDotFile(
         dotPath, dotPath + ".node-mappings.txt");
 
@@ -90,7 +126,7 @@ int main(int argc, char **argv) {
         dag_partitioning::driver::RecursivePartitioner partitioner(
             graph, partitions, method.clusteringStr, maxLevel, minSize,
             vertRatio, method.bisectionStr, maxImbalance, method.refinementStr,
-            maxPasses);
+            maxPasses, enableParallel, minSizeForParallel);
 
         auto start = std::chrono::high_resolution_clock::now();
         auto [partition, cutSize] = partitioner.run();

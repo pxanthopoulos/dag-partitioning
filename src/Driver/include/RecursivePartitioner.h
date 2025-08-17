@@ -50,6 +50,10 @@ class RecursivePartitioner {
         refinementMethod;      // Selected refinement strategy
     uint64_t refinementPasses; // Maximum refinement passes per level
 
+    // Parallelization options
+    bool enableParallel;         // Enable parallel recursive calls
+    uint64_t minSizeForParallel; // Minimum subgraph size to parallelize
+
     /**
      * @brief Creates two subgraphs by splitting the input graph based on a
      * bisection
@@ -80,7 +84,10 @@ class RecursivePartitioner {
      * @param imbalanceRatio Maximum allowed imbalance
      * @param refinementMethod Refinement strategy
      * @param refinementPasses Maximum refinement passes per level
+     * @param enableParallel Enable parallel recursive calls
+     * @param minSizeForParallel Minimum subgraph size to parallelize
      */
+    // TODO: Change default minsize for parallel
     RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
                          clustering::ClusteringMethod clusteringMethod,
                          uint64_t maxClusteringRounds,
@@ -89,7 +96,8 @@ class RecursivePartitioner {
                          bisection::BisectionMethod bisectionMethod,
                          double imbalanceRatio,
                          refinement::RefinementMethod refinementMethod,
-                         uint64_t refinementPasses);
+                         uint64_t refinementPasses, bool enableParallel = true,
+                         uint64_t minSizeForParallel = 1000);
 
   public:
     /**
@@ -105,7 +113,10 @@ class RecursivePartitioner {
      * @param imbalanceRatio Maximum allowed imbalance
      * @param refinementMethod Refinement strategy
      * @param refinementPasses Maximum refinement passes per level
+     * @param enableParallel Enable parallel recursive calls
+     * @param minSizeForParallel Minimum subgraph size to parallelize
      */
+    // TODO: Change default minsize for parallel
     RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
                          std::string clusteringMethod,
                          uint64_t maxClusteringRounds,
@@ -113,7 +124,8 @@ class RecursivePartitioner {
                          double clusteringVertexRatio,
                          std::string bisectionMethod, double imbalanceRatio,
                          std::string refinementMethod,
-                         uint64_t refinementPasses);
+                         uint64_t refinementPasses, bool enableParallel = true,
+                         uint64_t minSizeForParallel = 1000);
 
     /**
      * @brief Executes recursive partitioning process
