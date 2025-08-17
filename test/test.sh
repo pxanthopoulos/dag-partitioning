@@ -55,8 +55,8 @@ run_tests() {
                         fi
                         
                         echo "Counter $counter, Run $i, Minpar $minpar, Size $value, Partitions $p, Ratio $ratio" >> "$output_file"
-                        ../install/bin/rand-dag $value $ratio 0 ./dag-$counter_offset.dot && \
-                        timeout --foreground 5m ../install/bin/test $p dag-$counter_offset.dot 1 $minpar >> "$output_file" || \
+                        ../install/bin/rand-dag $value $ratio 0 ./dag.dot && \
+                        timeout --foreground 5m ../install/bin/test $p dag.dot 1 $minpar >> "$output_file" || \
                         {
                             ret=$?
                             echo "Error: dag-partitioning failed for minpar $minpar, size $value, partitions $p, $ratio, on iteration $i"
