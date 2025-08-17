@@ -1,4 +1,20 @@
 cmake_minimum_required(VERSION 3.28)
+
+# Compiler configuration (must be before project())
+if(NOT CMAKE_CXX_COMPILER)
+    find_program(CLANG_CXX_COMPILER clang++)
+    if(CLANG_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER ${CLANG_CXX_COMPILER})
+    endif()
+endif()
+
+if(NOT CMAKE_C_COMPILER)
+    find_program(CLANG_C_COMPILER clang)
+    if(CLANG_C_COMPILER)
+        set(CMAKE_C_COMPILER ${CLANG_C_COMPILER})
+    endif()
+endif()
+
 project(dag_partitioning VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,21 +31,6 @@ option(ENABLE_PIC "Enable position independent code" ON)
 option(METIS_USE_I64 "Use 64-bit indices for METIS" ON)
 option(METIS_USE_R64 "Use 64-bit reals for METIS" ON)
 set(EXTRA_CXX_FLAGS "" CACHE STRING "Additional CXX flags")
-
-# Compiler configuration
-if(NOT CMAKE_CXX_COMPILER)
-    find_program(CLANG_CXX_COMPILER clang++)
-    if(CLANG_CXX_COMPILER)
-        set(CMAKE_CXX_COMPILER ${CLANG_CXX_COMPILER})
-    endif()
-endif()
-
-if(NOT CMAKE_C_COMPILER)
-    find_program(CLANG_C_COMPILER clang)
-    if(CLANG_C_COMPILER)
-        set(CMAKE_C_COMPILER ${CLANG_C_COMPILER})
-    endif()
-endif()
 
 # Compiler launcher (ccache)
 if(NOT CMAKE_CXX_COMPILER_LAUNCHER)
@@ -74,7 +75,7 @@ FetchContent_GetProperties(GKlib)
 if(NOT gklib_POPULATED)
     FetchContent_Populate(GKlib)
     
-    # Build GKlib using external command
+    # Configure GKlib during CMake configure phase
     execute_process(
         COMMAND make config cc=${CMAKE_C_COMPILER} prefix=${GKLIB_PREFIX} shared=${SHARED}
         WORKING_DIRECTORY ${gklib_SOURCE_DIR}
@@ -84,27 +85,16 @@ if(NOT gklib_POPULATED)
     if(NOT GKLIB_CONFIG_RESULT EQUAL 0)
         message(FATAL_ERROR "GKlib configuration failed")
     endif()
-    
-    execute_process(
-        COMMAND make -j${NCPU}
-        WORKING_DIRECTORY ${gklib_SOURCE_DIR}
-        RESULT_VARIABLE GKLIB_BUILD_RESULT
-    )
-    
-    if(NOT GKLIB_BUILD_RESULT EQUAL 0)
-        message(FATAL_ERROR "GKlib build failed")
-    endif()
-    
-    execute_process(
-        COMMAND make install
-        WORKING_DIRECTORY ${gklib_SOURCE_DIR}
-        RESULT_VARIABLE GKLIB_INSTALL_RESULT
-    )
-    
-    if(NOT GKLIB_INSTALL_RESULT EQUAL 0)
-        message(FATAL_ERROR "GKlib install failed")
-    endif()
 endif()
+
+# Build GKlib during build phase (respects -j flag)
+add_custom_command(
+    OUTPUT ${GKLIB_PREFIX}/lib/libGKlib.a
+    COMMAND ${CMAKE_COMMAND} --build ${gklib_SOURCE_DIR}/build/Linux-x86_64 --parallel
+    COMMAND ${CMAKE_COMMAND} --install ${gklib_SOURCE_DIR}/build/Linux-x86_64
+    WORKING_DIRECTORY ${gklib_SOURCE_DIR}
+    COMMENT "Building GKlib"
+)
 
 # METIS dependency
 FetchContent_Declare(
@@ -122,7 +112,7 @@ FetchContent_GetProperties(METIS)
 if(NOT metis_POPULATED)
     FetchContent_Populate(METIS)
     
-    # Build METIS using external command
+    # Configure METIS during CMake configure phase
     execute_process(
         COMMAND make config shared=${SHARED} cc=${CMAKE_C_COMPILER} prefix=${METIS_PREFIX} i64=${METIS_I64} r64=${METIS_R64} gklib_path=${GKLIB_PREFIX}
         WORKING_DIRECTORY ${metis_SOURCE_DIR}
@@ -132,27 +122,23 @@ if(NOT metis_POPULATED)
     if(NOT METIS_CONFIG_RESULT EQUAL 0)
         message(FATAL_ERROR "METIS configuration failed")
     endif()
-    
-    execute_process(
-        COMMAND make -j${NCPU}
-        WORKING_DIRECTORY ${metis_SOURCE_DIR}
-        RESULT_VARIABLE METIS_BUILD_RESULT
-    )
-    
-    if(NOT METIS_BUILD_RESULT EQUAL 0)
-        message(FATAL_ERROR "METIS build failed")
-    endif()
-    
-    execute_process(
-        COMMAND make install
-        WORKING_DIRECTORY ${metis_SOURCE_DIR}
-        RESULT_VARIABLE METIS_INSTALL_RESULT
-    )
-    
-    if(NOT METIS_INSTALL_RESULT EQUAL 0)
-        message(FATAL_ERROR "METIS install failed")
-    endif()
 endif()
+
+# Build METIS during build phase (respects -j flag)
+add_custom_command(
+    OUTPUT ${METIS_PREFIX}/lib/libmetis.a
+    COMMAND ${CMAKE_COMMAND} --build ${metis_SOURCE_DIR}/build --parallel
+    COMMAND ${CMAKE_COMMAND} --install ${metis_SOURCE_DIR}/build
+    WORKING_DIRECTORY ${metis_SOURCE_DIR}
+    DEPENDS ${GKLIB_PREFIX}/lib/libGKlib.a
+    COMMENT "Building METIS"
+)
+
+# Create directories for imported targets (needed at configure time)
+file(MAKE_DIRECTORY ${GKLIB_PREFIX}/include)
+file(MAKE_DIRECTORY ${GKLIB_PREFIX}/lib)
+file(MAKE_DIRECTORY ${METIS_PREFIX}/include)
+file(MAKE_DIRECTORY ${METIS_PREFIX}/lib)
 
 # Create custom targets for building dependencies
 add_custom_target(build_gklib
