@@ -4,5 +4,5 @@ add_library(Graph OBJECT
 
 target_include_directories(Graph
         PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )

@@ -6,12 +6,16 @@ add_library(Bisection OBJECT
 
 target_include_directories(Bisection
         PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         ${SCOTCH_INCLUDE_DIR}
 )
 
 target_link_libraries(Bisection
-        PUBLIC Graph Refinement METIS::METIS
+        PUBLIC
+        METIS::METIS
+        PRIVATE 
+        Graph 
+        Refinement 
         ${SCOTCH_LIBRARY}
         ${SCOTCHERR_LIBRARY}
 )

@@ -8,9 +8,10 @@ add_library(Refinement OBJECT
 
 target_include_directories(Refinement
         PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
 target_link_libraries(Refinement
-        PUBLIC Graph
+        PRIVATE
+        Graph
 )

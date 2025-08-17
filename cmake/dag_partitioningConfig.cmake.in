@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies that are exposed in the public interface
+find_dependency(Threads REQUIRED)
+
+# Note: METIS and GKlib are built internally and linked privately,
+# so external users don't need to find them separately
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/dag_partitioningTargets.cmake")
+
+check_required_components(dag_partitioning)
