@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
-#include <thread>
 #include <vector>
 
 uint64_t calculateMaxPartSize(const std::vector<uint64_t> &partition,
