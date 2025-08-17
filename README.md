@@ -27,48 +27,96 @@ The algorithm implements a multilevel approach for partitioning DAGs with three 
 A recursive bisectioning scheme is employed to partition the
 graph into the required number of parts.
 
+## Features
+
+- **High-performance containers**: Uses Robin Hood hashing for improved memory efficiency and performance
+- **OpenMP support**: Optional parallel processing capabilities
+
 ## Requirements
 
 - C++17 or later
 - CMake 3.28 or later
+- Git
 
 ## Building
 
-This project requires the following dependencies which must be built separately before proceeding:
+This project automatically fetches and builds all required dependencies using CMake FetchContent:
+- [GKlib](https://github.com/KarypisLab/GKlib) - Core library providing data structures and utilities to METIS
 - [METIS](https://github.com/KarypisLab/METIS) - For graph partitioning
-- [Scotch](https://gitlab.inria.fr/scotch/scotch) - For graph partitioning and sparse matrix ordering
+- [Scotch](https://gitlab.inria.fr/scotch/scotch) - For graph partitioning and sparse matrix ordering  
+- [Robin Hood Hashing](https://github.com/martinus/robin-hood-hashing) - High-performance hash tables and containers
 
-### General Build Instructions
+### Simple Build Instructions
 
 ```bash
 mkdir build
 cd build
-cmake -DMETIS_INCLUDE_DIR=/path/to/metis/include \
-      -DSCOTCH_INCLUDE_DIR=/path/to/scotch/include \
-      -DMETIS_LIBRARY=/path/to/metis/lib/libmetis.a \
-      -DSCOTCH_LIBRARY=/path/to/scotch/lib/libscotch.a \
-      -DSCOTCHERR_LIBRARY=/path/to/scotch/lib/libscotcherr.a \
-      ..
+cmake ..
 make
 ```
 
-### Example with Custom Paths
+### Installation
+
+To install the library and executables to a custom path:
 
 ```bash
-mkdir build
-cd build
-cmake -DMETIS_INCLUDE_DIR=/home/user/METIS/build/install/include \
-      -DSCOTCH_INCLUDE_DIR=/home/user/scotch/build/src/include \
-      -DMETIS_LIBRARY=/home/user/METIS/build/install/lib/libmetis.a \
-      -DSCOTCH_LIBRARY=/home/user/scotch/build/lib/libscotch.a \
-      -DSCOTCHERR_LIBRARY=/home/user/scotch/build/lib/libscotcherr.a \
-      ..
+cmake -DCMAKE_INSTALL_PREFIX=../install ..
 make
+make install
+```
+
+This will install the library, headers, and executables to the `install` directory.
+
+### Build Options
+
+- `DAG_PARTITIONING_OPENMP=ON` - Enable OpenMP support for parallel processing
+- `BUILD_SHARED_LIBS=ON` - Build shared libraries instead of static
+- `CMAKE_BUILD_TYPE=Release` - Build optimized release version (default)
+
+Example with options (for more options see `CMakeLists.txt`):
+
+```bash
+cmake -DDAG_PARTITIONING_OPENMP=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install ..
+make
+make install
 ```
 
 ## Usage
 
-For example usage, see `main.cpp` at the `aio-executable` branch.
+### Using the Test Executable
+
+After building, you can use the `test` executable to partition DAGs:
+
+```bash
+# From the install directory
+./bin/test input.dot num_partitions 1
+
+# Example
+./bin/test ../test/example.dot 4 1
+
+# For detailed usage
+./bin/test
+```
+
+### Generating Random DAGs
+
+Use the `rand-dag` tool to generate test graphs:
+
+```bash
+# Generate a random DAG with 100 nodes and 150% edge density
+./bin/rand-dag 1000 150 0
+
+# This creates a DOT format graph that can be used with the test executable
+./bin/rand-dag 1000 150 0 random_dag.dot
+./bin/test random_dag.dot 4 1
+
+# For detailed usage
+./bin/rand-dag
+```
+
+### Library Usage
+
+For programmatic usage, check the test executable source in `test/test.cpp`.
 
 ## Input Format
 
