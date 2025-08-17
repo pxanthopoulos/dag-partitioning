@@ -61,11 +61,20 @@ if(NOT scotch_POPULATED)
     endif()
 endif()
 
+# Set library files based on BUILD_SHARED_LIBS
+if(BUILD_SHARED_LIBS)
+    set(SCOTCH_LIB_FILE ${SCOTCH_PREFIX}/lib/libscotch${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(SCOTCHERR_LIB_FILE ${SCOTCH_PREFIX}/lib/libscotcherr${CMAKE_SHARED_LIBRARY_SUFFIX})
+else()
+    set(SCOTCH_LIB_FILE ${SCOTCH_PREFIX}/lib/libscotch${CMAKE_STATIC_LIBRARY_SUFFIX})
+    set(SCOTCHERR_LIB_FILE ${SCOTCH_PREFIX}/lib/libscotcherr${CMAKE_STATIC_LIBRARY_SUFFIX})
+endif()
+
 # Build SCOTCH during build phase (respects -j flag)
 if(CMAKE_GENERATOR MATCHES "Make")
     # For Makefiles, use $(MAKE) to inherit the jobserver
     add_custom_command(
-        OUTPUT ${SCOTCH_PREFIX}/lib/libscotch.a ${SCOTCH_PREFIX}/lib/libscotcherr.a
+        OUTPUT ${SCOTCH_LIB_FILE} ${SCOTCHERR_LIB_FILE}
         COMMAND $(MAKE) -C ${scotch_SOURCE_DIR}/build
         COMMAND $(MAKE) -C ${scotch_SOURCE_DIR}/build install
         WORKING_DIRECTORY ${scotch_SOURCE_DIR}
@@ -75,7 +84,7 @@ if(CMAKE_GENERATOR MATCHES "Make")
 else()
     # For other generators (Ninja, etc.), use CMAKE_BUILD_PARALLEL_LEVEL
     add_custom_command(
-        OUTPUT ${SCOTCH_PREFIX}/lib/libscotch.a ${SCOTCH_PREFIX}/lib/libscotcherr.a
+        OUTPUT ${SCOTCH_LIB_FILE} ${SCOTCHERR_LIB_FILE}
         COMMAND ${CMAKE_COMMAND} --build ${scotch_SOURCE_DIR}/build --parallel
         COMMAND ${CMAKE_COMMAND} --install ${scotch_SOURCE_DIR}/build
         WORKING_DIRECTORY ${scotch_SOURCE_DIR}
@@ -90,19 +99,25 @@ file(MAKE_DIRECTORY ${SCOTCH_PREFIX}/lib)
 
 # Create custom targets for building dependencies
 add_custom_target(build_scotch
-    DEPENDS ${SCOTCH_PREFIX}/lib/libscotch.a ${SCOTCH_PREFIX}/lib/libscotcherr.a
+    DEPENDS ${SCOTCH_LIB_FILE} ${SCOTCHERR_LIB_FILE}
 )
 
 # Create imported targets
-add_library(SCOTCH::scotcherr STATIC IMPORTED)
+if(BUILD_SHARED_LIBS)
+    add_library(SCOTCH::scotcherr SHARED IMPORTED)
+    add_library(SCOTCH::SCOTCH SHARED IMPORTED)
+else()
+    add_library(SCOTCH::scotcherr STATIC IMPORTED)
+    add_library(SCOTCH::SCOTCH STATIC IMPORTED)
+endif()
+
 set_target_properties(SCOTCH::scotcherr PROPERTIES
-    IMPORTED_LOCATION ${SCOTCH_PREFIX}/lib/libscotcherr.a
+    IMPORTED_LOCATION ${SCOTCHERR_LIB_FILE}
 )
 add_dependencies(SCOTCH::scotcherr build_scotch)
 
-add_library(SCOTCH::SCOTCH STATIC IMPORTED)
 set_target_properties(SCOTCH::SCOTCH PROPERTIES
-    IMPORTED_LOCATION ${SCOTCH_PREFIX}/lib/libscotch.a
+    IMPORTED_LOCATION ${SCOTCH_LIB_FILE}
     INTERFACE_INCLUDE_DIRECTORIES ${SCOTCH_PREFIX}/include
     INTERFACE_LINK_LIBRARIES SCOTCH::scotcherr
 )

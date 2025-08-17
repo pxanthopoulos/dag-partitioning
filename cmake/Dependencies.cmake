@@ -5,4 +5,4 @@ include(FetchContent)
 # Include individual dependency configurations
 include(${CMAKE_CURRENT_LIST_DIR}/GKlib.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/METIS.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/SCOTCH.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/scotch.cmake)

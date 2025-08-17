@@ -25,9 +25,16 @@ if(NOT gklib_POPULATED)
     FetchContent_Populate(GKlib)
     
     # Configure GKlib during CMake configure phase
+    # Convert CMAKE bool to 0/1 for make config
+    if(BUILD_SHARED_LIBS)
+        set(GKLIB_SHARED_VALUE 1)
+    else()
+        set(GKLIB_SHARED_VALUE 0)
+    endif()
+    
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E env CFLAGS=${GKLIB_C_FLAGS}
-                make config cc=${CMAKE_C_COMPILER} prefix=${GKLIB_PREFIX} shared=${BUILD_SHARED_LIBS}
+                make config cc=${CMAKE_C_COMPILER} prefix=${GKLIB_PREFIX} shared=${GKLIB_SHARED_VALUE}
                 gdb=${GKLIB_GDB} assert=${GKLIB_ASSERT} assert2=${GKLIB_ASSERT2}
                 debug=${GKLIB_DEBUG} gprof=${GKLIB_GPROF} valgrind=${GKLIB_VALGRIND}
                 openmp=${GKLIB_OPENMP} pcre=${GKLIB_PCRE} gkregex=${GKLIB_GKREGEX} gkrand=${GKLIB_GKRAND}
@@ -44,11 +51,18 @@ endif()
 # Emulate GKlib Makefile logic: BUILDDIR = build/$(systype)-$(cputype)
 set(GKLIB_BUILDDIR ${gklib_SOURCE_DIR}/build/${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
 
+# Set library file based on BUILD_SHARED_LIBS
+if(BUILD_SHARED_LIBS)
+    set(GKLIB_LIB_FILE ${GKLIB_PREFIX}/lib/libGKlib${CMAKE_SHARED_LIBRARY_SUFFIX})
+else()
+    set(GKLIB_LIB_FILE ${GKLIB_PREFIX}/lib/libGKlib${CMAKE_STATIC_LIBRARY_SUFFIX})
+endif()
+
 # Use $(MAKE) to inherit jobserver from parent make, or use cmake --build with inherited settings
 if(CMAKE_GENERATOR MATCHES "Make")
     # For Makefiles, use $(MAKE) to inherit the jobserver
     add_custom_command(
-        OUTPUT ${GKLIB_PREFIX}/lib/libGKlib.a
+        OUTPUT ${GKLIB_LIB_FILE}
         COMMAND $(MAKE) -C ${GKLIB_BUILDDIR}
         COMMAND $(MAKE) -C ${GKLIB_BUILDDIR} install
         WORKING_DIRECTORY ${gklib_SOURCE_DIR}
@@ -58,7 +72,7 @@ if(CMAKE_GENERATOR MATCHES "Make")
 else()
     # For other generators (Ninja, etc.), use CMAKE_BUILD_PARALLEL_LEVEL
     add_custom_command(
-        OUTPUT ${GKLIB_PREFIX}/lib/libGKlib.a
+        OUTPUT ${GKLIB_LIB_FILE}
         COMMAND ${CMAKE_COMMAND} -E env CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL} 
                 ${CMAKE_COMMAND} --build ${GKLIB_BUILDDIR} --parallel
         COMMAND ${CMAKE_COMMAND} --install ${GKLIB_BUILDDIR}
@@ -74,13 +88,17 @@ file(MAKE_DIRECTORY ${GKLIB_PREFIX}/lib)
 
 # Create custom targets for building dependencies
 add_custom_target(build_gklib
-    DEPENDS ${GKLIB_PREFIX}/lib/libGKlib.a
+    DEPENDS ${GKLIB_LIB_FILE}
 )
 
 # Create imported targets
-add_library(GKlib::GKlib STATIC IMPORTED)
+if(BUILD_SHARED_LIBS)
+    add_library(GKlib::GKlib SHARED IMPORTED)
+else()
+    add_library(GKlib::GKlib STATIC IMPORTED)
+endif()
 set_target_properties(GKlib::GKlib PROPERTIES
-    IMPORTED_LOCATION ${GKLIB_PREFIX}/lib/libGKlib.a
+    IMPORTED_LOCATION ${GKLIB_LIB_FILE}
     INTERFACE_INCLUDE_DIRECTORIES ${GKLIB_PREFIX}/include
 )
 add_dependencies(GKlib::GKlib build_gklib)

@@ -1,4 +1,4 @@
-add_library(dag_partitioning STATIC)
+add_library(dag_partitioning)
 
 add_subdirectory(Graph)
 add_subdirectory(Clustering)
