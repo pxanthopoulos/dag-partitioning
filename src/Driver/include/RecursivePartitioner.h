@@ -53,6 +53,7 @@ class RecursivePartitioner {
     // Parallelization options
     bool enableParallel;         // Enable parallel recursive calls
     uint64_t minSizeForParallel; // Minimum subgraph size to parallelize
+    uint64_t maxParallelDepth;   // Maximum recursion depth for parallelization
 
     /**
      * @brief Creates two subgraphs by splitting the input graph based on a
@@ -86,8 +87,8 @@ class RecursivePartitioner {
      * @param refinementPasses Maximum refinement passes per level
      * @param enableParallel Enable parallel recursive calls
      * @param minSizeForParallel Minimum subgraph size to parallelize
+     * @param maxParallelDepth Maximum recursion depth for parallelization
      */
-    // TODO: Change default minsize for parallel
     RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
                          clustering::ClusteringMethod clusteringMethod,
                          uint64_t maxClusteringRounds,
@@ -97,7 +98,8 @@ class RecursivePartitioner {
                          double imbalanceRatio,
                          refinement::RefinementMethod refinementMethod,
                          uint64_t refinementPasses, bool enableParallel = true,
-                         uint64_t minSizeForParallel = 1000);
+                         uint64_t minSizeForParallel = 100,
+                         uint64_t maxParallelDepth = 10);
 
   public:
     /**
@@ -115,8 +117,8 @@ class RecursivePartitioner {
      * @param refinementPasses Maximum refinement passes per level
      * @param enableParallel Enable parallel recursive calls
      * @param minSizeForParallel Minimum subgraph size to parallelize
+     * @param maxParallelDepth Maximum recursion depth for parallelization
      */
-    // TODO: Change default minsize for parallel
     RecursivePartitioner(const core::Graph &graph, uint64_t partitions,
                          std::string clusteringMethod,
                          uint64_t maxClusteringRounds,
@@ -125,7 +127,8 @@ class RecursivePartitioner {
                          std::string bisectionMethod, double imbalanceRatio,
                          std::string refinementMethod,
                          uint64_t refinementPasses, bool enableParallel = true,
-                         uint64_t minSizeForParallel = 1000);
+                         uint64_t minSizeForParallel = 100,
+                         uint64_t maxParallelDepth = 10);
 
     /**
      * @brief Executes recursive partitioning process
@@ -140,11 +143,13 @@ class RecursivePartitioner {
      *    - Recursively partition each subgraph
      *    - Combine results with appropriate offsets
      *
+     * @param currentDepth Current recursion depth (default 0 for public calls)
      * @return Pair containing:
      *         - Vector mapping each vertex to its partition (0 to k-1)
      *         - Total edge cut weight across all partitions
      */
-    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> run() const;
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
+    run(uint64_t currentDepth = 0) const;
 };
 
 } // namespace driver

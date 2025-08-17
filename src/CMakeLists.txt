@@ -28,5 +28,12 @@ target_link_libraries(dag_partitioning
         METIS::METIS
         GKlib::GKlib
         SCOTCH::SCOTCH
-        Threads::Threads
 )
+
+# Link OpenMP if enabled
+if(DAG_PARTITIONING_OPENMP)
+    target_link_libraries(dag_partitioning PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_definitions(dag_partitioning PRIVATE DAG_PARTITIONING_OPENMP_ENABLED)
+else()
+    target_link_libraries(dag_partitioning PRIVATE Threads::Threads)
+endif()

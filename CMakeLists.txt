@@ -60,6 +60,7 @@ option(SCOTCH_USE_ZLIB "Use ZLIB compression format if found" ON)
 option(SCOTCH_USE_LZMA "Use LZMA compression format if found" ON)
 option(SCOTCH_USE_BZ2 "Use BZ2 compression format if found" ON)
 option(SCOTCH_ENABLE_TESTS "Enable SCOTCH testing" ON)
+option(DAG_PARTITIONING_OPENMP "Enable OpenMP support" OFF)
 set(SCOTCH_DETERMINISTIC "FIXED_SEED" CACHE STRING "Level of determinism in Scotch (NONE/FIXED_SEED/FULL)")
 set(SCOTCH_IDXSIZE "" CACHE STRING "Index size: empty string stands for C compiler int type size")
 set(SCOTCH_NAME_SUFFIX "" CACHE STRING "Suffix to add to every symbol in the Scotch/PT-Scotch libraries")
@@ -88,8 +89,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Find required packages
-find_package(Threads REQUIRED)
+# Find OpenMP if enabled
+if(DAG_PARTITIONING_OPENMP)
+    find_package(OpenMP REQUIRED)
+else()
+    find_package(Threads REQUIRED)
+endif()
 
 # External dependencies
 include(cmake/Dependencies.cmake)

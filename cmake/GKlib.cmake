@@ -32,12 +32,18 @@ if(NOT gklib_POPULATED)
         set(GKLIB_SHARED_VALUE 0)
     endif()
     
+    if(DAG_PARTITIONING_OPENMP)
+        set(GKLIB_OPENMP_VALUE 1)
+    else()
+        set(GKLIB_OPENMP_VALUE 0)
+    endif()
+    
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E env CFLAGS=${GKLIB_C_FLAGS}
                 make config cc=${CMAKE_C_COMPILER} prefix=${GKLIB_PREFIX} shared=${GKLIB_SHARED_VALUE}
                 gdb=${GKLIB_GDB} assert=${GKLIB_ASSERT} assert2=${GKLIB_ASSERT2}
                 debug=${GKLIB_DEBUG} gprof=${GKLIB_GPROF} valgrind=${GKLIB_VALGRIND}
-                openmp=${GKLIB_OPENMP} pcre=${GKLIB_PCRE} gkregex=${GKLIB_GKREGEX} gkrand=${GKLIB_GKRAND}
+                openmp=${GKLIB_OPENMP_VALUE} pcre=${GKLIB_PCRE} gkregex=${GKLIB_GKREGEX} gkrand=${GKLIB_GKRAND}
         WORKING_DIRECTORY ${gklib_SOURCE_DIR}
         RESULT_VARIABLE GKLIB_CONFIG_RESULT
     )

@@ -20,6 +20,10 @@
 #include <stdexcept>
 #include <thread>
 
+#ifdef DAG_PARTITIONING_OPENMP_ENABLED
+#include <omp.h>
+#endif
+
 namespace dag_partitioning {
 
 namespace driver {
@@ -30,7 +34,7 @@ RecursivePartitioner::RecursivePartitioner(
     uint64_t minClusteringVertices, double clusteringVertexRatio,
     bisection::BisectionMethod bisectionMethod, double imbalanceRatio,
     refinement::RefinementMethod refinementMethod, uint64_t refinementPasses,
-    bool enableParallel, uint64_t minSizeForParallel)
+    bool enableParallel, uint64_t minSizeForParallel, uint64_t maxParallelDepth)
     : workingGraph(graph), partitions(partitions),
       clusteringMethod(clusteringMethod),
       maxClusteringRounds(maxClusteringRounds),
@@ -38,7 +42,8 @@ RecursivePartitioner::RecursivePartitioner(
       clusteringVertexRatio(clusteringVertexRatio),
       bisectionMethod(bisectionMethod), imbalanceRatio(imbalanceRatio),
       refinementMethod(refinementMethod), refinementPasses(refinementPasses),
-      enableParallel(enableParallel), minSizeForParallel(minSizeForParallel) {
+      enableParallel(enableParallel), minSizeForParallel(minSizeForParallel),
+      maxParallelDepth(maxParallelDepth) {
     if (partitions > workingGraph.size) {
         throw std::invalid_argument("Cannot create more partitions (" +
                                     std::to_string(partitions) +
@@ -52,13 +57,15 @@ RecursivePartitioner::RecursivePartitioner(
     uint64_t maxClusteringRounds, uint64_t minClusteringVertices,
     double clusteringVertexRatio, std::string bisectionMethod,
     double imbalanceRatio, std::string refinementMethod,
-    uint64_t refinementPasses, bool enableParallel, uint64_t minSizeForParallel)
+    uint64_t refinementPasses, bool enableParallel, uint64_t minSizeForParallel,
+    uint64_t maxParallelDepth)
     : workingGraph(graph), partitions(partitions),
       maxClusteringRounds(maxClusteringRounds),
       minClusteringVertices(minClusteringVertices),
       clusteringVertexRatio(clusteringVertexRatio),
       imbalanceRatio(imbalanceRatio), refinementPasses(refinementPasses),
-      enableParallel(enableParallel), minSizeForParallel(minSizeForParallel) {
+      enableParallel(enableParallel), minSizeForParallel(minSizeForParallel),
+      maxParallelDepth(maxParallelDepth) {
     if (partitions > workingGraph.size) {
         throw std::invalid_argument("Cannot create more partitions (" +
                                     std::to_string(partitions) +
@@ -156,7 +163,8 @@ RecursivePartitioner::createSubgraphs(
     return {subGraph0, map0, subGraph1, map1};
 }
 
-std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
+std::pair<std::vector<uint64_t>, uint64_t>
+RecursivePartitioner::run(uint64_t currentDepth) const {
     std::vector<uint64_t> partitionMapping(workingGraph.size, 0);
     uint64_t totalEdgeCut = 0;
 
@@ -228,39 +236,83 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
     std::vector<uint64_t> rightMapping;
     uint64_t rightEdgeCut = 0;
 
-    // Check if we should parallelize based on size and settings
-    bool shouldParallelize =
-        enableParallel && (subGraph0.size >= minSizeForParallel ||
-                           subGraph1.size >= minSizeForParallel);
+    // Check if we should parallelize based on size, settings, and depth
+    bool shouldParallelize = enableParallel &&
+                             currentDepth < maxParallelDepth &&
+                             (subGraph0.size >= minSizeForParallel ||
+                              subGraph1.size >= minSizeForParallel);
 
     if (shouldParallelize) {
-        // Launch left partitioner in separate thread
-        std::thread leftThread([&subGraph0, partsLeft, this, &leftMapping, &leftEdgeCut]() {
+#ifdef DAG_PARTITIONING_OPENMP_ENABLED
+// Use OpenMP tasks for better task scheduling
+#pragma omp parallel
+        {
+#pragma omp single nowait
+            {
+                int leftPriority = subGraph0.size > subGraph1.size ? 1 : 0;
+                int rightPriority = subGraph1.size > subGraph0.size ? 1 : 0;
+
+// Create task for left subgraph
+#pragma omp task priority(leftPriority) shared(leftMapping, leftEdgeCut)
+                {
+                    RecursivePartitioner left_partitioner(
+                        subGraph0, partsLeft, clusteringMethod,
+                        maxClusteringRounds, minClusteringVertices,
+                        clusteringVertexRatio, bisectionMethod, imbalanceRatio,
+                        refinementMethod, refinementPasses, enableParallel,
+                        minSizeForParallel, maxParallelDepth);
+                    auto result = left_partitioner.run(currentDepth + 1);
+                    leftMapping = std::move(result.first);
+                    leftEdgeCut = result.second;
+                }
+
+// Create task for right subgraph
+#pragma omp task priority(rightPriority) shared(rightMapping, rightEdgeCut)
+                {
+                    RecursivePartitioner right_partitioner(
+                        subGraph1, partsRight, clusteringMethod,
+                        maxClusteringRounds, minClusteringVertices,
+                        clusteringVertexRatio, bisectionMethod, imbalanceRatio,
+                        refinementMethod, refinementPasses, enableParallel,
+                        minSizeForParallel, maxParallelDepth);
+                    auto result = right_partitioner.run(currentDepth + 1);
+                    rightMapping = std::move(result.first);
+                    rightEdgeCut = result.second;
+                }
+
+// Wait for both tasks to complete
+#pragma omp taskwait
+            }
+        }
+#else
+        // Fallback to std::thread when OpenMP is not available
+        std::thread leftThread([&subGraph0, partsLeft, this, &leftMapping,
+                                &leftEdgeCut, currentDepth]() {
             RecursivePartitioner left_partitioner(
                 subGraph0, partsLeft, clusteringMethod, maxClusteringRounds,
                 minClusteringVertices, clusteringVertexRatio, bisectionMethod,
                 imbalanceRatio, refinementMethod, refinementPasses,
-                enableParallel, minSizeForParallel);
-            auto result = left_partitioner.run();
+                enableParallel, minSizeForParallel, maxParallelDepth);
+            auto result = left_partitioner.run(currentDepth + 1);
             leftMapping = std::move(result.first);
             leftEdgeCut = result.second;
         });
 
-        // Launch right partitioner in separate thread
-        std::thread rightThread([&subGraph1, partsRight, this, &rightMapping, &rightEdgeCut]() {
+        std::thread rightThread([&subGraph1, partsRight, this, &rightMapping,
+                                 &rightEdgeCut, currentDepth]() {
             RecursivePartitioner right_partitioner(
                 subGraph1, partsRight, clusteringMethod, maxClusteringRounds,
                 minClusteringVertices, clusteringVertexRatio, bisectionMethod,
                 imbalanceRatio, refinementMethod, refinementPasses,
-                enableParallel, minSizeForParallel);
-            auto result = right_partitioner.run();
+                enableParallel, minSizeForParallel, maxParallelDepth);
+            auto result = right_partitioner.run(currentDepth + 1);
             rightMapping = std::move(result.first);
             rightEdgeCut = result.second;
         });
 
-        // Wait for both threads to complete
         leftThread.join();
         rightThread.join();
+#endif
     } else {
         // Sequential execution for small subgraphs or when parallelization is
         // disabled
@@ -268,8 +320,8 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
             subGraph0, partsLeft, clusteringMethod, maxClusteringRounds,
             minClusteringVertices, clusteringVertexRatio, bisectionMethod,
             imbalanceRatio, refinementMethod, refinementPasses, enableParallel,
-            minSizeForParallel);
-        auto leftResult = left_partitioner.run();
+            minSizeForParallel, maxParallelDepth);
+        auto leftResult = left_partitioner.run(currentDepth + 1);
         leftMapping = std::move(leftResult.first);
         leftEdgeCut = leftResult.second;
 
@@ -277,8 +329,8 @@ std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::run() const {
             subGraph1, partsRight, clusteringMethod, maxClusteringRounds,
             minClusteringVertices, clusteringVertexRatio, bisectionMethod,
             imbalanceRatio, refinementMethod, refinementPasses, enableParallel,
-            minSizeForParallel);
-        auto rightResult = right_partitioner.run();
+            minSizeForParallel, maxParallelDepth);
+        auto rightResult = right_partitioner.run(currentDepth + 1);
         rightMapping = std::move(rightResult.first);
         rightEdgeCut = rightResult.second;
     }

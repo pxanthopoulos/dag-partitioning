@@ -37,15 +37,18 @@ struct MethodCombination {
 };
 
 int main(int argc, char **argv) {
-    if (argc < 4 || argc > 5) {
+    if (argc < 4 || argc > 6) {
         std::cerr << "Usage: " << argv[0]
                   << " <# of partitions> <dot file path> <enable_parallel> "
-                     "[min_size_for_parallel]"
+                     "[min_size_for_parallel] [max_parallel_depth]"
                   << std::endl;
         std::cerr << "  enable_parallel: 1 for parallel, 0 for sequential"
                   << std::endl;
         std::cerr << "  min_size_for_parallel: minimum subgraph size to "
-                     "parallelize (default: 1000)"
+                     "parallelize (default: 100)"
+                  << std::endl;
+        std::cerr << "  max_parallel_depth: maximum recursion depth for "
+                     "parallelization (default: 10)"
                   << std::endl;
         return 1;
     }
@@ -79,12 +82,24 @@ int main(int argc, char **argv) {
     }
 
     uint64_t minSizeForParallel = 100;
-    if (argc == 5) {
+    if (argc >= 5) {
         try {
             minSizeForParallel = std::stoull(argv[4]);
         } catch (const std::exception &e) {
             std::cerr << "Error: Please provide a valid positive integer for "
                          "min_size_for_parallel"
+                      << std::endl;
+            return 1;
+        }
+    }
+
+    uint64_t maxParallelDepth = 10;
+    if (argc == 6) {
+        try {
+            maxParallelDepth = std::stoull(argv[5]);
+        } catch (const std::exception &e) {
+            std::cerr << "Error: Please provide a valid positive integer for "
+                         "max_parallel_depth"
                       << std::endl;
             return 1;
         }
@@ -126,7 +141,7 @@ int main(int argc, char **argv) {
         dag_partitioning::driver::RecursivePartitioner partitioner(
             graph, partitions, method.clusteringStr, maxLevel, minSize,
             vertRatio, method.bisectionStr, maxImbalance, method.refinementStr,
-            maxPasses, enableParallel, minSizeForParallel);
+            maxPasses, enableParallel, minSizeForParallel, maxParallelDepth);
 
         auto start = std::chrono::high_resolution_clock::now();
         auto [partition, cutSize] = partitioner.run();

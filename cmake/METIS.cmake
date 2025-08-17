@@ -32,13 +32,19 @@ if(NOT metis_POPULATED)
         set(METIS_SHARED_VALUE 0)
     endif()
     
+    if(DAG_PARTITIONING_OPENMP)
+        set(METIS_OPENMP_VALUE 1)
+    else()
+        set(METIS_OPENMP_VALUE 0)
+    endif()
+    
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E env CFLAGS=${METIS_C_FLAGS}
                 make config shared=${METIS_SHARED_VALUE} cc=${CMAKE_C_COMPILER} prefix=${METIS_PREFIX} 
                 i64=${METIS_USE_I64} r64=${METIS_USE_R64} 
                 gdb=${METIS_GDB} assert=${METIS_ASSERT} assert2=${METIS_ASSERT2}
                 debug=${METIS_DEBUG} gprof=${METIS_GPROF} valgrind=${METIS_VALGRIND}
-                openmp=${METIS_OPENMP} 
+                openmp=${METIS_OPENMP_VALUE} 
                 gklib_path=${GKLIB_PREFIX}
         WORKING_DIRECTORY ${metis_SOURCE_DIR}
         RESULT_VARIABLE METIS_CONFIG_RESULT
