@@ -117,7 +117,7 @@ Use the `rand-dag` tool to generate test graphs:
 
 ### Library Usage
 
-For programmatic usage, check the test executable source in `[test/test.cpp](test/test.cpp)`.
+For programmatic usage, check the test executable source in [test/test.cpp](test/test.cpp).
 
 ## Input Format
 
