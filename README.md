@@ -197,6 +197,17 @@ crashed across all parameter combinations. Additional crashes occurred but aren'
 combination produced a solution. This implementation remained stable throughout all experiments. If you
 encounter any cases where this tool crashes, please feel free to open an issue.
 
+### Reproducing Results
+
+To reproduce the performance comparison results:
+
+1. Build and install this project (see Building section).
+2. Build the original [dagP implementation](https://github.com/GT-TDAlab/dagP). Use this [config.py](https://gist.github.com/pxanthopoulos/b7891ce34dbefda2ad3499470e35b6fc) for building dagP, as well as the same external libraries that were built by this project.
+3. Compile the [driver](https://gist.github.com/pxanthopoulos/da18d9609d12eaa7b4b9923c962892e8) for dagP and link with the dagP library.
+4. Run the comparison script `python3 test/test-comp.py --baseline-executable /path/to/dagp`.
+
+*Note: Full reproduction instructions and result analysis tools will be added in future updates.*
+
 ## License
 
 CC BY-NC 4.0
