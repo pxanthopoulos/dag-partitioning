@@ -46,7 +46,7 @@ This project automatically fetches and builds all required dependencies using CM
 - [Scotch](https://gitlab.inria.fr/scotch/scotch) - For graph partitioning and sparse matrix ordering  
 - [Robin Hood Hashing](https://github.com/martinus/robin-hood-hashing) - High-performance hash tables and containers
 
-### Simple Build Instructions
+### Build Instructions
 
 ```bash
 mkdir build
@@ -76,7 +76,7 @@ This will install the library, headers, and executables to the `install` directo
 Example with options (for more options see `CMakeLists.txt`):
 
 ```bash
-cmake -DDAG_PARTITIONING_OPENMP=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install ..
+cmake -DDAG_PARTITIONING_OPENMP=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=../install ..
 make
 make install
 ```
@@ -103,6 +103,7 @@ After building, you can use the `test` executable to partition DAGs:
 Use the `rand-dag` tool to generate test graphs:
 
 ```bash
+# From the install directory
 # Generate a random DAG with 100 nodes and 150% edge density
 ./bin/rand-dag 1000 150 0
 
@@ -116,7 +117,7 @@ Use the `rand-dag` tool to generate test graphs:
 
 ### Library Usage
 
-For programmatic usage, check the test executable source in `test/test.cpp`.
+For programmatic usage, check the test executable source in `[test/test.cpp](test/test.cpp)`.
 
 ## Input Format
 
