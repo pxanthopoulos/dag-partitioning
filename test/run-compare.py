@@ -154,6 +154,7 @@ def main():
     # Clear trace files
     open(args.current_trace_file, 'w').close()
     open(args.baseline_trace_file, 'w').close()
+    open(args.subprocess_log, 'w').close()
     
     counter = 1
     total_iterations = calculate_total_iterations(args.ratios, args.sizes, args.runs, args.max_base_partitions)
