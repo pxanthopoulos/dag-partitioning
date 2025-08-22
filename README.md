@@ -172,29 +172,28 @@ The program outputs:
 ## Performance
 
 This tool was compared to the original [implementation](https://github.com/GT-TDAlab/dagP).
-As input for the 2 partitioning tools, a random DAG was generated using the `rand-dag.cpp` tool found in the `test` directory.
+As input for both partitioning tools, a random DAG was generated using the `rand-dag.cpp` tool found in the `test` directory.
 This tool generates a random DAG with a given node count and a ratio of edges to nodes (in %).
-The generator favours length over width, to mimic DAGs found in ML. The testing script that runs the 2 partitioning tools with
+The generator creates deeper rather than wider DAGs, to mimic the structure of DAGs found in machine learning workflows. The testing script that runs the 2 partitioning tools with
 the different inputs can be found in the `test` directory.
 
-The 2 tools were compared based on the resulting edge cut, the imbalance ratio and the execution time. 
+Both tools were compared based on the resulting edge cut, the imbalance ratio, the execution time and the memory footprint.
 The imbalance ratio is measured as the absolute difference of two percentages.
 The percentage of the heaviest partition to the total weight minus the ideal percentage. For example, 
 if we request 4 partitions from a graph with total weight 200 and the heaviest is partition has weight 
 70, the imbalance is (70/200 = 35%) - (100/4 = 25%) = 10%.
 
-For each input, each tool ran with all available parameter combinations (clustering/bisection/refinement algorithm). 
-The original implementation offers additional parameterization options (such as node traversal strategies like random, DFS, or BFS) 
+For each input, each tool ran with all available parameter combinations implemented in this tool (clustering/bisection/refinement algorithm). The original implementation offers more algorithms that were not mentioned in the paper and were omitted from this tool.
+The original implementation also offers additional parameterization options (such as node traversal strategies like random, DFS, or BFS) 
 that were not implemented in this tool. For fair comparison, the original implementation was configured to match this tool's fixed 
-approach where possible - for example, using topological ordering for node traversal. For each input, the best performing parameter 
+approach where possible - for example, using topological ordering for node traversal. For each input (DAG + partitions requested), the best performing parameter 
 combination was used for each tool.
 
-The results can be found in the `test` directory.
+The results can be found in the `test` directory, both comparative and absolute.
 
-Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with varying error messages. This can be 
-seen in the heatmaps as white boxes (not including those at the bottom and left) indicating the original tool 
-crashed across all parameter combinations. Additional crashes occurred but aren't apparent in the heatmap when at least one parameter 
-combination produced a solution. This implementation remained stable throughout all experiments. If you
+Note on reliability: Sometimes, the original tool failed to produce a solution and crashed, with varying error messages. This can be seen in the heatmaps as red boxes indicating the original tool crashed across all parameter combinations and for all iterations for a specific DAG and requested partitions.
+
+Additional crashes occurred but aren't apparent in the heatmap when at least one parameter combination produced a solution. This implementation remained stable throughout all experiments. If you
 encounter any cases where this tool crashes, please feel free to open an issue.
 
 ### Reproducing Results
@@ -204,9 +203,9 @@ To reproduce the performance comparison results:
 1. Build and install this project (see Building section).
 2. Build the original [dagP implementation](https://github.com/GT-TDAlab/dagP). Use this [config.py](https://gist.github.com/pxanthopoulos/b7891ce34dbefda2ad3499470e35b6fc) for building dagP, as well as the same external libraries that were built by this project.
 3. Compile the [driver](https://gist.github.com/pxanthopoulos/da18d9609d12eaa7b4b9923c962892e8) for dagP and link with the dagP library.
-4. Run the comparison script `python3 test/test-comp.py --baseline-executable /path/to/dagp`.
+4. Run the comparison script `python3 test/run-compare.py --baseline-executable /path/to/dagp`.
 
-*Note: Full reproduction instructions and result analysis tools will be added in future updates.*
+*Note: The comparison results and analysis tools are available in the test directory.*
 
 ## License
 
