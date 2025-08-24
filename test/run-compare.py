@@ -40,9 +40,9 @@ metric_dict = {
     "time": "Execution Time Difference %",
 }
 titles_diff = {
-    "edge_cut": "Edge Cut Difference Percentage (current Implementation - Original)",
-    "imbalance": "Imbalance Ratio Difference (current Implementation - Original)",
-    "time": "Execution Time Difference Percentage (current Implementation - Original)",
+    "edge_cut": "Edge Cut Difference Percentage (Current Implementation - Original)",
+    "imbalance": "Imbalance Ratio Difference (Current Implementation - Original)",
+    "time": "Execution Time Difference Percentage (Current Implementation - Original)",
 }
 titles_absolute = {
     "edge_cut": "Edge Cut",
@@ -76,9 +76,22 @@ def print_summary(
         print("No iterations completed.")
 
 
-def cleanup_files(args, dag_dot_path, node_mappings_current, node_mappings_dagp):
+def cleanup_files(
+    args,
+    dag_dot_path,
+    node_mappings_current,
+    node_mappings_dagp,
+    massif_out_path,
+    massif_txt_path,
+):
     """Clean up generated files"""
-    cleanup_files_list = [dag_dot_path, node_mappings_current, node_mappings_dagp]
+    cleanup_files_list = [
+        dag_dot_path,
+        node_mappings_current,
+        node_mappings_dagp,
+        massif_out_path,
+        massif_txt_path,
+    ]
     if not args.keep_subprocess_log:
         cleanup_files_list.append(args.subprocess_log)
 
@@ -218,7 +231,7 @@ def parse_args():
         help="Path to baseline (dagp) executable for comparison",
     )
     parser.add_argument(
-        "--plot-path", default="./", help="Output path for heatmaps (default: ./)"
+        "--plot-path", default="./plots/", help="Output path for heatmaps (default: ./)"
     )
     return parser.parse_args()
 
@@ -365,7 +378,7 @@ def generate_diff_df(df_current, df_dagp, metric):
         diff_df[metric] = diff_df[metric] - df_dagp_metric[metric]
     else:
         diff_df[metric] = (
-            (diff_df[metric] - df_dagp_metric[metric]) / df_dagp_metric[metric] * 100
+            (diff_df[metric] - df_dagp_metric[metric]) * 100 / df_dagp_metric[metric]
         )
 
     return diff_df
@@ -490,177 +503,191 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
 def main():
     args = parse_args()
 
-    # # Get script directory and project root
-    # script_dir = os.path.dirname(os.path.abspath(__file__))
-    # # Go up one level from test/ to project root
-    # project_root = os.path.dirname(script_dir)
+    # Get script directory and project root
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Go up one level from test/ to project root
+    project_root = os.path.dirname(script_dir)
 
-    # # Paths relative to project root
-    # rand_dag_path = os.path.join(project_root, "install", "bin", "rand-dag")
-    # test_executable_path = os.path.join(project_root, "install", "bin", "test")
-    # dag_dot_path = os.path.abspath(args.dag_output_file)
+    # Paths relative to project root
+    rand_dag_path = os.path.join(project_root, "install", "bin", "rand-dag")
+    test_executable_path = os.path.join(project_root, "install", "bin", "test")
+    dag_dot_path = os.path.abspath(args.dag_output_file)
 
-    # # Files created by executables that need cleanup
-    # node_mappings_current = dag_dot_path + ".node-mappings.txt"
-    # node_mappings_dagp = dag_dot_path + ".nodemappings"
+    # Files created by executables that need cleanup
+    node_mappings_current = dag_dot_path + ".node-mappings.txt"
+    node_mappings_dagp = dag_dot_path + ".nodemappings"
 
-    # # Clear trace files
-    # open(args.current_trace_file, "w").close()
-    # open(args.baseline_trace_file, "w").close()
-    # open(args.subprocess_log, "w").close()
+    # Massif files in same directory as subprocess log
+    log_dir = os.path.dirname(os.path.abspath(args.subprocess_log))
+    massif_out_path = os.path.join(log_dir, "massif.out")
+    massif_txt_path = os.path.join(log_dir, "massif.txt")
 
-    # counter = 1
-    # total_iterations = calculate_total_iterations(
-    #     args.ratios, args.sizes, args.runs, args.max_base_partitions
-    # )
-    # current_failures = 0
-    # baseline_failures = 0
-    # iterations_run = 0
-    # interrupted = False
+    # Clear trace files
+    open(args.current_trace_file, "w").close()
+    open(args.baseline_trace_file, "w").close()
+    open(args.subprocess_log, "w").close()
 
-    # # Create progress bar with colors
-    # pbar = tqdm(
-    #     total=total_iterations,
-    #     desc="Tests",
-    #     bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
-    #     colour="green",
-    # )
+    counter = 1
+    total_iterations = calculate_total_iterations(
+        args.ratios, args.sizes, args.runs, args.max_base_partitions
+    )
+    current_failures = 0
+    baseline_failures = 0
+    iterations_run = 0
+    interrupted = False
 
-    # try:
-    #     for ratio in args.ratios:
-    #         for size in args.sizes:
-    #             partitions = calculate_partitions(size, args.max_base_partitions)
-    #             for p in partitions:
-    #                 # Run rand-dag
-    #                 try:
-    #                     with open(args.subprocess_log, "a") as log_f:
-    #                         subprocess.run(
-    #                             [
-    #                                 rand_dag_path,
-    #                                 str(size),
-    #                                 str(ratio),
-    #                                 "0",
-    #                                 dag_dot_path,
-    #                             ],
-    #                             check=True,
-    #                             stderr=log_f,
-    #                         )
-    #                 except subprocess.CalledProcessError:
-    #                     print(
-    #                         f"Error: rand-dag failed for size {size}, ratio {ratio} (check {args.subprocess_log})"
-    #                     )
-    #                     raise RuntimeError(
-    #                         f"rand-dag failed for size {size}, ratio {ratio}"
-    #                     )
+    # Create progress bar with colors
+    pbar = tqdm(
+        total=total_iterations,
+        desc="Tests",
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+        colour="green",
+    )
 
-    #                 for i in range(1, args.runs + 1):
-    #                     pbar.set_description(f"C{counter} R{i} S{size} Ra{ratio} P{p}")
-    #                     pbar.update(1)
-    #                     iterations_run += 1
-    #                     with open(args.current_trace_file, "a") as f:
-    #                         f.write(
-    #                             f"Counter {counter}, Run {i}, Size {size}, Ratio {ratio}, Partitions {p}\n"
-    #                         )
-    #                     with open(args.baseline_trace_file, "a") as f:
-    #                         f.write(
-    #                             f"Counter {counter}, Run {i}, Size {size}, Ratio {ratio}, Partitions {p}\n"
-    #                         )
-    #                     for algorithm in ALGORITHMS:
-    #                         # Run current implementation with timeout
-    #                         try:
-    #                             with (
-    #                                 open(args.current_trace_file, "a") as f,
-    #                                 open(args.subprocess_log, "a") as log_f,
-    #                             ):
-    #                                 subprocess.run(
-    #                                     [
-    #                                         "timeout",
-    #                                         "--foreground",
-    #                                         args.timeout,
-    #                                         test_executable_path,
-    #                                         str(p),
-    #                                         dag_dot_path,
-    #                                         algorithm.split("-")[0],
-    #                                         algorithm.split("-")[1],
-    #                                         algorithm.split("-")[2],
-    #                                         "1",
-    #                                     ],
-    #                                     stdout=f,
-    #                                     stderr=log_f,
-    #                                     check=True,
-    #                                 )
-    #                         except subprocess.CalledProcessError as e:
-    #                             with open(args.current_trace_file, "a") as f:
-    #                                 f.write(
-    #                                     f"{algorithm.split('-')[0]},{algorithm.split('-')[1]},{algorithm.split('-')[2]},,,\n"
-    #                                 )
-    #                             ret = e.returncode
-    #                             current_failures += 1
-    #                             error_msg = f"Error: current implementation failed for size {size}, ratio {ratio}, partitions {p} on iteration {i}"
-    #                             timeout_msg = "TIMED OUT" if ret == 124 else ""
-    #                             with open(args.subprocess_log, "a") as log_f:
-    #                                 log_f.write(f"{error_msg}\n")
-    #                                 if timeout_msg:
-    #                                     log_f.write(f"{timeout_msg}\n")
+    try:
+        for ratio in args.ratios:
+            for size in args.sizes:
+                partitions = calculate_partitions(size, args.max_base_partitions)
+                for p in partitions:
+                    # Run rand-dag
+                    try:
+                        with open(args.subprocess_log, "a") as log_f:
+                            subprocess.run(
+                                [
+                                    rand_dag_path,
+                                    str(size),
+                                    str(ratio),
+                                    "0",
+                                    dag_dot_path,
+                                ],
+                                check=True,
+                                stderr=log_f,
+                            )
+                    except subprocess.CalledProcessError:
+                        print(
+                            f"Error: rand-dag failed for size {size}, ratio {ratio} (check {args.subprocess_log})"
+                        )
+                        raise RuntimeError(
+                            f"rand-dag failed for size {size}, ratio {ratio}"
+                        )
 
-    #                         # Run baseline implementation with timeout
-    #                         try:
-    #                             with (
-    #                                 open(args.baseline_trace_file, "a") as f,
-    #                                 open(args.subprocess_log, "a") as log_f,
-    #                             ):
-    #                                 subprocess.run(
-    #                                     [
-    #                                         "timeout",
-    #                                         "--foreground",
-    #                                         args.timeout,
-    #                                         args.baseline_executable,
-    #                                         dag_dot_path,
-    #                                         str(p),
-    #                                         DAGP_CLUSTERING_MAP[
-    #                                             algorithm.split("-")[0]
-    #                                         ],
-    #                                         DAGP_BISECTION_MAP[algorithm.split("-")[1]],
-    #                                         DAGP_REFINEMENT_MAP[
-    #                                             algorithm.split("-")[2]
-    #                                         ],
-    #                                     ],
-    #                                     stdout=f,
-    #                                     stderr=log_f,
-    #                                     check=True,
-    #                                 )
-    #                         except subprocess.CalledProcessError as e:
-    #                             with open(args.baseline_trace_file, "a") as f:
-    #                                 f.write(
-    #                                     f"{algorithm.split('-')[0]},{algorithm.split('-')[1]},{algorithm.split('-')[2]},,,\n"
-    #                                 )
-    #                             ret = e.returncode
-    #                             baseline_failures += 1
-    #                             error_msg = f"Error: baseline implementation failed for size {size}, ratio {ratio}, partitions {p} on iteration {i}"
-    #                             timeout_msg = "TIMED OUT" if ret == 124 else ""
-    #                             with open(args.subprocess_log, "a") as log_f:
-    #                                 log_f.write(f"{error_msg}\n")
-    #                                 if timeout_msg:
-    #                                     log_f.write(f"{timeout_msg}\n")
+                    for run in range(1, args.runs + 1):
+                        pbar.set_description(
+                            f"C{counter} R{run} S{size} Ra{ratio} P{p}"
+                        )
+                        pbar.update(1)
+                        iterations_run += 1
+                        with open(args.current_trace_file, "a") as f:
+                            f.write(
+                                f"Counter {counter}, Run {run}, Size {size}, Ratio {ratio}, Partitions {p}\n"
+                            )
+                        with open(args.baseline_trace_file, "a") as f:
+                            f.write(
+                                f"Counter {counter}, Run {run}, Size {size}, Ratio {ratio}, Partitions {p}\n"
+                            )
+                        for algorithm in ALGORITHMS:
+                            # Run current implementation with timeout
+                            try:
+                                with (
+                                    open(args.current_trace_file, "a") as f,
+                                    open(args.subprocess_log, "a") as log_f,
+                                ):
+                                    subprocess.run(
+                                        [
+                                            "timeout",
+                                            "--foreground",
+                                            args.timeout,
+                                            test_executable_path,
+                                            str(p),
+                                            dag_dot_path,
+                                            algorithm.split("-")[0],
+                                            algorithm.split("-")[1],
+                                            algorithm.split("-")[2],
+                                            "1",
+                                        ],
+                                        stdout=f,
+                                        stderr=log_f,
+                                        check=True,
+                                    )
+                            except subprocess.CalledProcessError as e:
+                                with open(args.current_trace_file, "a") as f:
+                                    f.write(
+                                        f"{algorithm.split('-')[0]},{algorithm.split('-')[1]},{algorithm.split('-')[2]},,,\n"
+                                    )
+                                ret = e.returncode
+                                current_failures += 1
+                                error_msg = f"Error: current implementation failed for size {size}, ratio {ratio}, partitions {p} on iteration {run}"
+                                timeout_msg = "TIMED OUT" if ret == 124 else ""
+                                with open(args.subprocess_log, "a") as log_f:
+                                    log_f.write(f"{error_msg}\n")
+                                    if timeout_msg:
+                                        log_f.write(f"{timeout_msg}\n")
 
-    #                 counter += 1
+                            # Run baseline implementation with timeout
+                            try:
+                                with (
+                                    open(args.baseline_trace_file, "a") as f,
+                                    open(args.subprocess_log, "a") as log_f,
+                                ):
+                                    subprocess.run(
+                                        [
+                                            "timeout",
+                                            "--foreground",
+                                            args.timeout,
+                                            args.baseline_executable,
+                                            dag_dot_path,
+                                            str(p),
+                                            DAGP_CLUSTERING_MAP[
+                                                algorithm.split("-")[0]
+                                            ],
+                                            DAGP_BISECTION_MAP[algorithm.split("-")[1]],
+                                            DAGP_REFINEMENT_MAP[
+                                                algorithm.split("-")[2]
+                                            ],
+                                        ],
+                                        stdout=f,
+                                        stderr=log_f,
+                                        check=True,
+                                    )
+                            except subprocess.CalledProcessError as e:
+                                with open(args.baseline_trace_file, "a") as f:
+                                    f.write(
+                                        f"{algorithm.split('-')[0]},{algorithm.split('-')[1]},{algorithm.split('-')[2]},,,\n"
+                                    )
+                                ret = e.returncode
+                                baseline_failures += 1
+                                error_msg = f"Error: baseline implementation failed for size {size}, ratio {ratio}, partitions {p} on iteration {run}"
+                                timeout_msg = "TIMED OUT" if ret == 124 else ""
+                                with open(args.subprocess_log, "a") as log_f:
+                                    log_f.write(f"{error_msg}\n")
+                                    if timeout_msg:
+                                        log_f.write(f"{timeout_msg}\n")
 
-    # except KeyboardInterrupt:
-    #     interrupted = True
-    #     print("\n\nInterrupted by user (Ctrl+C)")
+                    counter += 1
 
-    # finally:
-    #     pbar.close()
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\n\nInterrupted by user (Ctrl+C)")
 
-    #     # Print summary and cleanup
-    #     print_summary(
-    #         iterations_run,
-    #         total_iterations,
-    #         current_failures,
-    #         baseline_failures,
-    #         interrupted,
-    #     )
-    #     cleanup_files(args, dag_dot_path, node_mappings_current, node_mappings_dagp)
+    finally:
+        pbar.close()
+
+        # Print summary and cleanup
+        print_summary(
+            iterations_run,
+            total_iterations,
+            current_failures,
+            baseline_failures,
+            interrupted,
+        )
+        cleanup_files(
+            args,
+            dag_dot_path,
+            node_mappings_current,
+            node_mappings_dagp,
+            massif_out_path,
+            massif_txt_path,
+        )
 
     # Parse trace files to CSV
     print("Parsing trace files to CSV...")
