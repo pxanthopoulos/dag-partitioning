@@ -124,14 +124,12 @@ For programmatic usage, check the test executable source in [test/test.cpp](test
 
 The input DAG should be provided in the dot format as follows:
 
-- First line: comment of the size N of the graph (number of vertices)
-- Following N lines for vertices: *vertexname*[weight=*vertexweight*];
-- Following lines for edges: *from*->*to*[weight=*edgeweight*];
+- First, the lines for the vertices: *vertexname*[weight=*vertexweight*];
+- Then, lines for the edges: *from*->*to*[weight=*edgeweight*];
 
 Example:
 
 ```
-// size=11
 digraph cfg {
 0[weight=1];
 1[weight=1];
