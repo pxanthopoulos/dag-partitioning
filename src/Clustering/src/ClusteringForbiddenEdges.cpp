@@ -119,6 +119,7 @@ ClusteringForbiddenEdges::oneRoundClustering() const {
     std::vector<uint64_t> leaderOfBadNeighbors(workingGraph.size, UINT64_MAX);
     robin_hood::unordered_map<uint64_t, std::pair<uint64_t, uint64_t>>
         leadersToMinMaxTopValues;
+    leadersToMinMaxTopValues.reserve(workingGraph.size);
 
     // Get topological order and top-level values
     const auto [topologicalOrder, topLevels] =

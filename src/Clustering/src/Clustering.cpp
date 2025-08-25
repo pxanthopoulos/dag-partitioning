@@ -31,8 +31,10 @@ bool Clustering::updateGraphAndClusters(const std::vector<uint64_t> &leaders,
     // Create mapping from leader nodes to new node IDs
     uint64_t maxNewNodeId = -1;
     robin_hood::unordered_map<uint64_t, uint64_t> leadersToNewNodeIds;
+    leadersToNewNodeIds.reserve(leaders.size());
     std::vector<std::pair<std::vector<uint64_t>, uint64_t>> newNodes(newSize);
     robin_hood::unordered_set<uint64_t> seenLeaders;
+    seenLeaders.reserve(leaders.size());
 
     // First pass: Assign new IDs to leaders and group nodes
     for (uint64_t nodeId = 0; nodeId < workingGraph.size; ++nodeId) {

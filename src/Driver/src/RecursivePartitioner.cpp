@@ -127,9 +127,12 @@ RecursivePartitioner::createSubgraphs(
 
     // Maps that map new node IDs to old node IDs
     robin_hood::unordered_map<uint64_t, uint64_t> map0, map1;
+    map0.reserve(subGraphSize0);
+    map1.reserve(subGraphSize1);
 
     // Map that maps old node IDs to new node IDs
     robin_hood::unordered_map<uint64_t, uint64_t> map;
+    map.reserve(bisection.size());
 
     for (uint64_t i = 0; i < bisection.size(); ++i) {
         if (bisection[i] == 0) {
@@ -232,8 +235,10 @@ RecursivePartitioner::run(uint64_t currentDepth) const {
 
     // 4. Recursively partition each subgraph (parallel if conditions are met)
     std::vector<uint64_t> leftMapping;
+    leftMapping.reserve(subGraph0.size);
     uint64_t leftEdgeCut = 0;
     std::vector<uint64_t> rightMapping;
+    rightMapping.reserve(subGraph1.size);
     uint64_t rightEdgeCut = 0;
 
     // Check if we should parallelize based on size, settings, and depth
