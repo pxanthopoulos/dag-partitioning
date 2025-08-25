@@ -8,7 +8,7 @@
 #include "robin_hood.h"
 #include <fstream>
 #include <queue>
-#include <regex>
+#include <stack>
 #include <stdexcept>
 
 namespace dag_partitioning {
@@ -476,46 +476,109 @@ Graph readDotFile(const std::string &dotFilename,
     if (!dotFile.is_open()) {
         throw std::runtime_error("Could not open DOT file: " + dotFilename);
     }
+
     std::string line;
-    std::regex sizeRegex(R"(//\s*size\s*=\s*(\d+))");
+    line.reserve(256); // Pre-allocate line buffer for typical line lengths
 
-    // Extract graph size from comment
-    uint64_t graphSize = UINT64_MAX;
+    uint64_t graphSize = 0;
     while (std::getline(dotFile, line)) {
-        std::smatch matches;
-        if (std::regex_search(line, matches, sizeRegex)) {
-            graphSize = std::stoi(matches[1]);
-            break;
-        }
-    }
+        // Skip empty lines and comments
+        if (line.empty() || line.find_first_not_of(" \t") == '/' ||
+            line.find_first_not_of(" \t") == std::string::npos)
+            continue;
 
-    if (graphSize == UINT64_MAX) {
-        throw std::runtime_error(
-            "Failed to extract graph size from DOT file: " + dotFilename);
+        // Skip edge lines
+        size_t arrowPos = line.find("->");
+        if (arrowPos != std::string::npos)
+            continue;
+
+        size_t semicolon = line.find(";");
+        if (semicolon == std::string::npos)
+            continue;
+
+        graphSize++;
     }
 
     Graph g(graphSize);
 
-    // Parse nodes and edges
     robin_hood::unordered_map<std::string, uint64_t> nodeMap;
-    std::regex nodeRegex(R"(([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
-    std::regex edgeRegex(
-        R"(([a-zA-Z0-9_]+)->([a-zA-Z0-9_]+)\[weight=(\d+)\];)");
+    nodeMap.reserve(graphSize);
+
     uint64_t nodeId = 0;
 
+    dotFile.clear();
+    dotFile.seekg(0, std::ios::beg);
+
     while (std::getline(dotFile, line)) {
-        std::smatch matches;
-        if (std::regex_search(line, matches, edgeRegex)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[line.find_first_not_of(" \t")] == '/' ||
+            line.find_first_not_of(" \t") == std::string::npos)
+            continue;
+
+        // Check for edge: "node1->node2[weight=123];"
+        size_t arrowPos = line.find("->");
+        if (arrowPos != std::string::npos) {
             // Parse edge
-            uint64_t from = nodeMap[matches[1].str()];
-            uint64_t to = nodeMap[matches[2].str()];
-            uint64_t nodeWeight = std::stoull(matches[3].str());
-            g.addEdge(from, to, nodeWeight);
-        } else if (std::regex_search(line, matches, nodeRegex)) {
-            // Parse node
-            uint64_t edgeWeight = std::stoull(matches[2].str());
-            g.addNode(nodeId, edgeWeight);
-            nodeMap[matches[1].str()] = nodeId;
+            size_t fromStart = line.find_first_not_of(" \t");
+            size_t fromEnd = line.find_last_not_of(" \t", arrowPos - 1) + 1;
+
+            size_t toStart = line.find_first_not_of(" \t", arrowPos + 2);
+            size_t bracketPos = line.find("[", toStart);
+            if (bracketPos == std::string::npos)
+                continue;
+
+            size_t toEnd = line.find_last_not_of(" \t", bracketPos - 1) + 1;
+
+            // Extract weight
+            size_t weightPos = line.find("weight=", bracketPos);
+            if (weightPos == std::string::npos)
+                continue;
+
+            size_t weightStart = weightPos + 7; // length of "weight="
+            size_t weightEnd = line.find_first_of("];", weightStart);
+            if (weightEnd == std::string::npos)
+                continue;
+
+            std::string fromNode = line.substr(fromStart, fromEnd - fromStart);
+            std::string toNode = line.substr(toStart, toEnd - toStart);
+            std::string weightStr =
+                line.substr(weightStart, weightEnd - weightStart);
+
+            uint64_t from = nodeMap[fromNode];
+            uint64_t to = nodeMap[toNode];
+            uint64_t edgeWeight = std::stoull(weightStr);
+            g.addEdge(from, to, edgeWeight);
+        }
+        // Check for node: "node_name[weight=123];"
+        else {
+            size_t bracketPos = line.find("[");
+            if (bracketPos == std::string::npos)
+                continue;
+
+            size_t nodeStart = line.find_first_not_of(" \t");
+            size_t nodeEnd = line.find_last_not_of(" \t", bracketPos - 1) + 1;
+
+            if (nodeStart >= nodeEnd)
+                continue;
+
+            // Extract weight
+            size_t weightPos = line.find("weight=", bracketPos);
+            if (weightPos == std::string::npos)
+                continue;
+
+            size_t weightStart = weightPos + 7; // length of "weight="
+            size_t weightEnd = line.find_first_of("];", weightStart);
+            if (weightEnd == std::string::npos)
+                continue;
+
+            std::string nodeName = line.substr(nodeStart, nodeEnd - nodeStart);
+
+            std::string weightStr =
+                line.substr(weightStart, weightEnd - weightStart);
+
+            uint64_t nodeWeight = std::stoull(weightStr);
+            g.addNode(nodeId, nodeWeight);
+            nodeMap[nodeName] = nodeId;
             nodeId++;
         }
     }
@@ -529,8 +592,11 @@ Graph readDotFile(const std::string &dotFilename,
 
     // Write node mapping
     std::ofstream mapFile(mappingFilename);
-    for (const auto &[name, id] : nodeMap) {
-        mapFile << name << " -> " << id << "\n";
+    if (mapFile.is_open()) {
+        for (const auto &[name, id] : nodeMap) {
+            mapFile << name << " -> " << id
+                    << '\n'; // '\n' is faster than std::endl
+        }
     }
 
     return g;
