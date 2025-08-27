@@ -34,10 +34,15 @@ DAGP_BISECTION_MAP = {"UNDIRMETIS": "0", "GGG": "1"}
 DAGP_REFINEMENT_MAP = {"BOUNDARYFM": "0", "BOUNDARYKL": "1", "MIXED": "2"}
 
 metrics = ["edge_cut", "imbalance", "time"]
-metric_dict = {
+metric_dict_diff = {
     "edge_cut": "Edge Cut Difference %",
     "imbalance": "Imbalance Ratio Difference",
     "time": "Execution Time Difference %",
+}
+metric_dict_absolute = {
+    "edge_cut": "Edge Cut",
+    "imbalance": "Imbalance Ratio %",
+    "time": "Execution Time (ms)",
 }
 titles_diff = {
     "edge_cut": "Edge Cut Difference Percentage (Current Implementation - Original)",
@@ -47,7 +52,7 @@ titles_diff = {
 titles_absolute = {
     "edge_cut": "Edge Cut",
     "imbalance": "Imbalance Ratio",
-    "time": "Execution Time",
+    "time": "Execution Time (ms)",
 }
 
 
@@ -81,16 +86,12 @@ def cleanup_files(
     dag_dot_path,
     node_mappings_current,
     node_mappings_dagp,
-    massif_out_path,
-    massif_txt_path,
 ):
     """Clean up generated files"""
     cleanup_files_list = [
         dag_dot_path,
         node_mappings_current,
         node_mappings_dagp,
-        massif_out_path,
-        massif_txt_path,
     ]
     if not args.keep_subprocess_log:
         cleanup_files_list.append(args.subprocess_log)
@@ -404,7 +405,7 @@ def generate_absolute_df(df, metric):
     return df_metric
 
 
-def plot_df(diff_df, metric, plot_title, file_title, base_path, width, height):
+def plot_df(diff_df, metric, plot_title, file_title, base_path, width, height, is_diff):
     ratios = sorted(diff_df["ratio"].unique())
 
     fig, axes = plt.subplots(height, width, figsize=(20, 10))
@@ -419,7 +420,13 @@ def plot_df(diff_df, metric, plot_title, file_title, base_path, width, height):
             ax=axes[idx],
             cmap="viridis",
             annot=False,
-            cbar_kws={"label": metric_dict[metric]},
+            cbar_kws={
+                "label": (
+                    metric_dict_diff[metric]
+                    if is_diff
+                    else metric_dict_absolute[metric]
+                )
+            },
             square=True,
             linewidths=0.5,
             linecolor="black",
@@ -477,6 +484,7 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
             plot_path,
             width,
             height,
+            1,
         )
         df_current_metric = generate_absolute_df(df_current, metric)
         plot_df(
@@ -487,6 +495,7 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
             plot_path,
             width,
             height,
+            0,
         )
         df_dagp_metric = generate_absolute_df(df_dagp, metric)
         plot_df(
@@ -497,6 +506,7 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
             plot_path,
             width,
             height,
+            0,
         )
 
 
@@ -516,11 +526,6 @@ def main():
     # Files created by executables that need cleanup
     node_mappings_current = dag_dot_path + ".node-mappings.txt"
     node_mappings_dagp = dag_dot_path + ".nodemappings"
-
-    # Massif files in same directory as subprocess log
-    log_dir = os.path.dirname(os.path.abspath(args.subprocess_log))
-    massif_out_path = os.path.join(log_dir, "massif.out")
-    massif_txt_path = os.path.join(log_dir, "massif.txt")
 
     # Clear trace files
     open(args.current_trace_file, "w").close()
@@ -685,8 +690,6 @@ def main():
             dag_dot_path,
             node_mappings_current,
             node_mappings_dagp,
-            massif_out_path,
-            massif_txt_path,
         )
 
     # Parse trace files to CSV
