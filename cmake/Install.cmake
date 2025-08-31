@@ -12,7 +12,7 @@ install(TARGETS dag_partitioning
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(TARGETS rand-dag test
+install(TARGETS rand-dag dag-test
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 

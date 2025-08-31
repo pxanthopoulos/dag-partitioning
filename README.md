@@ -86,17 +86,19 @@ make install
 
 ### Using the Test Executable
 
-After building, you can use the `test` executable to partition DAGs:
+After building, you can use the `dag-test` executable to partition DAGs:
 
 ```bash
 # From the install directory
-./bin/test input.dot num_partitions 1
+
+# <enable_multithreading>: 1 to enable, 0 to disable
+./bin/dag-test <input.dot> <num_partitions> <enable_multithreading>
 
 # Example
-./bin/test ../test/example.dot 4 1
+./bin/dag-test ../test/example.dot 4 1
 
 # For detailed usage
-./bin/test
+./bin/dag-test
 ```
 
 ### Generating Random DAGs
@@ -105,12 +107,13 @@ Use the `rand-dag` tool to generate test graphs:
 
 ```bash
 # From the install directory
-# Generate a random DAG with 100 nodes and 150% edge density
+
+# Generate a random DAG with 100 nodes, 150% edge density and 0 debug level
 ./bin/rand-dag 1000 150 0
 
-# This creates a DOT format graph that can be used with the test executable
+# This creates a DOT format graph that can be used with the dag-test executable
 ./bin/rand-dag 1000 150 0 random_dag.dot
-./bin/test random_dag.dot 4 1
+./bin/dag-test random_dag.dot 4 1
 
 # For detailed usage
 ./bin/rand-dag
@@ -118,7 +121,7 @@ Use the `rand-dag` tool to generate test graphs:
 
 ### Library Usage
 
-For programmatic usage, check the test executable source in [test/test.cpp](test/test.cpp).
+For programmatic usage, check the dag-test executable source in [test/test.cpp](test/test.cpp).
 
 ## Input Format
 

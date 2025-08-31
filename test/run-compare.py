@@ -524,7 +524,7 @@ def main():
 
     # Paths relative to project root
     rand_dag_path = os.path.join(project_root, "install", "bin", "rand-dag")
-    test_executable_path = os.path.join(project_root, "install", "bin", "test")
+    test_executable_path = os.path.join(project_root, "install", "bin", "dag-test")
     dag_dot_path = os.path.abspath(args.dag_output_file)
 
     # Files created by executables that need cleanup
