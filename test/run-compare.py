@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors
 import seaborn as sns
 import math
 
@@ -93,7 +94,7 @@ def cleanup_files(
         node_mappings_current,
         node_mappings_dagp,
     ]
-    if not args.keep_subprocess_log:
+    if args.delete_subprocess_log:
         cleanup_files_list.append(args.subprocess_log)
 
     for file_path in cleanup_files_list:
@@ -192,9 +193,9 @@ def parse_args():
         help="Log file for subprocess errors (default: ./subprocesses.log)",
     )
     parser.add_argument(
-        "--keep-subprocess-log",
+        "--delete-subprocess-log",
         action="store_true",
-        help="Keep subprocess log file after execution (default: remove it)",
+        help="Delete subprocess log file after execution (default: keep it)",
     )
     parser.add_argument(
         "--ratios",
@@ -385,7 +386,7 @@ def generate_diff_df(df_current, df_dagp, metric):
     return diff_df
 
 
-def generate_absolute_df(df, metric):
+def filter_absolute_df(df, metric):
     other_metrics = [m for m in metrics if m != metric]
     df_metric = df.drop(columns=other_metrics)
     df_metric["group"] = df_metric.index // 18
@@ -419,12 +420,15 @@ def plot_df(diff_df, metric, plot_title, file_title, base_path, width, height, i
             pivot,
             ax=axes[idx],
             cmap="viridis",
+            norm=matplotlib.colors.LogNorm()
+            if (not is_diff and metric != "imbalance")
+            else None,
             annot=False,
             cbar_kws={
                 "label": (
                     metric_dict_diff[metric]
-                    if is_diff
-                    else metric_dict_absolute[metric]
+                    if is_diff or metric == "imbalance"
+                    else metric_dict_absolute[metric] + "(log scale)"
                 )
             },
             square=True,
@@ -468,7 +472,7 @@ def plot_df(diff_df, metric, plot_title, file_title, base_path, width, height, i
     plt.savefig(f"{base_path}/{file_title}", bbox_inches="tight", dpi=500)
 
 
-def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, height):
+def plot_all(current_trace_file, baseline_trace_file, plot_path, width, height):
     current_trace_csv = os.path.splitext(current_trace_file)[0] + ".csv"
     baseline_trace_csv = os.path.splitext(baseline_trace_file)[0] + ".csv"
     df_current = pd.read_csv(current_trace_csv)
@@ -486,7 +490,7 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
             height,
             1,
         )
-        df_current_metric = generate_absolute_df(df_current, metric)
+        df_current_metric = filter_absolute_df(df_current, metric)
         plot_df(
             df_current_metric,
             metric,
@@ -497,7 +501,7 @@ def plot_all_diffs(current_trace_file, baseline_trace_file, plot_path, width, he
             height,
             0,
         )
-        df_dagp_metric = generate_absolute_df(df_dagp, metric)
+        df_dagp_metric = filter_absolute_df(df_dagp, metric)
         plot_df(
             df_dagp_metric,
             metric,
@@ -569,13 +573,9 @@ def main():
                                 stderr=log_f,
                             )
                     except subprocess.CalledProcessError:
-                        print(
+                        raise RuntimeError(
                             f"Error: rand-dag failed for size {size}, ratio {ratio} (check {args.subprocess_log})"
                         )
-                        raise RuntimeError(
-                            f"rand-dag failed for size {size}, ratio {ratio}"
-                        )
-
                     for run in range(1, args.runs + 1):
                         pbar.set_description(
                             f"C{counter} R{run} S{size} Ra{ratio} P{p}"
@@ -677,20 +677,20 @@ def main():
     finally:
         pbar.close()
 
-        # Print summary and cleanup
-        print_summary(
-            iterations_run,
-            total_iterations,
-            current_failures,
-            baseline_failures,
-            interrupted,
-        )
-        cleanup_files(
-            args,
-            dag_dot_path,
-            node_mappings_current,
-            node_mappings_dagp,
-        )
+    # Print summary and cleanup
+    print_summary(
+        iterations_run,
+        total_iterations,
+        current_failures,
+        baseline_failures,
+        interrupted,
+    )
+    cleanup_files(
+        args,
+        dag_dot_path,
+        node_mappings_current,
+        node_mappings_dagp,
+    )
 
     # Parse trace files to CSV
     print("Parsing trace files to CSV...")
@@ -709,8 +709,8 @@ def main():
         args.runs,
     )
 
-    print("Generating difference plots...")
-    plot_all_diffs(
+    print("Generating plots...")
+    plot_all(
         args.current_trace_file,
         args.baseline_trace_file,
         args.plot_path,
