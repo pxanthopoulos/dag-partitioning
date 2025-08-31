@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.16)
 
 # Compiler configuration (must be before project())
 if(NOT CMAKE_CXX_COMPILER)
