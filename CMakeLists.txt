@@ -105,8 +105,8 @@ add_subdirectory(src)
 # Add executables
 add_executable(rand-dag test/rand-dag.cpp)
 
-add_executable(test test/test.cpp)
-target_link_libraries(test
+add_executable(dag-test test/test.cpp)
+target_link_libraries(dag-test
         PRIVATE
         dag_partitioning
         robin_hood::robin_hood
