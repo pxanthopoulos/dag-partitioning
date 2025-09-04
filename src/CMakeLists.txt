@@ -22,8 +22,10 @@ target_include_directories(dag_partitioning
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Driver/include>
 )
 
-# Link only external dependencies
+# Link only external dependencies and robin_hood for public headers
 target_link_libraries(dag_partitioning
+        PUBLIC
+        robin_hood::robin_hood
         PRIVATE
         METIS::METIS
         GKlib::GKlib
