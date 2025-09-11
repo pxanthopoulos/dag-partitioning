@@ -36,7 +36,6 @@ graph into the required number of parts.
 
 - C++17 or later
 - CMake 3.28 or later
-- Git
 - Valgrind for memory footprint profiling
 
 ## Building
