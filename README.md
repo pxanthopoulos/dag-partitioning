@@ -1,31 +1,18 @@
-# Multilevel DAG Partitioning Implementation
+# Multilevel DAG Partitioning
 
-This repository contains a C++ implementation of a multilevel algorithm for partitioning Directed Acyclic Graphs (DAGs)
-based on the research [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865) by Herrmann et al. The implementation
-focuses on minimizing edge cuts and balancing the loads of the partitions, while maintaining acyclic dependencies
-between partitions.
+A C++ implementation of a multilevel algorithm for partitioning Directed Acyclic Graphs (DAGs). This work is based on the paper ["Multilevel Algorithms for Acyclic Partitioning of Directed Acyclic Graphs"](https://epubs.siam.org/doi/abs/10.1137/18M1176865) by Herrmann et al.
 
-## Algorithm Overview
+The tool focuses on producing high-quality partitions by minimizing the edge cut and balancing partition loads, all while preserving the critical acyclic dependencies between partitions.
 
-The algorithm implements a multilevel approach for partitioning DAGs with three main phases:
+## How It Works
 
-1. **Coarsening/Clustering Phase**:
-    - Reduces the size of the input graph while preserving its essential structure
-    - Uses specialized coarsening heuristics to maintain acyclicity
-    - Creates a hierarchy of increasingly smaller graphs
+The algorithm works in three main phases to efficiently partition large DAGs:
 
-2. **Initial Bisectioning Phase**:
-    - Partitions the coarsest graph into 2 parts
-    - Ensures balanced partition sizes
-    - Maintains acyclic dependencies between partitions
+1. **Coarsening:** The original graph is progressively simplified into smaller, approximate graphs by clustering nodes, preserving the overall structure and acyclicity.
+2. **Initial Partitioning:** The smallest graph is partitioned into two parts.
+3. **Refinement:** The partition is then projected back to the original, larger graph, with refinement heuristics applied at each step to improve the partition quality.
 
-3. **Refinement Phase**:
-    - Projects the partition back through the hierarchy
-    - Refines the partition at each level
-    - Uses novel heuristics to improve the partition quality while preserving acyclicity
-
-A recursive bisectioning scheme is employed to partition the
-graph into the required number of parts.
+This process uses recursive bisection to achieve partitions into `k` parts.
 
 ## Features
 
@@ -34,17 +21,13 @@ graph into the required number of parts.
 
 ## Requirements
 
-- C++17 or later
-- CMake 3.28 or later
-- Valgrind for memory footprint profiling
+- A C++17 compatible compiler.
+- CMake 3.28 or later.
+- (Optional) Valgrind for memory profiling.
 
-## Building
+## Building the Project
 
-This project automatically fetches and builds all required dependencies using CMake FetchContent:
-- [GKlib](https://github.com/KarypisLab/GKlib) - Core library providing data structures and utilities to METIS
-- [METIS](https://github.com/KarypisLab/METIS) - For graph partitioning
-- [Scotch](https://gitlab.inria.fr/scotch/scotch) - For graph partitioning and sparse matrix ordering  
-- [Robin Hood Hashing](https://github.com/martinus/robin-hood-hashing) - High-performance hash tables and containers
+This project uses CMake to automatically download and build its dependencies (GKlib, METIS, Scotch, and Robin Hood Hashing).
 
 ### Build Instructions
 
@@ -170,65 +153,26 @@ The program outputs:
 - Partition assignments for each vertex
 - Edge cut value
 
-## Performance
+## Performance and Comparison
 
-This tool was compared to the original [implementation](https://github.com/GT-TDAlab/dagP).
-As input for both partitioning tools, a random DAG was generated using the [`rand-dag.cpp`](test/rand-dag.cpp) tool found in the [`test`](test) directory.
-This tool generates a random DAG with a given node count and a ratio of edges to nodes (in %).
-The generator creates deeper rather than wider DAGs, to mimic the structure of DAGs found in machine learning workflows. The testing script that runs the 2 partitioning tools with
-the different inputs can be found in the [`test`](test) directory.
+This implementation was benchmarked against the original dagP implementation. The key findings are:
 
-Both tools were compared based on the resulting edge cut, the imbalance ratio and the execution time.
-The imbalance ratio is measured as the absolute difference of two percentages.
-The percentage of the heaviest partition to the total weight minus the ideal percentage. For example, 
-if we request 4 partitions from a graph with total weight 200 and the heaviest is partition has weight 
-70, the imbalance is (70/200 = 35%) - (100/4 = 25%) = 10%.
+- Stability: This implementation proved to be more stable, completing all tests without the random crashes encountered with the original tool.
 
-For each input, each tool ran with all available parameter combinations implemented in this tool (clustering/bisection/refinement algorithm). The original implementation offers more algorithms that were not mentioned in the paper and were omitted from this tool.
-The original implementation also offers additional parameterization options (such as node traversal strategies like random, DFS, or BFS) 
-that were not implemented in this tool. For fair comparison, the original implementation was configured to match this tool's fixed 
-approach where possible - for example, using topological ordering for node traversal. 
+- Performance: With multi-threading enabled, this implementation is significantly faster for many workloads.
 
-The results are presented per metric. For each metric and each input (DAG + partitions requested), the best performing parameter 
-combination was considered for each tool.
+- Quality: Partition quality (edge cut and load balance) is competitive with the original.
 
-The results can be found in the [`test`](test) directory, both comparative and absolute.
+**A Note on Fair Comparison:** The original dagP tool is single-threaded. Our benchmarks run this implementation with multi-threading enabled by default, giving it a performance advantage. For a pure single-threaded comparison, you can disable multi-threading when running dag-test.
 
-Finally, memory profiling was performed for this implementation, using the Valgrind Massif tool. Results show memory footprint across different graph sizes, types and partition counts. Similarly to the other metrics, the best performing algorithm combination was used for the graphs.
+### Reproducing the Benchmarks
 
-**Note on reliability:** The original tool sometimes failed to produce a solution and crashed with varying error messages. This appears in the heatmaps as red boxes indicating crashes across all parameter combinations for a specific DAG and partition count. Additional crashes occurred but aren't visible in the heatmap when at least one parameter combination succeeded. This implementation remained stable throughout all experiments with one exception. Due to heavy multithreading, valgrind rarely failed to run and crashed. If you encounter crashes with this tool, please open an issue.
+Scripts to reproduce our performance and memory profiling results are in the test/ directory. You will need to build the original dagP library for a full comparison.
 
-**Note on performance:** This tool supports multi-threaded execution, unlike the original implementation. All benchmark results were obtained with this tool running multi-threaded (utilizing all available CPU threads) while the original tool ran single-threaded by necessity. This gives this implementation a significant advantage in execution time comparisons. The multi-threading behavior is user-controllable (see `test.cpp` and the `RecursiveBisectioner` constructor). For problems where this tool doesn't spawn additional threads (typically large graphs with few partitions), single-threaded performance can be observed in the time difference plots, showing this tool would perform worse in pure single-threaded comparisons. To compare single-threaded performance, modify [line 606](test/run-compare.py#L606) in [`run-compare.py`](test/run-compare.py) to use "0" instead of "1".
+- See the [`run-compare.py`](test/run-compare.py) script for performance comparison.
+- See the [`run-memprof.py`](test/run-memprof.py) script for memory profiling with Valgrind.
 
-### Reproducing Results
-
-To reproduce the performance comparison results:
-
-1. Build and install this project (see Building section).
-2. Build the original [dagP implementation](https://github.com/GT-TDAlab/dagP). Use this [config.py](https://gist.github.com/pxanthopoulos/b7891ce34dbefda2ad3499470e35b6fc) for building dagP, as well as the same external libraries that were built by this project.
-3. Compile the [driver](https://gist.github.com/pxanthopoulos/da18d9609d12eaa7b4b9923c962892e8) for dagP and link with the dagP library.
-4. Run the comparison script `python3 test/run-compare.py --baseline-executable /path/to/dagp`.
-
-To reproduce the memory profiling results:
-
-1. Build and install this project (see Building section).
-2. Run the comparison script `python3 test/run-memprof.py`.
-
-Both scripts support additional options - use `-h` or `--help` to see all available options.
-
-*Note: The comparison results and analysis tools are available in the [`test`](test) directory.*
-
-## Experimental Setup
-
-All experiments and benchmarks were conducted on the following system:
-
-- **CPU**: Intel Core i7-11370H @ 3.30GHz (4 cores, 8 threads, max 4.8GHz)
-- **Memory**: 16GB RAM 
-- **Operating System**: Ubuntu 22.04.5 LTS (Jammy Jellyfish)
-- **Kernel**: Linux 6.8.0-65-generic
-- **Architecture**: x86_64
-
-The system includes support for AVX-512 instruction sets and Intel VT-x virtualization technology. All performance measurements were taken on this configuration.
+For more information about the benchmarks, see [`TEST.md`](TEST.md).
 
 ## License
 
