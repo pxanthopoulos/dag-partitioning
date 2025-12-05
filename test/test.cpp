@@ -40,7 +40,9 @@ int main(int argc, char **argv) {
                      "[min size for parallel] [max parallel depth]"
                   << std::endl;
         std::cerr << "  clustering method: FORB, CYC, or HYB" << std::endl;
-        std::cerr << "  bisection method: UNDIRMETIS or GGG" << std::endl;
+        std::cerr
+            << "  bisection method: GGG, UNDIRSCOTCH, UNDIRMETIS or UNDIRBOTH"
+            << std::endl;
         std::cerr << "  refinement method: BOUNDARYFM, BOUNDARYKL, or MIXED"
                   << std::endl;
         std::cerr << "  enable parallel: 1 for parallel, 0 for sequential"

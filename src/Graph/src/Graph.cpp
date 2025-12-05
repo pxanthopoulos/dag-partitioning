@@ -594,8 +594,7 @@ Graph readDotFile(const std::string &dotFilename,
     std::ofstream mapFile(mappingFilename);
     if (mapFile.is_open()) {
         for (const auto &[name, id] : nodeMap) {
-            mapFile << name << " -> " << id
-                    << '\n'; // '\n' is faster than std::endl
+            mapFile << name << " -> " << id << '\n';
         }
     }
 
