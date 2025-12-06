@@ -5,6 +5,7 @@ add_subdirectory(Clustering)
 add_subdirectory(Bisection)
 add_subdirectory(Driver)
 add_subdirectory(Refinement)
+add_subdirectory(Scheduling)
 
 # Include all object library sources in the main library
 target_sources(dag_partitioning PRIVATE
@@ -13,6 +14,7 @@ target_sources(dag_partitioning PRIVATE
     $<TARGET_OBJECTS:Bisection>
     $<TARGET_OBJECTS:Driver>
     $<TARGET_OBJECTS:Refinement>
+    $<TARGET_OBJECTS:Scheduling>
 )
 
 # Set include directories for public interface
@@ -20,6 +22,7 @@ target_include_directories(dag_partitioning
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Graph/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Driver/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Scheduling/include>
 )
 
 # Link only external dependencies and robin_hood for public headers
