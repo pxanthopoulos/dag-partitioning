@@ -33,6 +33,7 @@ target_link_libraries(dag_partitioning
         METIS::METIS
         GKlib::GKlib
         SCOTCH::SCOTCH
+        ortools::ortools
 )
 
 # Link OpenMP if enabled

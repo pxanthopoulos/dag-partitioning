@@ -7,3 +7,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/GKlib.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/METIS.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/scotch.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/RobinHood.cmake)
+
+# OR-Tools - requires system installation
+find_package(ortools CONFIG REQUIRED)
