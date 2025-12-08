@@ -12,7 +12,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <random>
 #include <stdexcept>
+#include <string>
 
 namespace dag_partitioning {
 
@@ -93,6 +98,24 @@ std::vector<uint8_t> UndirectedFix::getUndirectedBisectionScotch() const {
     SCOTCH_graphInit(&scotchGraph);
     SCOTCH_stratInit(&scotchStrategy);
 
+    const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
+    int64_t seed;
+    if (seed_env) {
+        try {
+            seed = std::stoll(seed_env);
+        } catch (const std::exception &e) {
+            std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
+                      << seed_env << "', using random seed instead"
+                      << std::endl;
+            std::random_device rd;
+            seed = rd();
+        }
+    } else {
+        std::random_device rd;
+        seed = rd();
+    }
+    SCOTCH_randomSeed(seed);
+
     // Create CSR format data
     int64_t edgeNumber = computeNumberOfEdges();
     std::vector<int64_t> nodeNeighborsOffset(workingGraph.size + 1);
@@ -143,6 +166,24 @@ std::vector<uint8_t> UndirectedFix::getUndirectedBisectionMetis() const {
     METIS_SetDefaultOptions(options);
     options[METIS_OPTION_OBJTYPE] = METIS_OBJTYPE_CUT;
     options[METIS_OPTION_NUMBERING] = 0;
+
+    const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
+    int64_t seed;
+    if (seed_env) {
+        try {
+            seed = std::stoll(seed_env);
+        } catch (const std::exception &e) {
+            std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
+                      << seed_env << "', using random seed instead"
+                      << std::endl;
+            std::random_device rd;
+            seed = rd();
+        }
+    } else {
+        std::random_device rd;
+        seed = rd();
+    }
+    options[METIS_OPTION_SEED] = seed;
 
     // Set balance constraint
     double imbalanceRatio =

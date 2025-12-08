@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cfloat>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <queue>
@@ -83,11 +84,10 @@ GreedyDirectedGraphGrowing::runOnNormalGraph() const {
     }
 
     const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
-    unsigned int seed;
-
+    int64_t seed;
     if (seed_env) {
         try {
-            seed = std::stoul(seed_env);
+            seed = std::stoll(seed_env);
         } catch (const std::exception &e) {
             std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
                       << seed_env << "', using random seed instead"
@@ -99,7 +99,6 @@ GreedyDirectedGraphGrowing::runOnNormalGraph() const {
         std::random_device rd;
         seed = rd();
     }
-
     std::mt19937 gen(seed);
     std::shuffle(sources.begin(), sources.end(), gen);
 
@@ -287,11 +286,10 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
     }
 
     const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
-    unsigned int seed;
-
+    int64_t seed;
     if (seed_env) {
         try {
-            seed = std::stoul(seed_env);
+            seed = std::stoll(seed_env);
         } catch (const std::exception &e) {
             std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
                       << seed_env << "', using random seed instead"
@@ -303,7 +301,6 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
         std::random_device rd;
         seed = rd();
     }
-
     std::mt19937 gen(seed);
     std::shuffle(sinks.begin(), sinks.end(), gen);
 
