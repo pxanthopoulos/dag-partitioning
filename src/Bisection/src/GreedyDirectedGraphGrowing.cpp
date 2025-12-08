@@ -11,8 +11,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cfloat>
+#include <cstdlib>
+#include <iostream>
 #include <queue>
 #include <random>
+#include <string>
 
 namespace dag_partitioning {
 
@@ -79,9 +82,25 @@ GreedyDirectedGraphGrowing::runOnNormalGraph() const {
         }
     }
 
-    // Randomly order source vertices
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
+    unsigned int seed;
+
+    if (seed_env) {
+        try {
+            seed = std::stoul(seed_env);
+        } catch (const std::exception &e) {
+            std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
+                      << seed_env << "', using random seed instead"
+                      << std::endl;
+            std::random_device rd;
+            seed = rd();
+        }
+    } else {
+        std::random_device rd;
+        seed = rd();
+    }
+
+    std::mt19937 gen(seed);
     std::shuffle(sources.begin(), sources.end(), gen);
 
     // Get distances from first source for tie-breaking
@@ -267,8 +286,25 @@ GreedyDirectedGraphGrowing::runOnReverseGraph() const {
         }
     }
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    const char *seed_env = std::getenv("DAG_PARTITIONING_RANDOM_SEED");
+    unsigned int seed;
+
+    if (seed_env) {
+        try {
+            seed = std::stoul(seed_env);
+        } catch (const std::exception &e) {
+            std::cerr << "Warning: Invalid DAG_PARTITIONING_RANDOM_SEED value '"
+                      << seed_env << "', using random seed instead"
+                      << std::endl;
+            std::random_device rd;
+            seed = rd();
+        }
+    } else {
+        std::random_device rd;
+        seed = rd();
+    }
+
+    std::mt19937 gen(seed);
     std::shuffle(sinks.begin(), sinks.end(), gen);
 
     std::vector<uint64_t> distancesFromFirstMovedNode =
