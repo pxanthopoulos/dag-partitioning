@@ -32,9 +32,7 @@ class Scheduler {
 
     const core::Graph &originalGraph;              // Original graph to schedule
     const std::vector<uint64_t> &partitionMapping; // Node to partition mapping
-    std::vector<uint64_t> newNodesToPartitions; // Coarse node to partition ID
-    std::vector<uint64_t> partitionsToNewNodes; // Partition ID to coarse node
-    std::unique_ptr<core::Graph> coarseGraph;   // Resulting coarse graph
+    std::unique_ptr<core::Graph> coarseGraph;      // Resulting coarse graph
 
     /**
      * @brief Performs best-fit bin packing on tensors
@@ -87,18 +85,6 @@ class Scheduler {
      * packing and inter-partition edge weights.
      */
     void run();
-
-    /**
-     * @brief Gets the mapping from coarse graph nodes to partition IDs
-     * @return Vector mapping coarse node IDs to original partition IDs
-     */
-    [[nodiscard]] const std::vector<uint64_t> &getNewNodesToPartitions() const;
-
-    /**
-     * @brief Gets the mapping from partition IDs to coarse graph nodes
-     * @return Vector mapping partition IDs to coarse node IDs
-     */
-    [[nodiscard]] const std::vector<uint64_t> &getPartitionsToNewNodes() const;
 
     /**
      * @brief Gets the coarse graph
