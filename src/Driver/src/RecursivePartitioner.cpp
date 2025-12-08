@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <set>
 #include <stdexcept>
 #include <thread>
 
@@ -350,6 +351,29 @@ RecursivePartitioner::run(uint64_t currentDepth) const {
     }
 
     return {partitionMapping, totalEdgeCut + leftEdgeCut + rightEdgeCut};
+}
+
+std::pair<std::vector<uint64_t>, uint64_t> RecursivePartitioner::resetPartitionNumbers(
+    std::pair<std::vector<uint64_t>, uint64_t> partitionResult) {
+    auto &partitionMapping = partitionResult.first;
+
+    // Find unique partition IDs
+    std::set<uint64_t> uniquePartitions(partitionMapping.begin(),
+                                        partitionMapping.end());
+
+    // Create mapping from old partition IDs to new contiguous IDs
+    std::unordered_map<uint64_t, uint64_t> idMapping;
+    uint64_t newId = 0;
+    for (const auto &oldId : uniquePartitions) {
+        idMapping[oldId] = newId++;
+    }
+
+    // Update partition mapping to use new contiguous IDs
+    for (auto &partId : partitionMapping) {
+        partId = idMapping[partId];
+    }
+
+    return partitionResult;
 }
 
 } // namespace driver

@@ -150,6 +150,18 @@ class RecursivePartitioner {
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
     run(uint64_t currentDepth = 0) const;
+
+    /**
+     * @brief Resets partition numbers in the result to be contiguous from 0 to
+     * k-1
+     * @param partitionResult Pair containing:
+     *                        - Vector mapping each vertex to its partition
+     *                        - Total edge cut weight across all partitions
+     * @return Updated partition result with contiguous partition numbers
+     */
+    [[nodiscard]] static std::pair<std::vector<uint64_t>, uint64_t>
+    resetPartitionNumbers(
+        std::pair<std::vector<uint64_t>, uint64_t> partitionResult);
 };
 
 } // namespace driver
