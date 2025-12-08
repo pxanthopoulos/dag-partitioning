@@ -204,84 +204,53 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
         uint64_t peakMemory = packBestFit(tensors);
 
         partitionWeights[partition] = peakMemory;
-
-        // Pretty print the packing
-        std::cout << "\nPartition " << partition << " memory packing:\n";
-        std::cout << "Peak memory: " << peakMemory << "\n";
-        for (const auto &tensor : tensors) {
-            std::cout << "  Tensor (producer=" << tensor.producer
-                      << ", size=" << tensor.size << ", lifetime=["
-                      << tensor.birth << "," << tensor.death << "]"
-                      << ") -> offset=" << tensor.offset << "\n";
-        }
     }
 
     return partitionWeights;
 }
 
 void Scheduler::buildCoarseGraph() {
-    // Find the node IDs of the new graph
-    robin_hood::unordered_set<uint64_t> partitionIds(partitionMapping.begin(),
-                                                     partitionMapping.end());
+    // Find the number of partitions (assuming contiguous IDs from 0 to k-1)
+    uint64_t numPartitions = *std::max_element(partitionMapping.begin(),
+                                                partitionMapping.end()) + 1;
+    assert(numPartitions != 0 && "Number of partitions must be > 0");
 
-    size_t coarseGraphSize = partitionIds.size();
-    assert(coarseGraphSize != 0 && "Size of coarse graph must be > 0");
-
-    coarseGraph = std::make_unique<core::Graph>(coarseGraphSize);
+    coarseGraph = std::make_unique<core::Graph>(numPartitions);
 
     std::vector<uint64_t> partitionWeights = calculatePartitionWeights();
 
-    uint64_t nodeId = 0;
-    partitionsToNewNodes.assign(coarseGraphSize, 0);
-    newNodesToPartitions.assign(coarseGraphSize, 0);
-    for (const uint64_t &partitionId : partitionIds) {
-        newNodesToPartitions[nodeId] = partitionId;
-        partitionsToNewNodes[partitionId] = nodeId;
-        coarseGraph->addNode(nodeId++, partitionWeights[partitionId]);
+    // Add nodes to coarse graph - partition ID is the node ID
+    for (uint64_t partitionId = 0; partitionId < numPartitions; ++partitionId) {
+        coarseGraph->addNode(partitionId, partitionWeights[partitionId]);
     }
-
-    assert(nodeId == coarseGraphSize && "IDs are not contiguous");
 
     // For each edge in the original graph, create an edge between partitions
     // if needed, with total size of edges between partitions
-    std::vector<std::unordered_map<uint64_t, uint64_t>> newEdges(
-        coarseGraphSize);
+    std::vector<std::unordered_map<uint64_t, uint64_t>> newEdges(numPartitions);
     for (uint64_t from = 0; from < originalGraph.size; ++from) {
         for (const auto &[to, edgeWeight] : originalGraph.adj[from]) {
             uint64_t fromPartition = partitionMapping[from];
-            uint64_t fromPartitionNewNode = partitionsToNewNodes[fromPartition];
             uint64_t toPartition = partitionMapping[to];
-            uint64_t toPartitionNewNode = partitionsToNewNodes[toPartition];
 
             if (fromPartition != toPartition) {
-                if (newEdges[fromPartitionNewNode].find(toPartitionNewNode) !=
-                    newEdges[fromPartitionNewNode].end()) {
-                    newEdges[fromPartitionNewNode][toPartitionNewNode] +=
-                        edgeWeight;
+                if (newEdges[fromPartition].find(toPartition) !=
+                    newEdges[fromPartition].end()) {
+                    newEdges[fromPartition][toPartition] += edgeWeight;
                 } else {
-                    newEdges[fromPartitionNewNode].emplace(toPartitionNewNode,
-                                                           edgeWeight);
+                    newEdges[fromPartition].emplace(toPartition, edgeWeight);
                 }
             }
         }
     }
 
-    for (uint64_t newNodeId = 0; newNodeId < newEdges.size(); ++newNodeId) {
-        for (const auto &[neighborId, edgeWeight] : newEdges[newNodeId]) {
-            coarseGraph->addEdge(newNodeId, neighborId, edgeWeight);
+    for (uint64_t partitionId = 0; partitionId < newEdges.size(); ++partitionId) {
+        for (const auto &[neighborId, edgeWeight] : newEdges[partitionId]) {
+            coarseGraph->addEdge(partitionId, neighborId, edgeWeight);
         }
     }
 }
 
 void Scheduler::run() { buildCoarseGraph(); }
-
-const std::vector<uint64_t> &Scheduler::getNewNodesToPartitions() const {
-    return newNodesToPartitions;
-};
-
-const std::vector<uint64_t> &Scheduler::getPartitionsToNewNodes() const {
-    return partitionsToNewNodes;
-};
 
 const std::unique_ptr<core::Graph> &Scheduler::getCoarseGraph() const {
     return coarseGraph;
