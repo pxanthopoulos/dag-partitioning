@@ -446,6 +446,12 @@ void Graph::print(std::ostream &os) const {
     }
 }
 
+// Stream output operator
+std::ostream &operator<<(std::ostream &os, const Graph &graph) {
+    graph.print(os);
+    return os;
+}
+
 // Export graph to DOT format file
 void Graph::printToDot(const std::string &dotFilename) const {
     std::ofstream dotFile(dotFilename);

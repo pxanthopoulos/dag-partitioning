@@ -147,6 +147,14 @@ class Graph {
      * @param dotFilename Name of the output DOT file
      */
     void printToDot(const std::string &dotFilename) const;
+
+    /**
+     * @brief Stream output operator for Graph
+     * @param os Output stream
+     * @param graph Graph object to output
+     * @return Reference to the output stream
+     */
+    friend std::ostream &operator<<(std::ostream &os, const Graph &graph);
 };
 
 /**
