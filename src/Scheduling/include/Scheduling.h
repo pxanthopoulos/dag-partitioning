@@ -20,30 +20,40 @@ class Graph;
 
 namespace scheduling {
 
+/**
+ * @brief Bin packing utilities for memory allocation
+ */
+namespace packing {
+
+/**
+ * @brief Tensor representation for memory allocation
+ */
+struct Tensor {
+    uint64_t producer; // Node that produces this tensor
+    uint64_t size;     // Memory size required
+    uint64_t birth;    // Local position when tensor is created
+    uint64_t death;    // Local position when tensor is last used
+    uint64_t offset;   // Memory offset assigned by packing
+};
+
+/**
+ * @brief Performs best-fit bin packing on tensors
+ *
+ * Assigns memory offsets to tensors while minimizing peak memory usage.
+ * Uses a best-fit algorithm that finds the smallest gap for each tensor.
+ *
+ * @param tensors Vector of tensors to pack (modified in-place)
+ * @return Peak memory usage after packing
+ */
+[[nodiscard]] uint64_t packBestFit(std::vector<Tensor> &tensors);
+
+} // namespace packing
+
 class Scheduler {
   protected:
-    struct Tensor {
-        uint64_t producer; // Node that produces this tensor
-        uint64_t size;     // Memory size required
-        uint64_t birth;    // Local position when tensor is created
-        uint64_t death;    // Local position when tensor is last used
-        uint64_t offset;   // Memory offset assigned by packing
-    };
-
     const core::Graph &originalGraph;              // Original graph to schedule
     const std::vector<uint64_t> &partitionMapping; // Node to partition mapping
     std::unique_ptr<core::Graph> coarseGraph;      // Resulting coarse graph
-
-    /**
-     * @brief Performs best-fit bin packing on tensors
-     *
-     * Assigns memory offsets to tensors while minimizing peak memory usage.
-     * Uses a best-fit algorithm that finds the smallest gap for each tensor.
-     *
-     * @param tensors Vector of tensors to pack (modified in-place)
-     * @return Peak memory usage after packing
-     */
-    [[nodiscard]] static uint64_t packBestFit(std::vector<Tensor> &tensors);
 
     /**
      * @brief Calculates memory requirements for each partition

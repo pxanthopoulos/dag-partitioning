@@ -9,16 +9,15 @@
 
 #include <cassert>
 #include <iostream>
+#include <queue>
 
 namespace dag_partitioning {
 
 namespace scheduling {
 
-Scheduler::Scheduler(const core::Graph &originalGraph,
-                     std::vector<uint64_t> &partitionMapping)
-    : originalGraph(originalGraph), partitionMapping(partitionMapping) {}
+namespace packing {
 
-uint64_t Scheduler::packBestFit(std::vector<Tensor> &tensors) {
+uint64_t packBestFit(std::vector<Tensor> &tensors) {
     auto overlaps = [](const Tensor &a, const Tensor &b) {
         return !(a.death < b.birth || b.death < a.birth);
     };
@@ -109,6 +108,163 @@ uint64_t Scheduler::packBestFit(std::vector<Tensor> &tensors) {
     return peak;
 }
 
+} // namespace packing
+
+namespace ilp {
+
+struct ILPGraph {
+    uint64_t num_nodes;
+    std::vector<uint64_t> tensor_size; // S_i: output tensor size
+    std::vector<uint64_t> extra_size;  // ES_i: extra memory during execution
+    std::vector<robin_hood::unordered_set<uint64_t>>
+        input_tensors; // IN_i: input tensors
+
+    // Computed topology
+    std::vector<robin_hood::unordered_set<uint64_t>> ancestors;
+    std::vector<robin_hood::unordered_set<uint64_t>> descendants;
+    std::vector<robin_hood::unordered_set<uint64_t>> tensor_users;
+
+    void computeTopology() {
+        computeAncestors();
+        computeDescendants();
+    }
+
+    void computeAncestors() {
+        ancestors.clear();
+        ancestors.resize(num_nodes);
+        tensor_users.clear();
+        tensor_users.resize(num_nodes);
+
+        // Compute in-degree for topological sort
+        std::vector<uint64_t> in_degree(num_nodes, 0);
+        for (uint64_t i = 0; i < num_nodes; i++) {
+            in_degree[i] = input_tensors[i].size();
+        }
+
+        // Topological sort using Kahn's algorithm
+        std::queue<uint64_t> queue;
+        for (uint64_t i = 0; i < num_nodes; i++) {
+            if (in_degree[i] == 0) {
+                queue.push(i);
+            }
+        }
+
+        while (!queue.empty()) {
+            uint64_t node = queue.front();
+            queue.pop();
+
+            // For this node, its ancestors are the union of:
+            // 1. Its direct inputs
+            // 2. All ancestors of its inputs
+            for (uint64_t input : input_tensors[node]) {
+                ancestors[node].insert(input);
+                ancestors[node].insert(ancestors[input].begin(),
+                                       ancestors[input].end());
+                tensor_users[input].insert(node);
+            }
+
+            // Update in-degrees and enqueue nodes
+            for (uint64_t i = 0; i < num_nodes; i++) {
+                if (input_tensors[i].count(node)) {
+                    in_degree[i]--;
+                    if (in_degree[i] == 0) {
+                        queue.push(i);
+                    }
+                }
+            }
+        }
+    }
+
+    void computeDescendants() {
+        descendants.clear();
+        descendants.resize(num_nodes);
+
+        // Build descendants from ancestors: if j is ancestor of i, then i is
+        // descendant of j
+        for (uint64_t i = 0; i < num_nodes; i++) {
+            for (uint64_t ancestor : ancestors[i]) {
+                descendants[ancestor].insert(i);
+            }
+        }
+    }
+
+    void print(std::ostream &os) const {
+        os << "Nodes: " << num_nodes << std::endl;
+
+        for (uint64_t i = 0; i < num_nodes; i++) {
+            os << "\nNode: " << i << std::endl;
+            os << "    tensor_size=" << tensor_size[i]
+               << ", extra_size=" << extra_size[i] << std::endl;
+
+            os << "    inputs={";
+            for (auto it = input_tensors[i].begin();
+                 it != input_tensors[i].end(); ++it) {
+                if (it != input_tensors[i].begin())
+                    os << ", ";
+                os << *it;
+            }
+            os << "}, users={";
+            for (auto it = tensor_users[i].begin(); it != tensor_users[i].end();
+                 ++it) {
+                if (it != tensor_users[i].begin())
+                    os << ", ";
+                os << *it;
+            }
+            os << "}" << std::endl;
+
+            os << "    anc={";
+            for (auto it = ancestors[i].begin(); it != ancestors[i].end();
+                 ++it) {
+                if (it != ancestors[i].begin())
+                    os << ", ";
+                os << *it;
+            }
+            os << "}, des={";
+            for (auto it = descendants[i].begin(); it != descendants[i].end();
+                 ++it) {
+                if (it != descendants[i].begin())
+                    os << ", ";
+                os << *it;
+            }
+            os << "}" << std::endl;
+        }
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const ILPGraph &graph) {
+        graph.print(os);
+        return os;
+    }
+};
+
+ILPGraph buildILPGraph(const core::Graph &graph) {
+    ILPGraph ilpGraph;
+    ilpGraph.num_nodes = graph.size;
+    ilpGraph.tensor_size.resize(graph.size);
+    ilpGraph.extra_size.resize(graph.size);
+    ilpGraph.input_tensors.resize(graph.size);
+
+    for (uint64_t node = 0; node < graph.size; ++node) {
+        ilpGraph.tensor_size[node] = 0;
+        ilpGraph.extra_size[node] = graph.nodeWeights[node];
+
+        for (const auto &[neighbor, edgeWeight] : graph.adj[node]) {
+            ilpGraph.input_tensors[neighbor].insert(node);
+            ilpGraph.tensor_size[node] =
+                std::max(ilpGraph.tensor_size[node], edgeWeight);
+        }
+    }
+
+    ilpGraph.computeTopology();
+
+    return ilpGraph;
+}
+
+} // namespace ilp
+
+Scheduler::Scheduler(const core::Graph &originalGraph,
+                     std::vector<uint64_t> &partitionMapping)
+    : originalGraph(originalGraph), partitionMapping(partitionMapping) {}
+
 std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
     std::vector<uint64_t> topologicalOrder = originalGraph.topologicalSort();
 
@@ -150,7 +306,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
     }
 
     // Collect tensors per partition
-    std::vector<std::vector<Tensor>> partitionTensors(numPartitions);
+    std::vector<std::vector<packing::Tensor>> partitionTensors(numPartitions);
 
     for (uint64_t producer = 0; producer < originalGraph.size; ++producer) {
         uint64_t producerPartition = partitionMapping[producer];
@@ -171,7 +327,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
 
         // If there are internal consumers, add tensor to partition
         if (hasInternalConsumers) {
-            Tensor tensor;
+            packing::Tensor tensor;
             tensor.producer = producer;
             tensor.size = originalGraph.nodeWeights[producer];
             tensor.birth = nodeToLocalPosition[producer];
@@ -194,14 +350,14 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
         // Sort tensors by birth time, then by death time (for deterministic
         // packing)
         std::sort(tensors.begin(), tensors.end(),
-                  [](const Tensor &a, const Tensor &b) {
+                  [](const packing::Tensor &a, const packing::Tensor &b) {
                       if (a.birth != b.birth)
                           return a.birth < b.birth;
                       return a.death < b.death;
                   });
 
         // Best-fit packing algorithm
-        uint64_t peakMemory = packBestFit(tensors);
+        uint64_t peakMemory = packing::packBestFit(tensors);
 
         partitionWeights[partition] = peakMemory;
     }
@@ -211,8 +367,8 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
 
 void Scheduler::buildCoarseGraph() {
     // Find the number of partitions (assuming contiguous IDs from 0 to k-1)
-    uint64_t numPartitions = *std::max_element(partitionMapping.begin(),
-                                                partitionMapping.end()) + 1;
+    uint64_t numPartitions =
+        *std::max_element(partitionMapping.begin(), partitionMapping.end()) + 1;
     assert(numPartitions != 0 && "Number of partitions must be > 0");
 
     coarseGraph = std::make_unique<core::Graph>(numPartitions);
@@ -243,14 +399,20 @@ void Scheduler::buildCoarseGraph() {
         }
     }
 
-    for (uint64_t partitionId = 0; partitionId < newEdges.size(); ++partitionId) {
+    for (uint64_t partitionId = 0; partitionId < newEdges.size();
+         ++partitionId) {
         for (const auto &[neighborId, edgeWeight] : newEdges[partitionId]) {
             coarseGraph->addEdge(partitionId, neighborId, edgeWeight);
         }
     }
 }
 
-void Scheduler::run() { buildCoarseGraph(); }
+void Scheduler::run() {
+    buildCoarseGraph();
+    std::cout << *coarseGraph;
+    ilp::ILPGraph ilpGraph = ilp::buildILPGraph(*coarseGraph);
+    std::cout << ilpGraph;
+}
 
 const std::unique_ptr<core::Graph> &Scheduler::getCoarseGraph() const {
     return coarseGraph;
