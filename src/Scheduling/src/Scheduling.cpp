@@ -1,15 +1,13 @@
 /**
  * @file Scheduling.cpp
- * @brief Implementation of base scheduling class methods
+ * @brief TODO
  */
 
 #include "Scheduling.h"
-#include "Graph.h"
-#include "robin_hood.h"
 
 #include <cassert>
-#include <iostream>
-#include <queue>
+
+// TODO: Think about structure, classes, etc
 
 namespace dag_partitioning {
 
@@ -112,151 +110,482 @@ uint64_t packBestFit(std::vector<Tensor> &tensors) {
 
 namespace ilp {
 
-struct ILPGraph {
-    uint64_t num_nodes;
-    std::vector<uint64_t> tensor_size; // S_i: output tensor size
-    std::vector<uint64_t> extra_size;  // ES_i: extra memory during execution
-    std::vector<robin_hood::unordered_set<uint64_t>>
-        input_tensors; // IN_i: input tensors
+ILPGraph::ILPGraph(const core::Graph &graph) {
+    size = graph.size;
+    tensorSizes.resize(graph.size);
+    extraSizes.resize(graph.size);
+    inputTensors.resize(graph.size);
 
-    // Computed topology
-    std::vector<robin_hood::unordered_set<uint64_t>> ancestors;
-    std::vector<robin_hood::unordered_set<uint64_t>> descendants;
-    std::vector<robin_hood::unordered_set<uint64_t>> tensor_users;
+    for (uint64_t node = 0; node < graph.size; ++node) {
+        tensorSizes[node] = 0;
+        extraSizes[node] = graph.nodeWeights[node];
 
-    void computeTopology() {
-        computeAncestors();
-        computeDescendants();
+        for (const auto &[neighbor, edgeWeight] : graph.adj[node]) {
+            inputTensors[neighbor].insert(node);
+            tensorSizes[node] = std::max(tensorSizes[node], edgeWeight);
+        }
     }
 
-    void computeAncestors() {
-        ancestors.clear();
-        ancestors.resize(num_nodes);
-        tensor_users.clear();
-        tensor_users.resize(num_nodes);
+    computeTopology();
+}
 
-        // Compute in-degree for topological sort
-        std::vector<uint64_t> in_degree(num_nodes, 0);
-        for (uint64_t i = 0; i < num_nodes; i++) {
-            in_degree[i] = input_tensors[i].size();
+void ILPGraph::computeTopology() {
+    computeAncestors();
+    computeDescendants();
+}
+
+void ILPGraph::computeAncestors() {
+    ancestors.clear();
+    ancestors.resize(size);
+    tensorUsers.clear();
+    tensorUsers.resize(size);
+
+    // Compute in-degree for topological sort
+    std::vector<uint64_t> inDegree(size, 0);
+    for (uint64_t i = 0; i < size; i++) {
+        inDegree[i] = inputTensors[i].size();
+    }
+
+    // Topological sort using Kahn's algorithm
+    std::queue<uint64_t> queue;
+    for (uint64_t i = 0; i < size; i++) {
+        if (inDegree[i] == 0) {
+            queue.push(i);
+        }
+    }
+
+    while (!queue.empty()) {
+        uint64_t node = queue.front();
+        queue.pop();
+
+        // For this node, its ancestors are the union of:
+        // 1. Its direct inputs
+        // 2. All ancestors of its inputs
+        for (uint64_t input : inputTensors[node]) {
+            ancestors[node].insert(input);
+            ancestors[node].insert(ancestors[input].begin(),
+                                   ancestors[input].end());
+            tensorUsers[input].insert(node);
         }
 
-        // Topological sort using Kahn's algorithm
-        std::queue<uint64_t> queue;
-        for (uint64_t i = 0; i < num_nodes; i++) {
-            if (in_degree[i] == 0) {
-                queue.push(i);
+        // Update in-degrees and enqueue nodes
+        for (uint64_t i = 0; i < size; i++) {
+            if (inputTensors[i].count(node)) {
+                inDegree[i]--;
+                if (inDegree[i] == 0) {
+                    queue.push(i);
+                }
             }
         }
+    }
+}
 
-        while (!queue.empty()) {
-            uint64_t node = queue.front();
-            queue.pop();
+void ILPGraph::computeDescendants() {
+    descendants.clear();
+    descendants.resize(size);
 
-            // For this node, its ancestors are the union of:
-            // 1. Its direct inputs
-            // 2. All ancestors of its inputs
-            for (uint64_t input : input_tensors[node]) {
-                ancestors[node].insert(input);
-                ancestors[node].insert(ancestors[input].begin(),
-                                       ancestors[input].end());
-                tensor_users[input].insert(node);
+    // Build descendants from ancestors: if j is ancestor of i, then i is
+    // descendant of j
+    for (uint64_t i = 0; i < size; i++) {
+        for (uint64_t ancestor : ancestors[i]) {
+            descendants[ancestor].insert(i);
+        }
+    }
+}
+
+void ILPGraph::print(std::ostream &os) const {
+    os << "Nodes: " << size << std::endl;
+
+    for (uint64_t i = 0; i < size; i++) {
+        os << "\nNode: " << i << std::endl;
+        os << "    tensorSizes=" << tensorSizes[i]
+           << ", extraSizes=" << extraSizes[i] << std::endl;
+
+        os << "    inputs={";
+        for (auto it = inputTensors[i].begin(); it != inputTensors[i].end();
+             ++it) {
+            if (it != inputTensors[i].begin())
+                os << ", ";
+            os << *it;
+        }
+        os << "}, users={";
+        for (auto it = tensorUsers[i].begin(); it != tensorUsers[i].end();
+             ++it) {
+            if (it != tensorUsers[i].begin())
+                os << ", ";
+            os << *it;
+        }
+        os << "}" << std::endl;
+
+        os << "    anc={";
+        for (auto it = ancestors[i].begin(); it != ancestors[i].end(); ++it) {
+            if (it != ancestors[i].begin())
+                os << ", ";
+            os << *it;
+        }
+        os << "}, des={";
+        for (auto it = descendants[i].begin(); it != descendants[i].end();
+             ++it) {
+            if (it != descendants[i].begin())
+                os << ", ";
+            os << *it;
+        }
+        os << "}" << std::endl;
+    }
+}
+
+uint64_t ILPGraph::getSize() const { return size; }
+
+const std::vector<robin_hood::unordered_set<uint64_t>> &
+ILPGraph::getAncestors() const {
+    return ancestors;
+}
+
+const std::vector<robin_hood::unordered_set<uint64_t>> &
+ILPGraph::getDescendants() const {
+    return descendants;
+}
+
+const std::vector<robin_hood::unordered_set<uint64_t>> &
+ILPGraph::getTensorUsers() const {
+    return tensorUsers;
+}
+
+const std::vector<uint64_t> &ILPGraph::getTensorSizes() const {
+    return tensorSizes;
+}
+
+const std::vector<uint64_t> &ILPGraph::getExtraSizes() const {
+    return extraSizes;
+}
+
+const std::vector<robin_hood::unordered_set<uint64_t>> &
+ILPGraph::getInputTensors() const {
+    return inputTensors;
+}
+
+// Stream output operator
+std::ostream &operator<<(std::ostream &os, const ILPGraph &graph) {
+    graph.print(os);
+    return os;
+}
+
+ILPSolver::ILPSolver(const ILPGraph &graph, bool debug = false)
+    : graph(graph), debug(debug) {
+    solver.reset(operations_research::MPSolver::CreateSolver("SCIP"));
+    if (solver)
+        return;
+
+    solver.reset(operations_research::MPSolver::CreateSolver("CBC"));
+    if (solver)
+        return;
+
+    throw std::runtime_error(
+        "Failed to create ILP solver: neither SCIP nor CBC available");
+}
+
+void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
+                                    std::vector<uint64_t> &latestOp,
+                                    std::vector<uint64_t> &earliestTensor,
+                                    std::vector<uint64_t> &latestTensor) const {
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        earliestOp[i] = graph.getAncestors()[i].size();
+        latestOp[i] = graph.getSize() - 1 - graph.getDescendants()[i].size();
+        earliestTensor[i] = graph.getAncestors()[i].size();
+
+        // Constraint 10: tensor not needed after last consumer could run
+        const auto &users = graph.getTensorUsers()[i];
+        if (users.empty()) {
+            latestTensor[i] = graph.getSize() - 1; // Output tensor
+        } else {
+            // Find user with minimum descendants (can run latest)
+            uint64_t min_des = graph.getSize();
+            for (uint64_t u : users) {
+                min_des = std::min(min_des, graph.getDescendants()[u].size());
             }
+            latestTensor[i] = graph.getSize() - 1 - min_des;
+        }
+    }
 
-            // Update in-degrees and enqueue nodes
-            for (uint64_t i = 0; i < num_nodes; i++) {
-                if (input_tensors[i].count(node)) {
-                    in_degree[i]--;
-                    if (in_degree[i] == 0) {
-                        queue.push(i);
-                    }
+    if (debug) {
+        std::cout << "Pruning bounds:" << std::endl;
+        for (uint64_t i = 0; i < graph.getSize(); i++) {
+            std::cout << "  Node " << i << ":"
+                      << " earliestOp=" << earliestOp[i]
+                      << ", latestOp=" << latestOp[i]
+                      << ", earliestTensor=" << earliestTensor[i]
+                      << ", latestTensor=" << latestTensor[i] << std::endl;
+        }
+    }
+}
+
+/**
+ * Variables:
+ * - O[i][j] ∈ {0,1}: operator i scheduled at step j
+ * - T[i][j] ∈ {0,1}: tensor i in memory at step j
+ * - mem: peak memory
+ *
+ * Constraints:
+ * (1) Σᵢ O[i][j] = 1  ∀j        -- one operator per step
+ * (2) Σⱼ O[i][j] = 1  ∀i        -- each operator scheduled once
+ * (3) O[i][j] ≤ T[k][j]  ∀k∈IN[i]  -- inputs available
+ * (4a) T[i][j] ≤ T[i][j-1] + O[i][j]  -- tensor persistence upper bound
+ * (4b) T[i][j] ≥ O[i][j]              -- tensor must exist when created
+ * (4c) T[i][j-1] ≤ T[i][j] + Σ O[c][j]  -- tensor persists until consumed
+ * (5) T[i][0] ≤ O[i][0]          -- initial condition
+ * (6) Σᵢ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem  -- memory bound
+ *
+ * Pruning:
+ * (7) O[i][j] = 0 for j < |anc(i)|
+ * (8) T[i][j] = 0 for j < |anc(i)|
+ * (9) O[i][j] = 0 for j > n-1-|des(i)|
+ */
+
+void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
+                                const std::vector<uint64_t> &latestOp,
+                                const std::vector<uint64_t> &earliestTensor,
+                                const std::vector<uint64_t> &latestTensor) {
+    O.assign(graph.getSize(), std::vector<operations_research::MPVariable *>(
+                                  graph.getSize(), nullptr));
+    T.assign(graph.getSize(), std::vector<operations_research::MPVariable *>(
+                                  graph.getSize(), nullptr));
+
+    uint64_t num_O = 0, num_T = 0;
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (earliestOp[i] <= j && j <= latestOp[i]) {
+                O[i][j] = solver->MakeBoolVar("O_" + std::to_string(i) + "_" +
+                                              std::to_string(j));
+                num_O++;
+            }
+            if (earliestTensor[i] <= j && j <= latestTensor[i]) {
+                T[i][j] = solver->MakeBoolVar("T_" + std::to_string(i) + "_" +
+                                              std::to_string(j));
+                num_T++;
+            }
+        }
+    }
+
+    mem = solver->MakeNumVar(0, solver->infinity(), "mem");
+
+    if (debug) {
+        std::cout << "\nVariables: O=" << num_O << ", T=" << num_T
+                  << ", total=" << (num_O + num_T) << ", out of maximum "
+                  << graph.getSize() * graph.getSize() * 2 << std::endl;
+    }
+
+    // Constraint (1): exactly one operator per step
+    for (uint64_t j = 0; j < graph.getSize(); j++) {
+        operations_research::MPConstraint *ct = solver->MakeRowConstraint(
+            1, 1, "one_per_step_" + std::to_string(j));
+        for (uint64_t i = 0; i < graph.getSize(); i++) {
+            if (O[i][j])
+                ct->SetCoefficient(O[i][j], 1);
+        }
+    }
+
+    // Constraint (2): each operator scheduled exactly once
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        operations_research::MPConstraint *ct = solver->MakeRowConstraint(
+            1, 1, "scheduled_once_" + std::to_string(i));
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (O[i][j])
+                ct->SetCoefficient(O[i][j], 1);
+        }
+    }
+
+    // Constraint (3): inputs must be available
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (!O[i][j])
+                continue;
+            for (uint64_t k : graph.getInputTensors()[i]) {
+                if (T[k][j]) {
+                    operations_research::MPConstraint *ct =
+                        solver->MakeRowConstraint(-solver->infinity(), 0,
+                                                  "input_" + std::to_string(i) +
+                                                      "_" + std::to_string(j) +
+                                                      "_" + std::to_string(k));
+                    ct->SetCoefficient(O[i][j], 1);
+                    ct->SetCoefficient(T[k][j], -1);
+                } else {
+                    operations_research::MPConstraint *ct =
+                        solver->MakeRowConstraint(
+                            0, 0,
+                            "input_pruned_" + std::to_string(i) + "_" +
+                                std::to_string(j) + "_" + std::to_string(k));
+                    ct->SetCoefficient(O[i][j], 1);
                 }
             }
         }
     }
 
-    void computeDescendants() {
-        descendants.clear();
-        descendants.resize(num_nodes);
+    // Constraint (4a): tensor persistence upper bound
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        for (uint64_t j = 1; j < graph.getSize(); j++) {
+            if (!T[i][j])
+                continue;
+            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
+                -solver->infinity(), 0,
+                "persist_upper_" + std::to_string(i) + "_" + std::to_string(j));
+            ct->SetCoefficient(T[i][j], 1);
+            if (T[i][j - 1])
+                ct->SetCoefficient(T[i][j - 1], -1);
+            if (O[i][j])
+                ct->SetCoefficient(O[i][j], -1);
+        }
+    }
 
-        // Build descendants from ancestors: if j is ancestor of i, then i is
-        // descendant of j
-        for (uint64_t i = 0; i < num_nodes; i++) {
-            for (uint64_t ancestor : ancestors[i]) {
-                descendants[ancestor].insert(i);
+    // Constraint (4b): tensor must exist when created
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (O[i][j] && T[i][j]) {
+                operations_research::MPConstraint *ct =
+                    solver->MakeRowConstraint(-solver->infinity(), 0,
+                                              "must_exist_" +
+                                                  std::to_string(i) + "_" +
+                                                  std::to_string(j));
+                ct->SetCoefficient(O[i][j], 1);
+                ct->SetCoefficient(T[i][j], -1);
             }
         }
     }
 
-    void print(std::ostream &os) const {
-        os << "Nodes: " << num_nodes << std::endl;
+    // Constraint (4c): tensor persists until consumed
+    // Only add when at least one RHS variable exists
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        const auto &users = graph.getTensorUsers()[i];
+        if (users.empty())
+            continue;
 
-        for (uint64_t i = 0; i < num_nodes; i++) {
-            os << "\nNode: " << i << std::endl;
-            os << "    tensor_size=" << tensor_size[i]
-               << ", extra_size=" << extra_size[i] << std::endl;
+        for (uint64_t j = 1; j < graph.getSize(); j++) {
+            if (!T[i][j - 1])
+                continue;
 
-            os << "    inputs={";
-            for (auto it = input_tensors[i].begin();
-                 it != input_tensors[i].end(); ++it) {
-                if (it != input_tensors[i].begin())
-                    os << ", ";
-                os << *it;
+            // Check if any RHS variable exists
+            bool hasT_ij = (T[i][j] != nullptr);
+            bool hasAnyConsumer = false;
+            for (uint64_t c : users) {
+                if (O[c][j]) {
+                    hasAnyConsumer = true;
+                    break;
+                }
             }
-            os << "}, users={";
-            for (auto it = tensor_users[i].begin(); it != tensor_users[i].end();
-                 ++it) {
-                if (it != tensor_users[i].begin())
-                    os << ", ";
-                os << *it;
-            }
-            os << "}" << std::endl;
 
-            os << "    anc={";
-            for (auto it = ancestors[i].begin(); it != ancestors[i].end();
-                 ++it) {
-                if (it != ancestors[i].begin())
-                    os << ", ";
-                os << *it;
+            if (!hasT_ij && !hasAnyConsumer) {
+                // No RHS variables - skip constraint
+                continue;
             }
-            os << "}, des={";
-            for (auto it = descendants[i].begin(); it != descendants[i].end();
-                 ++it) {
-                if (it != descendants[i].begin())
-                    os << ", ";
-                os << *it;
+
+            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
+                -solver->infinity(), 0,
+                "persist_lower_" + std::to_string(i) + "_" + std::to_string(j));
+            ct->SetCoefficient(T[i][j - 1], 1);
+            if (T[i][j])
+                ct->SetCoefficient(T[i][j], -1);
+            for (uint64_t c : users) {
+                if (O[c][j])
+                    ct->SetCoefficient(O[c][j], -1);
             }
-            os << "}" << std::endl;
         }
     }
 
-    friend std::ostream &operator<<(std::ostream &os, const ILPGraph &graph) {
-        graph.print(os);
-        return os;
-    }
-};
-
-ILPGraph buildILPGraph(const core::Graph &graph) {
-    ILPGraph ilpGraph;
-    ilpGraph.num_nodes = graph.size;
-    ilpGraph.tensor_size.resize(graph.size);
-    ilpGraph.extra_size.resize(graph.size);
-    ilpGraph.input_tensors.resize(graph.size);
-
-    for (uint64_t node = 0; node < graph.size; ++node) {
-        ilpGraph.tensor_size[node] = 0;
-        ilpGraph.extra_size[node] = graph.nodeWeights[node];
-
-        for (const auto &[neighbor, edgeWeight] : graph.adj[node]) {
-            ilpGraph.input_tensors[neighbor].insert(node);
-            ilpGraph.tensor_size[node] =
-                std::max(ilpGraph.tensor_size[node], edgeWeight);
+    // Constraint (5): initial condition
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        if (T[i][0]) {
+            if (O[i][0]) {
+                operations_research::MPConstraint *ct =
+                    solver->MakeRowConstraint(-solver->infinity(), 0,
+                                              "init_" + std::to_string(i));
+                ct->SetCoefficient(T[i][0], 1);
+                ct->SetCoefficient(O[i][0], -1);
+            } else {
+                operations_research::MPConstraint *ct =
+                    solver->MakeRowConstraint(0, 0,
+                                              "init_zero_" + std::to_string(i));
+                ct->SetCoefficient(T[i][0], 1);
+            }
         }
     }
 
-    ilpGraph.computeTopology();
+    // Constraint (6): memory bound
+    for (uint64_t j = 0; j < graph.getSize(); j++) {
+        for (uint64_t k = 0; k < graph.getSize(); k++) {
+            if (!O[k][j])
+                continue;
 
-    return ilpGraph;
+            // ∑ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem
+            // Rearranged: ∑ T[i][j]·S[i] + ES[k]·O[k][j] - mem ≤ 0
+            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
+                -solver->infinity(), 0,
+                "mem_" + std::to_string(j) + "_" + std::to_string(k));
+
+            // Sum of live tensor sizes
+            for (uint64_t i = 0; i < graph.getSize(); i++) {
+                if (T[i][j]) {
+                    ct->SetCoefficient(T[i][j], graph.getTensorSizes()[i]);
+                }
+            }
+
+            // Extra workspace for operator k
+            ct->SetCoefficient(O[k][j], graph.getExtraSizes()[k]);
+
+            // -mem (moved to LHS)
+            ct->SetCoefficient(mem, -1);
+        }
+    }
+}
+
+std::vector<uint64_t> ILPSolver::solve(uint64_t timeLimitSeconds) {
+    std::vector<uint64_t> earliestOp(graph.getSize()),
+        latestOp(graph.getSize());
+    std::vector<uint64_t> earliestTensor(graph.getSize()),
+        latestTensor(graph.getSize());
+
+    computePruningBound(earliestOp, latestOp, earliestTensor, latestTensor);
+    createVariables(earliestOp, latestOp, earliestTensor, latestTensor);
+
+    // Objective: minimize peak memory
+    operations_research::MPObjective *objective = solver->MutableObjective();
+    objective->SetCoefficient(mem, 1);
+    objective->SetMinimization();
+
+    if (debug) {
+        std::cout << "Constraints: " << solver->NumConstraints() << std::endl;
+        std::cout << "\nSolving..." << std::endl;
+    }
+
+    solver->SetTimeLimit(absl::Seconds(timeLimitSeconds));
+    operations_research::MPSolver::ResultStatus status = solver->Solve();
+
+    if (status == operations_research::MPSolver::OPTIMAL ||
+        status == operations_research::MPSolver::FEASIBLE) {
+        if (debug) {
+            std::cout << (status == operations_research::MPSolver::OPTIMAL
+                              ? "OPTIMAL"
+                              : "FEASIBLE")
+                      << " solution found!" << std::endl;
+            std::cout << "Peak memory: "
+                      << static_cast<uint64_t>(mem->solution_value())
+                      << std::endl;
+        }
+        std::vector<uint64_t> schedule(graph.getSize(), -1);
+        for (uint64_t i = 0; i < graph.getSize(); i++) {
+            for (uint64_t j = 0; j < graph.getSize(); j++) {
+                if (O[i][j] && O[i][j]->solution_value() > 0.5) {
+                    schedule[i] = j;
+                    break;
+                }
+            }
+        }
+        return schedule;
+    }
+
+    if (debug) {
+        std::cout << "No solution found. Status: " << status << std::endl;
+    }
+
+    return {};
 }
 
 } // namespace ilp
@@ -407,11 +736,14 @@ void Scheduler::buildCoarseGraph() {
     }
 }
 
-void Scheduler::run() {
+std::vector<uint64_t> Scheduler::run() {
     buildCoarseGraph();
     std::cout << *coarseGraph;
-    ilp::ILPGraph ilpGraph = ilp::buildILPGraph(*coarseGraph);
+    ilp::ILPGraph ilpGraph(*coarseGraph);
     std::cout << ilpGraph;
+    ilp::ILPSolver solver(ilpGraph, true);
+    std::vector<uint64_t> schedule = solver.solve();
+    return schedule;
 }
 
 const std::unique_ptr<core::Graph> &Scheduler::getCoarseGraph() const {
