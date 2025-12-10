@@ -29,11 +29,11 @@ target_include_directories(dag_partitioning
 target_link_libraries(dag_partitioning
         PUBLIC
         robin_hood::robin_hood
+        ortools::ortools
         PRIVATE
         METIS::METIS
         GKlib::GKlib
         SCOTCH::SCOTCH
-        ortools::ortools
 )
 
 # Link OpenMP if enabled

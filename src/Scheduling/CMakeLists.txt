@@ -11,4 +11,5 @@ target_link_libraries(Scheduling
         PRIVATE
         Graph
         robin_hood::robin_hood
+        ortools::ortools
 )
