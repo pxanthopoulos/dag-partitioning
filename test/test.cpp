@@ -151,7 +151,9 @@ int main(int argc, char **argv) {
         enableParallel, minSizeForParallel, maxParallelDepth);
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto [partition, cutSize] = dag_partitioning::driver::RecursivePartitioner::resetPartitionNumbers(partitioner.run());
+    auto [partition, cutSize] =
+        dag_partitioning::driver::RecursivePartitioner::resetPartitionNumbers(
+            partitioner.run());
     auto end = std::chrono::high_resolution_clock::now();
     uint64_t duration =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start)
