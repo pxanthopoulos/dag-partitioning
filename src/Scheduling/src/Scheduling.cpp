@@ -1,13 +1,11 @@
 /**
  * @file Scheduling.cpp
- * @brief TODO
+ * @brief Implementation of memory-aware scheduling algorithms
  */
 
 #include "Scheduling.h"
 
 #include <cassert>
-
-// TODO: Think about structure, classes, etc
 
 namespace dag_partitioning {
 
@@ -308,7 +306,7 @@ void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
     }
 
     if (debug) {
-        std::cout << "Pruning bounds:" << std::endl;
+        std::cout << "\nPruning bounds:" << std::endl;
         for (uint64_t i = 0; i < graph.getSize(); i++) {
             std::cout << "  Node " << i << ":"
                       << " earliestOp=" << earliestOp[i]
@@ -536,7 +534,8 @@ void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
     }
 }
 
-std::vector<uint64_t> ILPSolver::solve(uint64_t timeLimitSeconds) {
+std::pair<std::vector<uint64_t>, uint64_t>
+ILPSolver::solve(uint64_t timeLimitSeconds) {
     std::vector<uint64_t> earliestOp(graph.getSize()),
         latestOp(graph.getSize());
     std::vector<uint64_t> earliestTensor(graph.getSize()),
@@ -560,15 +559,16 @@ std::vector<uint64_t> ILPSolver::solve(uint64_t timeLimitSeconds) {
 
     if (status == operations_research::MPSolver::OPTIMAL ||
         status == operations_research::MPSolver::FEASIBLE) {
+        uint64_t peakMemory = static_cast<uint64_t>(mem->solution_value());
+
         if (debug) {
             std::cout << (status == operations_research::MPSolver::OPTIMAL
                               ? "OPTIMAL"
                               : "FEASIBLE")
                       << " solution found!" << std::endl;
-            std::cout << "Peak memory: "
-                      << static_cast<uint64_t>(mem->solution_value())
-                      << std::endl;
+            std::cout << "Peak memory: " << peakMemory << std::endl;
         }
+
         std::vector<uint64_t> schedule(graph.getSize(), -1);
         for (uint64_t i = 0; i < graph.getSize(); i++) {
             for (uint64_t j = 0; j < graph.getSize(); j++) {
@@ -578,21 +578,168 @@ std::vector<uint64_t> ILPSolver::solve(uint64_t timeLimitSeconds) {
                 }
             }
         }
-        return schedule;
+
+        if (debug) {
+            std::cout << "Schedule: ";
+            for (uint64_t i = 0; i < graph.getSize(); i++) {
+                std::cout << schedule[i] << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        return {schedule, peakMemory};
     }
 
     if (debug) {
         std::cout << "No solution found. Status: " << status << std::endl;
     }
 
-    return {};
+    return {{}, 0};
 }
 
 } // namespace ilp
 
+namespace bruteforce {
+
+BruteForceSolver::BruteForceSolver(const ilp::ILPGraph &graph, bool debug)
+    : graph(graph), debug(debug) {}
+
+uint64_t
+BruteForceSolver::computePeakMemory(const std::vector<uint64_t> &order) const {
+    uint64_t n = order.size();
+    robin_hood::unordered_set<uint64_t> live;
+    uint64_t peak = 0;
+
+    const auto &inputTensors = graph.getInputTensors();
+    const auto &tensorSizes = graph.getTensorSizes();
+    const auto &extraSizes = graph.getExtraSizes();
+
+    for (uint64_t step = 0; step < n; step++) {
+        uint64_t op = order[step];
+
+        // Memory during execution: live tensors + new output + workspace
+        uint64_t mem = extraSizes[op] + tensorSizes[op];
+        for (uint64_t t : live) {
+            mem += tensorSizes[t];
+        }
+        peak = std::max(peak, mem);
+
+        // Add output tensor to live set
+        live.insert(op);
+
+        // Remove tensors whose last consumer just ran
+        // (A tensor can be freed after all its consumers have executed)
+        std::vector<uint64_t> toRemove;
+        for (uint64_t t : live) {
+            bool canFree = true;
+            for (uint64_t i = 0; i < n; i++) {
+                if (inputTensors[i].count(t)) {
+                    // Operator i needs tensor t - check if i has run
+                    bool hasRun = false;
+                    for (uint64_t s = 0; s <= step; s++) {
+                        if (order[s] == i) {
+                            hasRun = true;
+                            break;
+                        }
+                    }
+                    if (!hasRun) {
+                        canFree = false;
+                        break;
+                    }
+                }
+            }
+            if (canFree)
+                toRemove.push_back(t);
+        }
+        for (uint64_t t : toRemove)
+            live.erase(t);
+    }
+
+    return peak;
+}
+
+bool BruteForceSolver::canPlace(uint64_t node,
+                                const std::vector<bool> &placed) const {
+    const auto &inputTensors = graph.getInputTensors();
+    for (uint64_t dep : inputTensors[node]) {
+        if (!placed[dep])
+            return false;
+    }
+    return true;
+}
+
+void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
+                                 std::vector<bool> &placed, uint64_t &bestPeak,
+                                 std::vector<uint64_t> &bestOrder,
+                                 uint64_t &count,
+                                 std::vector<std::string> &outputs) const {
+    uint64_t n = graph.getSize();
+    if (current.size() == n) {
+        count++;
+        uint64_t peak = computePeakMemory(current);
+
+        if (debug) {
+            std::ostringstream oss;
+            oss << "Order " << count - 1 << " (peak " << peak << "): ";
+            for (const uint64_t &node : current) {
+                oss << node << " ";
+            }
+            outputs.emplace_back(oss.str());
+        }
+
+        if (peak < bestPeak) {
+            bestPeak = peak;
+            bestOrder = current;
+        }
+        return;
+    }
+
+    for (uint64_t node = 0; node < n; node++) {
+        if (!placed[node] && canPlace(node, placed)) {
+            placed[node] = true;
+            current.push_back(node);
+
+            enumerate(current, placed, bestPeak, bestOrder, count, outputs);
+
+            current.pop_back();
+            placed[node] = false;
+        }
+    }
+}
+
+std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
+    uint64_t n = graph.getSize();
+    std::vector<std::string> outputs;
+
+    std::vector<uint64_t> current, bestOrder;
+    std::vector<bool> placed(n, false);
+    uint64_t bestPeak = UINT64_MAX;
+    uint64_t count = 0;
+
+    enumerate(current, placed, bestPeak, bestOrder, count, outputs);
+
+    if (debug) {
+        std::cout << "\nBrute-force results:\n";
+        for (const auto &out : outputs) {
+            std::cout << out << std::endl;
+        }
+        std::cout << "Best result: peak memory " << bestPeak << " in order: ";
+        for (const uint64_t &node : bestOrder) {
+            std::cout << node << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    return {bestOrder, bestPeak};
+}
+
+} // namespace bruteforce
+
 Scheduler::Scheduler(const core::Graph &originalGraph,
-                     std::vector<uint64_t> &partitionMapping)
-    : originalGraph(originalGraph), partitionMapping(partitionMapping) {}
+                     std::vector<uint64_t> &partitionMapping, bool debug,
+                     bool verify)
+    : originalGraph(originalGraph), partitionMapping(partitionMapping),
+      debug(debug), verify(verify) {}
 
 std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
     std::vector<uint64_t> topologicalOrder = originalGraph.topologicalSort();
@@ -736,18 +883,26 @@ void Scheduler::buildCoarseGraph() {
     }
 }
 
-std::vector<uint64_t> Scheduler::run() {
+std::pair<std::vector<uint64_t>, uint64_t> Scheduler::run() {
     buildCoarseGraph();
-    std::cout << *coarseGraph;
     ilp::ILPGraph ilpGraph(*coarseGraph);
-    std::cout << ilpGraph;
-    ilp::ILPSolver solver(ilpGraph, true);
-    std::vector<uint64_t> schedule = solver.solve();
-    return schedule;
-}
 
-const std::unique_ptr<core::Graph> &Scheduler::getCoarseGraph() const {
-    return coarseGraph;
+    ilp::ILPSolver solver(ilpGraph, debug);
+    auto [schedule, peakMemory] = solver.solve();
+
+    if (verify) {
+        bruteforce::BruteForceSolver bfSolver(ilpGraph, debug);
+        auto [bfSchedule, bfPeakMemory] = bfSolver.solve();
+
+        if (peakMemory != bfPeakMemory) {
+            throw std::runtime_error("Verification failed: ILP peak memory (" +
+                                     std::to_string(peakMemory) +
+                                     ") != brute-force peak memory (" +
+                                     std::to_string(bfPeakMemory) + ")");
+        }
+    }
+
+    return {schedule, peakMemory};
 }
 
 } // namespace scheduling
