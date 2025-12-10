@@ -8,8 +8,12 @@
 
 #include <Graph.h>
 
+#include "ortools/linear_solver/linear_solver.h"
+#include "robin_hood.h"
 #include <cstdint>
+#include <iostream>
 #include <memory>
+#include <queue>
 #include <vector>
 
 namespace dag_partitioning {
@@ -48,6 +52,82 @@ struct Tensor {
 [[nodiscard]] uint64_t packBestFit(std::vector<Tensor> &tensors);
 
 } // namespace packing
+
+namespace ilp {
+
+class ILPGraph {
+  private:
+    uint64_t size;
+    std::vector<uint64_t> tensorSizes; // S_i: output tensor size
+    std::vector<uint64_t> extraSizes;  // ES_i: extra memory during execution
+    std::vector<robin_hood::unordered_set<uint64_t>>
+        inputTensors; // IN_i: input tensors
+
+    std::vector<robin_hood::unordered_set<uint64_t>> ancestors;
+    std::vector<robin_hood::unordered_set<uint64_t>> descendants;
+    std::vector<robin_hood::unordered_set<uint64_t>> tensorUsers;
+
+    void computeTopology();
+
+    void computeAncestors();
+
+    void computeDescendants();
+
+    void print(std::ostream &os) const;
+
+  public:
+    ILPGraph(const core::Graph &graph);
+
+    virtual ~ILPGraph() = default;
+
+    uint64_t getSize() const;
+
+    const std::vector<robin_hood::unordered_set<uint64_t>> &
+    getAncestors() const;
+
+    const std::vector<robin_hood::unordered_set<uint64_t>> &
+    getDescendants() const;
+
+    const std::vector<robin_hood::unordered_set<uint64_t>> &
+    getTensorUsers() const;
+
+    const std::vector<uint64_t> &getTensorSizes() const;
+
+    const std::vector<uint64_t> &getExtraSizes() const;
+
+    const std::vector<robin_hood::unordered_set<uint64_t>> &
+    getInputTensors() const;
+
+    friend std::ostream &operator<<(std::ostream &os, const ILPGraph &graph);
+};
+class ILPSolver {
+  protected:
+    const ILPGraph &graph;
+    std::unique_ptr<operations_research::MPSolver> solver;
+    bool debug = false;
+
+    // ILP variables
+    std::vector<std::vector<operations_research::MPVariable *>> O;
+    std::vector<std::vector<operations_research::MPVariable *>> T;
+    operations_research::MPVariable *mem = nullptr;
+
+    void computePruningBound(std::vector<uint64_t> &earliestOp,
+                             std::vector<uint64_t> &latestOp,
+                             std::vector<uint64_t> &earliestTensor,
+                             std::vector<uint64_t> &latestTensor) const;
+
+    void createVariables(const std::vector<uint64_t> &earliestOp,
+                         const std::vector<uint64_t> &latestOp,
+                         const std::vector<uint64_t> &earliestTensor,
+                         const std::vector<uint64_t> &latestTensor);
+
+  public:
+    ILPSolver(const ILPGraph &graph, bool debug);
+
+    std::vector<uint64_t> solve(uint64_t timeLimitSeconds = 60);
+};
+
+} // namespace ilp
 
 class Scheduler {
   protected:
@@ -93,8 +173,10 @@ class Scheduler {
      *
      * Builds the coarse graph with partition weights computed via memory
      * packing and inter-partition edge weights.
+     *
+     * @return Vector of partition numbers ordered by their scheduled execution
      */
-    void run();
+    [[nodiscard]] std::vector<uint64_t> run();
 
     /**
      * @brief Gets the coarse graph
