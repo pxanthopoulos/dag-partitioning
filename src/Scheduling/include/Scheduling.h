@@ -1,6 +1,10 @@
 /**
  * @file Scheduling.h
- * @brief TODO
+ * @brief Memory-aware scheduling for DAGs
+ *
+ * Performs scheduling of DAG operations to minimize peak memory
+ * usage. Uses an ILP-based solver (brute-force solver for small
+ * graphs for verification).
  */
 
 #ifndef DAG_PARTITIONING_SCHEDULING_H
@@ -67,39 +71,91 @@ class ILPGraph {
     std::vector<robin_hood::unordered_set<uint64_t>> descendants;
     std::vector<robin_hood::unordered_set<uint64_t>> tensorUsers;
 
+    /**
+     * @brief Computes topological relationships
+     */
     void computeTopology();
 
+    /**
+     * @brief Computes transitive closure of predecessors
+     */
     void computeAncestors();
 
+    /**
+     * @brief Computes transitive closure of successors
+     */
     void computeDescendants();
 
+    /**
+     * @brief Outputs graph structure for debugging
+     * @param os Output stream
+     */
     void print(std::ostream &os) const;
 
   public:
+    /**
+     * @brief Constructs ILP graph from a DAG
+     * @param graph Input graph to analyze
+     */
     ILPGraph(const core::Graph &graph);
 
     virtual ~ILPGraph() = default;
 
+    /**
+     * @brief Returns number of nodes
+     * @return Graph size
+     */
     uint64_t getSize() const;
 
+    /**
+     * @brief Returns ancestor sets for all nodes
+     * @return Vector of ancestor sets
+     */
     const std::vector<robin_hood::unordered_set<uint64_t>> &
     getAncestors() const;
 
+    /**
+     * @brief Returns descendant sets for all nodes
+     * @return Vector of descendant sets
+     */
     const std::vector<robin_hood::unordered_set<uint64_t>> &
     getDescendants() const;
 
+    /**
+     * @brief Returns tensor consumer information
+     * @return Vector of sets indicating which operations consume each tensor
+     */
     const std::vector<robin_hood::unordered_set<uint64_t>> &
     getTensorUsers() const;
 
+    /**
+     * @brief Returns output tensor sizes
+     * @return Vector of tensor sizes
+     */
     const std::vector<uint64_t> &getTensorSizes() const;
 
+    /**
+     * @brief Returns extra memory required during operation execution
+     * @return Vector of workspace memory sizes
+     */
     const std::vector<uint64_t> &getExtraSizes() const;
 
+    /**
+     * @brief Returns input tensor dependencies
+     * @return Vector of sets indicating which tensors each operation needs
+     */
     const std::vector<robin_hood::unordered_set<uint64_t>> &
     getInputTensors() const;
 
+    /**
+     * @brief Stream output operator
+     * @param os Output stream
+     * @param graph Graph to output
+     * @return Output stream
+     */
     friend std::ostream &operator<<(std::ostream &os, const ILPGraph &graph);
 };
+
 class ILPSolver {
   protected:
     const ILPGraph &graph;
@@ -111,29 +167,125 @@ class ILPSolver {
     std::vector<std::vector<operations_research::MPVariable *>> T;
     operations_research::MPVariable *mem = nullptr;
 
+    /**
+     * @brief Computes earliest/latest valid positions for pruning
+     *
+     * Uses topological information to determine valid time windows,
+     * reducing the number of ILP variables.
+     *
+     * @param earliestOp Earliest position each operation can run
+     * @param latestOp Latest position each operation can run
+     * @param earliestTensor Earliest time tensor can exist
+     * @param latestTensor Latest time tensor can be needed
+     */
     void computePruningBound(std::vector<uint64_t> &earliestOp,
                              std::vector<uint64_t> &latestOp,
                              std::vector<uint64_t> &earliestTensor,
                              std::vector<uint64_t> &latestTensor) const;
 
+    /**
+     * @brief Creates ILP variables and constraints
+     *
+     * Sets up O[i][j] (operation i at step j), T[i][j] (tensor i alive
+     * at step j), and memory bound variable. Adds all scheduling and
+     * memory constraints.
+     *
+     * @param earliestOp Earliest position each operation can run
+     * @param latestOp Latest position each operation can run
+     * @param earliestTensor Earliest time tensor can exist
+     * @param latestTensor Latest time tensor is needed
+     */
     void createVariables(const std::vector<uint64_t> &earliestOp,
                          const std::vector<uint64_t> &latestOp,
                          const std::vector<uint64_t> &earliestTensor,
                          const std::vector<uint64_t> &latestTensor);
 
   public:
+    /**
+     * @brief Constructor
+     * @param graph ILP graph representation
+     * @param debug Enable debug output
+     */
     ILPSolver(const ILPGraph &graph, bool debug);
 
-    std::vector<uint64_t> solve(uint64_t timeLimitSeconds = 60);
+    /**
+     * @brief Solves the scheduling problem using ILP
+     *
+     * @param timeLimitSeconds Time limit for solver in seconds
+     * @return Pair of (schedule, peak memory)
+     */
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
+    solve(uint64_t timeLimitSeconds = 60);
 };
 
 } // namespace ilp
+
+namespace bruteforce {
+
+class BruteForceSolver {
+  protected:
+    const ilp::ILPGraph &graph;
+    bool debug = false;
+
+    /**
+     * @brief Computes peak memory for a given execution order
+     *
+     * @param order Execution order of operations
+     * @return Peak memory usage
+     */
+    [[nodiscard]] uint64_t
+    computePeakMemory(const std::vector<uint64_t> &order) const;
+
+    /**
+     * @brief Checks if a node can be placed given current placement state
+     *
+     * @param node Node to check
+     * @param placed Vector indicating which nodes have been placed
+     * @return true if all dependencies are satisfied
+     */
+    [[nodiscard]] bool canPlace(uint64_t node,
+                                const std::vector<bool> &placed) const;
+
+    /**
+     * @brief Recursively enumerates all valid topological orders
+     *
+     * @param current Current partial order being built
+     * @param placed Vector tracking which nodes have been placed
+     * @param bestPeak Best peak memory found so far
+     * @param bestOrder Best order found so far
+     * @param count Counter for total orders enumerated
+     * @param outputs Storage for debug output strings
+     */
+    void enumerate(std::vector<uint64_t> &current, std::vector<bool> &placed,
+                   uint64_t &bestPeak, std::vector<uint64_t> &bestOrder,
+                   uint64_t &count, std::vector<std::string> &outputs) const;
+
+  public:
+    /**
+     * @brief Constructor
+     *
+     * @param graph ILP graph representing the scheduling problem
+     * @param debug Enable debug output
+     */
+    BruteForceSolver(const ilp::ILPGraph &graph, bool debug = false);
+
+    /**
+     * @brief Solves the scheduling problem via brute-force enumeration
+     *
+     * @return Pair of (schedule, peak memory)
+     */
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> solve() const;
+};
+
+} // namespace bruteforce
 
 class Scheduler {
   protected:
     const core::Graph &originalGraph;              // Original graph to schedule
     const std::vector<uint64_t> &partitionMapping; // Node to partition mapping
     std::unique_ptr<core::Graph> coarseGraph;      // Resulting coarse graph
+    bool debug = false;
+    bool verify = false;
 
     /**
      * @brief Calculates memory requirements for each partition
@@ -156,12 +308,16 @@ class Scheduler {
 
   public:
     /**
-     * @brief Constructor for Scheduler
+     * @brief Constructor
      * @param originalGraph Graph to schedule
      * @param partitionMapping Vector mapping each node to its partition
+     * @param debug Enable debug output
+     * @param verify If true, run brute-force solver and verify peak memory
+     * matches
      */
     Scheduler(const core::Graph &originalGraph,
-              std::vector<uint64_t> &partitionMapping);
+              std::vector<uint64_t> &partitionMapping, bool debug = false,
+              bool verify = false);
 
     /**
      * @brief Virtual destructor for proper cleanup
@@ -174,15 +330,10 @@ class Scheduler {
      * Builds the coarse graph with partition weights computed via memory
      * packing and inter-partition edge weights.
      *
-     * @return Vector of partition numbers ordered by their scheduled execution
+     * @return Pair of a vector with partition numbers ordered by their
+     * scheduled execution and the peak memory usage of the schedule
      */
-    [[nodiscard]] std::vector<uint64_t> run();
-
-    /**
-     * @brief Gets the coarse graph
-     * @return Const reference to the unique_ptr of the coarse graph
-     */
-    [[nodiscard]] const std::unique_ptr<core::Graph> &getCoarseGraph() const;
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> run();
 };
 
 } // namespace scheduling
