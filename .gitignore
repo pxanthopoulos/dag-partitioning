@@ -1,4 +1,7 @@
-.idea/*
-.vscode/*
-build/*
-install/*
+.idea/
+.vscode/
+build/
+install/
+.claude/
+**/*.dot
+**/*.dot.node-mappings.txt
