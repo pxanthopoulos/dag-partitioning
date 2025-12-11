@@ -329,7 +329,8 @@ void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
  * (3) O[i][j] ≤ T[k][j]  ∀k∈IN[i]  -- inputs available
  * (4a) T[i][j] ≤ T[i][j-1] + O[i][j]  -- tensor persistence upper bound
  * (4b) T[i][j] ≥ O[i][j]              -- tensor must exist when created
- * (4c) T[i][j-1] ≤ T[i][j] + Σ O[c][j]  -- tensor persists until consumed
+ * (4c) T[i][j] ≤ Σ_{c∈users[i]} Σ_{k≥j} O[c][k]  -- tensor freed after last
+ * consumer
  * (5) T[i][0] ≤ O[i][0]          -- initial condition
  * (6) Σᵢ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem  -- memory bound
  *
@@ -449,41 +450,31 @@ void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
         }
     }
 
-    // Constraint (4c): tensor persists until consumed
-    // Only add when at least one RHS variable exists
+    // Constraint (4c): tensor can only exist if at least one consumer hasn't
+    // run yet
+    // T[i][j] ≤ Σ_{c ∈ users} Σ_{k≥j} O[c][k]
     for (uint64_t i = 0; i < graph.getSize(); i++) {
         const auto &users = graph.getTensorUsers()[i];
         if (users.empty())
-            continue;
+            continue; // Output tensor, no constraint needed
 
-        for (uint64_t j = 1; j < graph.getSize(); j++) {
-            if (!T[i][j - 1])
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (!T[i][j])
                 continue;
 
-            // Check if any RHS variable exists
-            bool hasT_ij = (T[i][j] != nullptr);
-            bool hasAnyConsumer = false;
-            for (uint64_t c : users) {
-                if (O[c][j]) {
-                    hasAnyConsumer = true;
-                    break;
-                }
-            }
-
-            if (!hasT_ij && !hasAnyConsumer) {
-                // No RHS variables - skip constraint
-                continue;
-            }
-
+            // T[i][j] - Σ_{c} Σ_{k≥j} O[c][k] ≤ 0
             operations_research::MPConstraint *ct = solver->MakeRowConstraint(
                 -solver->infinity(), 0,
-                "persist_lower_" + std::to_string(i) + "_" + std::to_string(j));
-            ct->SetCoefficient(T[i][j - 1], 1);
-            if (T[i][j])
-                ct->SetCoefficient(T[i][j], -1);
+                "lifetime_" + std::to_string(i) + "_" + std::to_string(j));
+
+            ct->SetCoefficient(T[i][j], 1);
+
             for (uint64_t c : users) {
-                if (O[c][j])
-                    ct->SetCoefficient(O[c][j], -1);
+                for (uint64_t k = j; k < graph.getSize(); k++) {
+                    if (O[c][k]) {
+                        ct->SetCoefficient(O[c][k], -1);
+                    }
+                }
             }
         }
     }
