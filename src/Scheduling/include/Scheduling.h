@@ -208,14 +208,23 @@ class ILPSolver {
      */
     ILPSolver(const ILPGraph &graph, bool debug);
 
+    virtual ~ILPSolver() = default;
+
     /**
      * @brief Solves the scheduling problem using ILP
      *
      * @param timeLimitSeconds Time limit for solver in seconds
-     * @return Pair of (schedule, peak memory)
+     * @return Tuple of (solver status, schedule, peak memory)
      */
-    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
+    [[nodiscard]] std::tuple<operations_research::MPSolver::ResultStatus,
+                             std::vector<uint64_t>, uint64_t>
     solve(uint64_t timeLimitSeconds = 60);
+
+    /**
+     * @brief Outputs variable values for debugging
+     * @param os Output stream
+     */
+    void printVariables(std::ostream &os) const;
 };
 
 } // namespace ilp
@@ -268,6 +277,8 @@ class BruteForceSolver {
      * @param debug Enable debug output
      */
     BruteForceSolver(const ilp::ILPGraph &graph, bool debug = false);
+
+    virtual ~BruteForceSolver() = default;
 
     /**
      * @brief Solves the scheduling problem via brute-force enumeration

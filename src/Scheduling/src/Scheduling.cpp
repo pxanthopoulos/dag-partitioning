@@ -306,9 +306,9 @@ void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
     }
 
     if (debug) {
-        std::cout << "\nPruning bounds:" << std::endl;
+        std::cerr << "\nPruning bounds:" << std::endl;
         for (uint64_t i = 0; i < graph.getSize(); i++) {
-            std::cout << "  Node " << i << ":"
+            std::cerr << "  Node " << i << ":"
                       << " earliestOp=" << earliestOp[i]
                       << ", latestOp=" << latestOp[i]
                       << ", earliestTensor=" << earliestTensor[i]
@@ -367,7 +367,7 @@ void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
     mem = solver->MakeNumVar(0, solver->infinity(), "mem");
 
     if (debug) {
-        std::cout << "\nVariables: O=" << num_O << ", T=" << num_T
+        std::cerr << "\nVariables: O=" << num_O << ", T=" << num_T
                   << ", total=" << (num_O + num_T) << ", out of maximum "
                   << graph.getSize() * graph.getSize() * 2 << std::endl;
     }
@@ -534,7 +534,8 @@ void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
     }
 }
 
-std::pair<std::vector<uint64_t>, uint64_t>
+std::tuple<operations_research::MPSolver::ResultStatus, std::vector<uint64_t>,
+           uint64_t>
 ILPSolver::solve(uint64_t timeLimitSeconds) {
     std::vector<uint64_t> earliestOp(graph.getSize()),
         latestOp(graph.getSize());
@@ -550,8 +551,8 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
     objective->SetMinimization();
 
     if (debug) {
-        std::cout << "Constraints: " << solver->NumConstraints() << std::endl;
-        std::cout << "\nSolving..." << std::endl;
+        std::cerr << "Constraints: " << solver->NumConstraints() << std::endl;
+        std::cerr << "\nSolving..." << std::endl;
     }
 
     solver->SetTimeLimit(absl::Seconds(timeLimitSeconds));
@@ -562,11 +563,11 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
         uint64_t peakMemory = static_cast<uint64_t>(mem->solution_value());
 
         if (debug) {
-            std::cout << (status == operations_research::MPSolver::OPTIMAL
+            std::cerr << (status == operations_research::MPSolver::OPTIMAL
                               ? "OPTIMAL"
                               : "FEASIBLE")
                       << " solution found!" << std::endl;
-            std::cout << "Peak memory: " << peakMemory << std::endl;
+            std::cerr << "Peak memory: " << peakMemory << std::endl;
         }
 
         std::vector<uint64_t> schedule(graph.getSize(), -1);
@@ -580,21 +581,41 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
         }
 
         if (debug) {
-            std::cout << "Schedule: ";
+            std::cerr << "Schedule: ";
             for (uint64_t i = 0; i < graph.getSize(); i++) {
-                std::cout << schedule[i] << " ";
+                std::cerr << schedule[i] << " ";
             }
-            std::cout << std::endl;
+            std::cerr << std::endl;
         }
 
-        return {schedule, peakMemory};
+        return {status, schedule, peakMemory};
     }
 
     if (debug) {
-        std::cout << "No solution found. Status: " << status << std::endl;
+        std::cerr << "No solution found. Status: " << status << std::endl;
     }
 
-    return {{}, 0};
+    return {status, {}, 0};
+}
+
+void ILPSolver::printVariables(std::ostream &os) const {
+    for (uint64_t i = 0; i < graph.getSize(); i++) {
+        for (uint64_t j = 0; j < graph.getSize(); j++) {
+            if (O[i][j]) {
+                os << "O[" << i << "][" << j
+                   << "] = " << O[i][j]->solution_value() << std::endl;
+            } else {
+                os << "O[" << i << "][" << j << "] = NULL" << std::endl;
+            }
+            if (T[i][j]) {
+                os << "T[" << i << "][" << j
+                   << "] = " << T[i][j]->solution_value() << std::endl;
+            } else {
+                os << "T[" << i << "][" << j << "] = NULL" << std::endl;
+            }
+            os << std::endl;
+        }
+    }
 }
 
 } // namespace ilp
@@ -719,15 +740,15 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
     enumerate(current, placed, bestPeak, bestOrder, count, outputs);
 
     if (debug) {
-        std::cout << "\nBrute-force results:\n";
+        std::cerr << "\nBrute-force results:\n";
         for (const auto &out : outputs) {
-            std::cout << out << std::endl;
+            std::cerr << out << std::endl;
         }
-        std::cout << "Best result: peak memory " << bestPeak << " in order: ";
+        std::cerr << "Best result: peak memory " << bestPeak << " in order: ";
         for (const uint64_t &node : bestOrder) {
-            std::cout << node << " ";
+            std::cerr << node << " ";
         }
-        std::cout << std::endl;
+        std::cerr << std::endl;
     }
 
     return {bestOrder, bestPeak};
@@ -888,13 +909,70 @@ std::pair<std::vector<uint64_t>, uint64_t> Scheduler::run() {
     ilp::ILPGraph ilpGraph(*coarseGraph);
 
     ilp::ILPSolver solver(ilpGraph, debug);
-    auto [schedule, peakMemory] = solver.solve();
+    auto [status, schedule, peakMemory] = solver.solve();
 
     if (verify) {
         bruteforce::BruteForceSolver bfSolver(ilpGraph, debug);
         auto [bfSchedule, bfPeakMemory] = bfSolver.solve();
 
         if (peakMemory != bfPeakMemory) {
+            std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n"
+                      << std::endl;
+
+            std::cerr << "=== Coarse Graph ===\n";
+            std::cerr << *coarseGraph;
+            std::cerr << std::endl;
+
+            std::cerr << "=== ILPGraph ===\n";
+            std::cerr << ilpGraph;
+            std::cerr << std::endl;
+
+            std::cerr << "=== ILP Solution ===\n";
+            std::cerr << "Peak Memory: " << peakMemory << std::endl;
+            std::cerr << "Schedule: ";
+            for (size_t i = 0; i < schedule.size(); ++i) {
+                std::cerr << schedule[i] << " ";
+            }
+            std::cerr << "\n" << std::endl;
+
+            std::cerr << "=== Brute-Force Solution ===\n";
+            std::cerr << "Peak Memory: " << bfPeakMemory << std::endl;
+            std::cerr << "Schedule: ";
+            for (size_t i = 0; i < bfSchedule.size(); ++i) {
+                std::cerr << bfSchedule[i] << " ";
+            }
+            std::cerr << "\n" << std::endl;
+
+            solver.printVariables(std::cerr);
+
+            std::cerr << "\nStatus of the ILP solver: ";
+            switch (status) {
+            case operations_research::MPSolver::ResultStatus::OPTIMAL:
+                std::cerr << "OPTIMAL" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::FEASIBLE:
+                std::cerr << "FEASIBLE" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::INFEASIBLE:
+                std::cerr << "INFEASIBLE" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::UNBOUNDED:
+                std::cerr << "UNBOUNDED" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::ABNORMAL:
+                std::cerr << "ABNORMAL" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::NOT_SOLVED:
+                std::cerr << "NOT_SOLVED" << std::endl;
+                break;
+            case operations_research::MPSolver::ResultStatus::MODEL_INVALID:
+                std::cerr << "MODEL_INVALID" << std::endl;
+                break;
+            }
+
+            std::cerr << "\n=== VERIFICATION FAILED: DUMP END ===\n"
+                      << std::endl;
+
             throw std::runtime_error("Verification failed: ILP peak memory (" +
                                      std::to_string(peakMemory) +
                                      ") != brute-force peak memory (" +
