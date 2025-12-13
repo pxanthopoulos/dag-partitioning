@@ -1,5 +1,6 @@
 #include "Graph.h"
 #include "RecursivePartitioner.h"
+#include "Scheduling.h"
 
 #include <algorithm>
 #include <chrono>
@@ -20,24 +21,24 @@ uint64_t calculateMaxPartSize(const std::vector<uint64_t> &partition,
 
 void printResults(const std::vector<uint64_t> &partition,
                   const dag_partitioning::core::Graph &graph, uint64_t cutSize,
-                  const std::string &methodStr, uint64_t duration,
-                  uint64_t partitions) {
+                  const std::string &methodStr, uint64_t partitioningDuration,
+                  uint64_t partitions, uint64_t schedulingDuration) {
     uint64_t maxPartSize = calculateMaxPartSize(partition, graph, partitions);
     double imbalance =
         std::abs(((double)maxPartSize / (double)graph.totalWeight) * 100 -
                  ((double)100 / (double)partitions));
     imbalance = round(imbalance * 10) / 10;
     std::cout << methodStr << "," << cutSize << "," << imbalance << ","
-              << duration << "\n";
+              << partitioningDuration << "," << schedulingDuration << "\n";
 }
 
 int main(int argc, char **argv) {
-    if (argc < 7 || argc > 9) {
+    if (argc < 7 || argc > 10) {
         std::cerr << "Usage: " << argv[0]
                   << " <# of partitions> <dot file path> <clustering method> "
                      "<bisection method> "
                      "<refinement method> <enable parallel> "
-                     "[min size for parallel] [max parallel depth]"
+                     "[min size for parallel] [max parallel depth] [enable scheduling]"
                   << std::endl;
         std::cerr << "  clustering method: FORB, CYC, or HYB" << std::endl;
         std::cerr
@@ -53,6 +54,8 @@ int main(int argc, char **argv) {
         std::cerr << "  max parallel depth: maximum recursion depth for "
                      "parallelization (default: 10)"
                   << std::endl;
+        std::cerr << "  enable scheduling: 1 to enable scheduling, 0 to skip "
+                     "(default: 0)" << std::endl;
         return 1;
     }
 
@@ -126,12 +129,30 @@ int main(int argc, char **argv) {
     }
 
     uint64_t maxParallelDepth = 10;
-    if (argc == 9) {
+    if (argc >= 9) {
         try {
             maxParallelDepth = std::stoull(argv[8]);
         } catch (const std::exception &e) {
             std::cerr << "Error: Please provide a valid positive integer for "
                          "max parallel depth"
+                      << std::endl;
+            return 1;
+        }
+    }
+
+    // Parse enable scheduling flag (optional, defaults to false)
+    bool enableScheduling = false;
+    if (argc == 10) {
+        try {
+            int schedulingFlag = std::stoi(argv[9]);
+            if (schedulingFlag != 0 && schedulingFlag != 1) {
+                std::cerr << "Error: enable scheduling must be 0 or 1" << std::endl;
+                return 1;
+            }
+            enableScheduling = (schedulingFlag == 1);
+        } catch (const std::exception &e) {
+            std::cerr << "Error: Please provide a valid integer for "
+                         "enable scheduling (0 or 1)"
                       << std::endl;
             return 1;
         }
@@ -151,7 +172,7 @@ int main(int argc, char **argv) {
         enableParallel, minSizeForParallel, maxParallelDepth);
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto [partition, cutSize] =
+    auto [partitionMapping, cutSize] =
         dag_partitioning::driver::RecursivePartitioner::resetPartitionNumbers(
             partitioner.run());
     auto end = std::chrono::high_resolution_clock::now();
@@ -161,7 +182,22 @@ int main(int argc, char **argv) {
 
     std::string methodStr =
         clusteringMethod + "," + bisectionMethod + "," + refinementMethod;
-    printResults(partition, graph, cutSize, methodStr, duration, partitions);
+
+    uint64_t schedulingDuration = 0;
+
+    if (enableScheduling) {
+        dag_partitioning::scheduling::Scheduler scheduler(graph, partitionMapping,
+                                                          false, false);
+        start = std::chrono::high_resolution_clock::now();
+        auto [schedule, peakMemory] = scheduler.run();
+        end = std::chrono::high_resolution_clock::now();
+        schedulingDuration =
+            std::chrono::duration_cast<std::chrono::microseconds>(end - start)
+                .count();
+    }
+
+    printResults(partitionMapping, graph, cutSize, methodStr, duration,
+                 partitions, schedulingDuration);
 
     return 0;
 }
