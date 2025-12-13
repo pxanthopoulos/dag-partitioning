@@ -551,8 +551,8 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
 
     if (status == operations_research::MPSolver::OPTIMAL ||
         status == operations_research::MPSolver::FEASIBLE) {
-        uint64_t peakMemory = static_cast<uint64_t>(mem->solution_value());
-
+        uint64_t peakMemory =
+            static_cast<uint64_t>(std::round(mem->solution_value()));
         if (debug) {
             std::cerr << (status == operations_research::MPSolver::OPTIMAL
                               ? "OPTIMAL"
@@ -565,7 +565,7 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
         for (uint64_t i = 0; i < graph.getSize(); i++) {
             for (uint64_t j = 0; j < graph.getSize(); j++) {
                 if (O[i][j] && O[i][j]->solution_value() > 0.5) {
-                    schedule[i] = j;
+                    schedule[j] = i;
                     break;
                 }
             }
