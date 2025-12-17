@@ -6,6 +6,7 @@
 #include "Scheduling.h"
 
 #include <cassert>
+#include <stack>
 
 namespace dag_partitioning {
 
@@ -271,12 +272,22 @@ std::ostream &operator<<(std::ostream &os, const ILPGraph &graph) {
 ILPSolver::ILPSolver(const ILPGraph &graph, bool debug = false)
     : graph(graph), debug(debug) {
     solver.reset(operations_research::MPSolver::CreateSolver("SCIP"));
-    if (solver)
+    if (solver) {
+        if (debug) {
+            solver->EnableOutput();
+            solver->SetSolverSpecificParametersAsString(
+                "display/verblevel = 5");
+        }
         return;
+    }
 
     solver.reset(operations_research::MPSolver::CreateSolver("CBC"));
-    if (solver)
+    if (solver) {
+        if (debug) {
+            solver->EnableOutput();
+        }
         return;
+    }
 
     throw std::runtime_error(
         "Failed to create ILP solver: neither SCIP nor CBC available");
@@ -314,6 +325,169 @@ void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
                       << ", earliestTensor=" << earliestTensor[i]
                       << ", latestTensor=" << latestTensor[i] << std::endl;
         }
+    }
+}
+
+std::vector<uint64_t> ILPSolver::computeRPOSchedule() const {
+    uint64_t n = graph.getSize();
+    std::vector<uint64_t> schedule;
+    schedule.reserve(n);
+
+    // Build adjacency list for DFS (node -> children/successors)
+    std::vector<std::vector<uint64_t>> children(n);
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t input : graph.getInputTensors()[i]) {
+            children[input].push_back(i);
+        }
+    }
+
+    // Find root nodes (nodes with no inputs)
+    std::vector<uint64_t> roots;
+    for (uint64_t i = 0; i < n; i++) {
+        if (graph.getInputTensors()[i].empty()) {
+            roots.push_back(i);
+        }
+    }
+
+    // DFS to compute reverse post-order
+    std::vector<bool> visited(n, false);
+    std::vector<uint64_t> postOrder;
+    postOrder.reserve(n);
+
+    // Iterative DFS using explicit stack to avoid stack overflow
+    // Stack entries: (node, next_child_index, post_visit)
+    std::stack<std::tuple<uint64_t, size_t, bool>> dfsStack;
+
+    for (uint64_t root : roots) {
+        if (visited[root])
+            continue;
+
+        dfsStack.push({root, 0, false});
+
+        while (!dfsStack.empty()) {
+            auto &[node, childIdx, postVisit] = dfsStack.top();
+
+            if (postVisit) {
+                // Post-order visit: all children processed
+                postOrder.push_back(node);
+                dfsStack.pop();
+                continue;
+            }
+
+            if (!visited[node]) {
+                visited[node] = true;
+            }
+
+            // Find next unvisited child
+            while (childIdx < children[node].size() &&
+                   visited[children[node][childIdx]]) {
+                childIdx++;
+            }
+
+            if (childIdx < children[node].size()) {
+                uint64_t child = children[node][childIdx];
+                childIdx++; // Move to next child for when we return
+                dfsStack.push({child, 0, false});
+            } else {
+                // All children visited, mark for post-order processing
+                postVisit = true;
+            }
+        }
+    }
+
+    // Reverse post-order is the reverse of post-order
+    // This gives us a valid topological order that tends to minimize live
+    // tensors
+    for (auto it = postOrder.rbegin(); it != postOrder.rend(); ++it) {
+        schedule.push_back(*it);
+    }
+
+    if (debug) {
+        std::cerr << "\nRPO heuristic schedule: ";
+        for (uint64_t op : schedule) {
+            std::cerr << op << " ";
+        }
+        std::cerr << std::endl;
+    }
+
+    return schedule;
+}
+
+void ILPSolver::setWarmStart(const std::vector<uint64_t> &schedule) {
+    uint64_t n = graph.getSize();
+
+    // Create position mapping: opToStep[op] = step at which op is scheduled
+    std::vector<uint64_t> opToStep(n);
+    for (uint64_t step = 0; step < n; step++) {
+        opToStep[schedule[step]] = step;
+    }
+
+    // Compute which tensors are live at each step for the heuristic schedule
+    std::vector<robin_hood::unordered_set<uint64_t>> live(n);
+
+    for (uint64_t tensor = 0; tensor < n; tensor++) {
+        uint64_t birthStep = opToStep[tensor];
+
+        const auto &users = graph.getTensorUsers()[tensor];
+        uint64_t deathStep = birthStep;
+
+        for (uint64_t user : users) {
+            deathStep = std::max(deathStep, opToStep[user]);
+        }
+
+        for (uint64_t step = birthStep; step <= deathStep; step++) {
+            live[step].insert(tensor);
+        }
+    }
+
+    // Build hint pairs
+    std::vector<std::pair<const operations_research::MPVariable *, double>>
+        hint;
+
+    // Hints for O variables
+    for (uint64_t op = 0; op < n; op++) {
+        uint64_t scheduledStep = opToStep[op];
+        for (uint64_t step = 0; step < n; step++) {
+            if (O[op][step]) {
+                hint.emplace_back(O[op][step],
+                                  (step == scheduledStep) ? 1.0 : 0.0);
+            }
+        }
+    }
+
+    // Hints for T variables
+    for (uint64_t tensor = 0; tensor < n; tensor++) {
+        for (uint64_t step = 0; step < n; step++) {
+            if (T[tensor][step]) {
+                hint.emplace_back(T[tensor][step],
+                                  live[step].count(tensor) ? 1.0 : 0.0);
+            }
+        }
+    }
+
+    // Compute heuristic peak memory
+    uint64_t heuristicPeak = 0;
+    for (uint64_t step = 0; step < n; step++) {
+        uint64_t memAtStep = 0;
+
+        for (uint64_t tensor : live[step]) {
+            memAtStep += graph.getTensorSizes()[tensor];
+        }
+
+        uint64_t op = schedule[step];
+        memAtStep += graph.getExtraSizes()[op];
+
+        heuristicPeak = std::max(heuristicPeak, memAtStep);
+    }
+
+    // Add mem variable hint
+    hint.emplace_back(mem, static_cast<double>(heuristicPeak));
+
+    solver->SetHint(hint);
+
+    if (debug) {
+        std::cerr << "Warm start peak memory hint: " << heuristicPeak
+                  << std::endl;
     }
 }
 
@@ -536,6 +710,10 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
     computePruningBound(earliestOp, latestOp, earliestTensor, latestTensor);
     createVariables(earliestOp, latestOp, earliestTensor, latestTensor);
 
+    // Compute RPO heuristic and set as warm start
+    std::vector<uint64_t> rpoSchedule = computeRPOSchedule();
+    setWarmStart(rpoSchedule);
+
     // Objective: minimize peak memory
     operations_research::MPObjective *objective = solver->MutableObjective();
     objective->SetCoefficient(mem, 1);
@@ -547,7 +725,20 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
     }
 
     solver->SetTimeLimit(absl::Seconds(timeLimitSeconds));
+
+    auto start = std::chrono::steady_clock::now();
     operations_research::MPSolver::ResultStatus status = solver->Solve();
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+
+    std::ostringstream statusString;
+    statusString << status;
+    if (debug) {
+        std::cerr << "Solver status: " << statusString.str() << std::endl;
+        std::cerr << "Wall time: " << solver->wall_time() << " ms" << std::endl;
+        std::cerr << "Measured elapsed: " << elapsed << " seconds" << std::endl;
+    }
 
     if (status == operations_research::MPSolver::OPTIMAL ||
         status == operations_research::MPSolver::FEASIBLE) {
@@ -582,11 +773,8 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
         return {status, schedule, peakMemory};
     }
 
-    if (debug) {
-        std::cerr << "No solution found. Status: " << status << std::endl;
-    }
-
-    return {status, {}, 0};
+    throw std::runtime_error("No solution found by ILP solver. Status: " +
+                             statusString.str());
 }
 
 void ILPSolver::printVariables(std::ostream &os) const {
@@ -895,12 +1083,13 @@ void Scheduler::buildCoarseGraph() {
     }
 }
 
-std::pair<std::vector<uint64_t>, uint64_t> Scheduler::run() {
+std::pair<std::vector<uint64_t>, uint64_t>
+Scheduler::run(uint64_t timeLimitSeconds) {
     buildCoarseGraph();
     ilp::ILPGraph ilpGraph(*coarseGraph);
 
     ilp::ILPSolver solver(ilpGraph, debug);
-    auto [status, schedule, peakMemory] = solver.solve();
+    auto [status, schedule, peakMemory] = solver.solve(timeLimitSeconds);
 
     if (verify) {
         bruteforce::BruteForceSolver bfSolver(ilpGraph, debug);

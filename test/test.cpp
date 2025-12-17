@@ -38,7 +38,8 @@ int main(int argc, char **argv) {
                   << " <# of partitions> <dot file path> <clustering method> "
                      "<bisection method> "
                      "<refinement method> <enable parallel> "
-                     "[min size for parallel] [max parallel depth] [enable scheduling]"
+                     "[min size for parallel] [max parallel depth] [enable "
+                     "scheduling]"
                   << std::endl;
         std::cerr << "  clustering method: FORB, CYC, or HYB" << std::endl;
         std::cerr
@@ -55,7 +56,8 @@ int main(int argc, char **argv) {
                      "parallelization (default: 10)"
                   << std::endl;
         std::cerr << "  enable scheduling: 1 to enable scheduling, 0 to skip "
-                     "(default: 0)" << std::endl;
+                     "(default: 0)"
+                  << std::endl;
         return 1;
     }
 
@@ -146,7 +148,8 @@ int main(int argc, char **argv) {
         try {
             int schedulingFlag = std::stoi(argv[9]);
             if (schedulingFlag != 0 && schedulingFlag != 1) {
-                std::cerr << "Error: enable scheduling must be 0 or 1" << std::endl;
+                std::cerr << "Error: enable scheduling must be 0 or 1"
+                          << std::endl;
                 return 1;
             }
             enableScheduling = (schedulingFlag == 1);
@@ -186,8 +189,8 @@ int main(int argc, char **argv) {
     uint64_t schedulingDuration = 0;
 
     if (enableScheduling) {
-        dag_partitioning::scheduling::Scheduler scheduler(graph, partitionMapping,
-                                                          false, false);
+        dag_partitioning::scheduling::Scheduler scheduler(
+            graph, partitionMapping, false, false);
         start = std::chrono::high_resolution_clock::now();
         auto [schedule, peakMemory] = scheduler.run();
         end = std::chrono::high_resolution_clock::now();

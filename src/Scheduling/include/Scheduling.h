@@ -184,6 +184,28 @@ class ILPSolver {
                              std::vector<uint64_t> &latestTensor) const;
 
     /**
+     * @brief Computes RPO (Reverse Post-Order) schedule as heuristic
+     *
+     * RPO scheduling tends to complete subtrees before moving to siblings,
+     * which reduces the number of simultaneously live tensors. This provides
+     * a good initial solution for the ILP solver warm start.
+     *
+     * @return Vector where result[step] = operator scheduled at that step
+     */
+    [[nodiscard]] std::vector<uint64_t> computeRPOSchedule() const;
+
+    /**
+     * @brief Sets warm start hints for the ILP solver
+     *
+     * Provides the solver with an initial feasible solution from RPO
+     * scheduling, which can dramatically reduce solve time by giving
+     * the solver a good upper bound for pruning.
+     *
+     * @param schedule Heuristic schedule where schedule[step] = operator
+     */
+    void setWarmStart(const std::vector<uint64_t> &schedule);
+
+    /**
      * @brief Creates ILP variables and constraints
      *
      * Sets up O[i][j] (operation i at step j), T[i][j] (tensor i alive
@@ -218,7 +240,7 @@ class ILPSolver {
      */
     [[nodiscard]] std::tuple<operations_research::MPSolver::ResultStatus,
                              std::vector<uint64_t>, uint64_t>
-    solve(uint64_t timeLimitSeconds = 60);
+    solve(uint64_t timeLimitSeconds = 600);
 
     /**
      * @brief Outputs variable values for debugging
@@ -341,10 +363,12 @@ class Scheduler {
      * Builds the coarse graph with partition weights computed via memory
      * packing and inter-partition edge weights.
      *
+     * @param timeLimitSeconds Time limit for solver in seconds
      * @return Pair of a vector with partition numbers ordered by their
      * scheduled execution and the peak memory usage of the schedule
      */
-    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> run();
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
+    run(uint64_t timeLimitSeconds = 600);
 };
 
 } // namespace scheduling
