@@ -6,6 +6,7 @@
 #include "Scheduling.h"
 
 #include <cassert>
+#include <sstream>
 #include <stack>
 
 namespace dag_partitioning {
@@ -107,15 +108,13 @@ uint64_t packBestFit(std::vector<Tensor> &tensors) {
 
 } // namespace packing
 
-namespace ilp {
-
-ILPGraph::ILPGraph(const core::Graph &graph) {
+HyperGraph::HyperGraph(const core::Graph &graph) {
     size = graph.size;
-    tensorSizes.resize(graph.size);
-    extraSizes.resize(graph.size);
-    inputTensors.resize(graph.size);
+    tensorSizes.resize(size);
+    extraSizes.resize(size);
+    inputTensors.resize(size);
 
-    for (uint64_t node = 0; node < graph.size; ++node) {
+    for (uint64_t node = 0; node < size; ++node) {
         tensorSizes[node] = 0;
         extraSizes[node] = graph.nodeWeights[node];
 
@@ -128,12 +127,12 @@ ILPGraph::ILPGraph(const core::Graph &graph) {
     computeTopology();
 }
 
-void ILPGraph::computeTopology() {
+void HyperGraph::computeTopology() {
     computeAncestors();
     computeDescendants();
 }
 
-void ILPGraph::computeAncestors() {
+void HyperGraph::computeAncestors() {
     ancestors.clear();
     ancestors.resize(size);
     tensorUsers.clear();
@@ -179,7 +178,7 @@ void ILPGraph::computeAncestors() {
     }
 }
 
-void ILPGraph::computeDescendants() {
+void HyperGraph::computeDescendants() {
     descendants.clear();
     descendants.resize(size);
 
@@ -192,7 +191,7 @@ void ILPGraph::computeDescendants() {
     }
 }
 
-void ILPGraph::print(std::ostream &os) const {
+void HyperGraph::print(std::ostream &os) const {
     os << "Nodes: " << size << std::endl;
 
     for (uint64_t i = 0; i < size; i++) {
@@ -233,102 +232,47 @@ void ILPGraph::print(std::ostream &os) const {
     }
 }
 
-uint64_t ILPGraph::getSize() const { return size; }
+uint64_t HyperGraph::getSize() const { return size; }
 
 const std::vector<robin_hood::unordered_set<uint64_t>> &
-ILPGraph::getAncestors() const {
+HyperGraph::getAncestors() const {
     return ancestors;
 }
 
 const std::vector<robin_hood::unordered_set<uint64_t>> &
-ILPGraph::getDescendants() const {
+HyperGraph::getDescendants() const {
     return descendants;
 }
 
 const std::vector<robin_hood::unordered_set<uint64_t>> &
-ILPGraph::getTensorUsers() const {
+HyperGraph::getTensorUsers() const {
     return tensorUsers;
 }
 
-const std::vector<uint64_t> &ILPGraph::getTensorSizes() const {
+const std::vector<uint64_t> &HyperGraph::getTensorSizes() const {
     return tensorSizes;
 }
 
-const std::vector<uint64_t> &ILPGraph::getExtraSizes() const {
+const std::vector<uint64_t> &HyperGraph::getExtraSizes() const {
     return extraSizes;
 }
 
 const std::vector<robin_hood::unordered_set<uint64_t>> &
-ILPGraph::getInputTensors() const {
+HyperGraph::getInputTensors() const {
     return inputTensors;
 }
 
-// Stream output operator
-std::ostream &operator<<(std::ostream &os, const ILPGraph &graph) {
+std::ostream &operator<<(std::ostream &os, const HyperGraph &graph) {
     graph.print(os);
     return os;
 }
 
-ILPSolver::ILPSolver(const ILPGraph &graph, bool debug = false)
-    : graph(graph), debug(debug) {
-    solver.reset(operations_research::MPSolver::CreateSolver("SCIP"));
-    if (solver) {
-        if (debug) {
-            solver->EnableOutput();
-            solver->SetSolverSpecificParametersAsString(
-                "display/verblevel = 5");
-        }
-        return;
-    }
+namespace rpo {
 
-    solver.reset(operations_research::MPSolver::CreateSolver("CBC"));
-    if (solver) {
-        if (debug) {
-            solver->EnableOutput();
-        }
-        return;
-    }
+RPOScheduler::RPOScheduler(const HyperGraph &graph, bool debug)
+    : graph(graph), debug(debug) {}
 
-    throw std::runtime_error(
-        "Failed to create ILP solver: neither SCIP nor CBC available");
-}
-
-void ILPSolver::computePruningBound(std::vector<uint64_t> &earliestOp,
-                                    std::vector<uint64_t> &latestOp,
-                                    std::vector<uint64_t> &earliestTensor,
-                                    std::vector<uint64_t> &latestTensor) const {
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        earliestOp[i] = graph.getAncestors()[i].size();
-        latestOp[i] = graph.getSize() - 1 - graph.getDescendants()[i].size();
-        earliestTensor[i] = graph.getAncestors()[i].size();
-
-        // Constraint 10: tensor not needed after last consumer could run
-        const auto &users = graph.getTensorUsers()[i];
-        if (users.empty()) {
-            latestTensor[i] = graph.getSize() - 1; // Output tensor
-        } else {
-            // Find user with minimum descendants (can run latest)
-            uint64_t min_des = graph.getSize();
-            for (uint64_t u : users) {
-                min_des = std::min(min_des, graph.getDescendants()[u].size());
-            }
-            latestTensor[i] = graph.getSize() - 1 - min_des;
-        }
-    }
-
-    if (debug) {
-        std::cerr << "\nPruning bounds:" << std::endl;
-        for (uint64_t i = 0; i < graph.getSize(); i++) {
-            std::cerr << "  Node " << i << ":"
-                      << " earliestOp=" << earliestOp[i]
-                      << ", latestOp=" << latestOp[i]
-                      << ", earliestTensor=" << earliestTensor[i]
-                      << ", latestTensor=" << latestTensor[i] << std::endl;
-        }
-    }
-}
-
-std::vector<uint64_t> ILPSolver::computeRPOSchedule() const {
+std::pair<std::vector<uint64_t>, uint64_t> RPOScheduler::solve() const {
     uint64_t n = graph.getSize();
     std::vector<uint64_t> schedule;
     schedule.reserve(n);
@@ -355,7 +299,6 @@ std::vector<uint64_t> ILPSolver::computeRPOSchedule() const {
     postOrder.reserve(n);
 
     // Iterative DFS using explicit stack to avoid stack overflow
-    // Stack entries: (node, next_child_index, post_visit)
     std::stack<std::tuple<uint64_t, size_t, bool>> dfsStack;
 
     for (uint64_t root : roots) {
@@ -368,7 +311,6 @@ std::vector<uint64_t> ILPSolver::computeRPOSchedule() const {
             auto &[node, childIdx, postVisit] = dfsStack.top();
 
             if (postVisit) {
-                // Post-order visit: all children processed
                 postOrder.push_back(node);
                 dfsStack.pop();
                 continue;
@@ -386,51 +328,338 @@ std::vector<uint64_t> ILPSolver::computeRPOSchedule() const {
 
             if (childIdx < children[node].size()) {
                 uint64_t child = children[node][childIdx];
-                childIdx++; // Move to next child for when we return
+                childIdx++;
                 dfsStack.push({child, 0, false});
             } else {
-                // All children visited, mark for post-order processing
                 postVisit = true;
             }
         }
     }
 
-    // Reverse post-order is the reverse of post-order
-    // This gives us a valid topological order that tends to minimize live
-    // tensors
+    // Reverse post-order
     for (auto it = postOrder.rbegin(); it != postOrder.rend(); ++it) {
         schedule.push_back(*it);
     }
 
     if (debug) {
-        std::cerr << "\nRPO heuristic schedule: ";
+        std::cerr << "\nRPO schedule: ";
         for (uint64_t op : schedule) {
             std::cerr << op << " ";
         }
         std::cerr << std::endl;
     }
 
-    return schedule;
-}
-
-void ILPSolver::setWarmStart(const std::vector<uint64_t> &schedule) {
-    uint64_t n = graph.getSize();
-
-    // Create position mapping: opToStep[op] = step at which op is scheduled
+    // Compute opToStep mapping
     std::vector<uint64_t> opToStep(n);
     for (uint64_t step = 0; step < n; step++) {
         opToStep[schedule[step]] = step;
     }
 
-    // Compute which tensors are live at each step for the heuristic schedule
-    std::vector<robin_hood::unordered_set<uint64_t>> live(n);
+    // Compute peak memory
+    uint64_t peakMemory = 0;
+    for (uint64_t step = 0; step < n; step++) {
+        uint64_t memAtStep = 0;
 
+        for (uint64_t tensor = 0; tensor < n; tensor++) {
+            uint64_t birthStep = opToStep[tensor];
+            const auto &users = graph.getTensorUsers()[tensor];
+
+            uint64_t deathStep = birthStep;
+            for (uint64_t user : users) {
+                deathStep = std::max(deathStep, opToStep[user]);
+            }
+
+            if (birthStep <= step && step <= deathStep) {
+                memAtStep += graph.getTensorSizes()[tensor];
+            }
+        }
+
+        uint64_t op = schedule[step];
+        memAtStep += graph.getExtraSizes()[op];
+
+        peakMemory = std::max(peakMemory, memAtStep);
+    }
+
+    if (debug) {
+        std::cerr << "RPO peak memory: " << peakMemory << std::endl;
+    }
+
+    return {schedule, peakMemory};
+}
+
+} // namespace rpo
+
+namespace cpsat {
+
+CPSATSolver::CPSATSolver(const HyperGraph &graph, bool debug)
+    : graph(graph), debug(debug) {
+    uint64_t n = graph.getSize();
+    earliestOp.resize(n);
+    latestOp.resize(n);
+    earliestTensor.resize(n);
+    latestTensor.resize(n);
+
+    cpModel = operations_research::sat::CpModelBuilder();
+}
+
+/**
+ * Pruning:
+ * (7) O[i][j] exists for j >= |anc(i)|
+ * (8) T[i][j] exists for j >= |anc(i)|
+ * (9) O[i][j] exists for j <= n-1-|des(i)|
+ */
+void CPSATSolver::computePruningBounds() {
+    uint64_t n = graph.getSize();
+    for (uint64_t i = 0; i < n; i++) {
+        earliestOp[i] = graph.getAncestors()[i].size();
+        latestOp[i] = n - 1 - graph.getDescendants()[i].size();
+        earliestTensor[i] = graph.getAncestors()[i].size();
+
+        const auto &users = graph.getTensorUsers()[i];
+        if (users.empty()) {
+            latestTensor[i] = n - 1;
+        } else {
+            uint64_t minDes = n;
+            for (uint64_t u : users) {
+                minDes = std::min(minDes, graph.getDescendants()[u].size());
+            }
+            latestTensor[i] = n - 1 - minDes;
+        }
+    }
+
+    if (debug) {
+        std::cerr << "\nPruning bounds:" << std::endl;
+        for (uint64_t i = 0; i < n; i++) {
+            std::cerr << "  Node " << i << ":"
+                      << " earliestOp=" << earliestOp[i]
+                      << ", latestOp=" << latestOp[i]
+                      << ", earliestTensor=" << earliestTensor[i]
+                      << ", latestTensor=" << latestTensor[i] << std::endl;
+        }
+    }
+}
+
+bool CPSATSolver::hasO(uint64_t i, uint64_t j) const {
+    return earliestOp[i] <= j && j <= latestOp[i];
+}
+
+bool CPSATSolver::hasT(uint64_t i, uint64_t j) const {
+    return earliestTensor[i] <= j && j <= latestTensor[i];
+}
+
+uint64_t CPSATSolver::oKey(uint64_t i, uint64_t j) const {
+    return i * graph.getSize() + j;
+}
+
+uint64_t CPSATSolver::tKey(uint64_t i, uint64_t j) const {
+    return i * graph.getSize() + j;
+}
+
+operations_research::sat::BoolVar CPSATSolver::getO(uint64_t i,
+                                                    uint64_t j) const {
+    return O.at(oKey(i, j));
+}
+
+operations_research::sat::BoolVar CPSATSolver::getT(uint64_t i,
+                                                    uint64_t j) const {
+    return T.at(tKey(i, j));
+}
+
+/**
+ * CP-SAT Model Formulation:
+ *
+ * Variables:
+ * - O[i][j] ∈ {0,1}: operator i scheduled at step j
+ * - T[i][j] ∈ {0,1}: tensor i in memory at step j
+ * - mem ∈ [0, memoryUpperBound]: peak memory
+ *
+ * Constraints:
+ * (1) ExactlyOne(O[i][j] for all i) for each j -- one operator per step
+ * (2) ExactlyOne(O[i][j] for all j) for each i -- each operator scheduled once
+ * (3) O[i][j] => T[k][j] for all k∈IN[i]   -- inputs available (implication)
+ * (4a) T[i][j] => T[i][j-1] OR O[i][j]     -- tensor persistence upper bound
+ * (4b) O[i][j] => T[i][j]                  -- tensor must exist when created
+ * (4c) T[i][j] => OR_{c∈users} OR_{k>=j} O[c][k] -- tensor freed after last
+ * consumer
+ * (5) T[i][0] => O[i][0]          -- initial condition
+ * (6) Σᵢ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem  -- memory bound
+ *
+ * Objective: minimize mem
+ */
+void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
+    uint64_t n = graph.getSize();
+
+    // Create O and T variables
+    uint64_t numO = 0, numT = 0;
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 0; j < n; j++) {
+            if (hasO(i, j)) {
+                O[oKey(i, j)] = cpModel.NewBoolVar();
+                numO++;
+            }
+            if (hasT(i, j)) {
+                T[tKey(i, j)] = cpModel.NewBoolVar();
+                numT++;
+            }
+        }
+    }
+
+    mem = cpModel.NewIntVar({0, static_cast<int64_t>(memoryUpperBound)});
+
+    if (debug) {
+        std::cerr << "\nVariables: O=" << numO << ", T=" << numT
+                  << ", total=" << (numO + numT) << std::endl;
+    }
+
+    // Constraint (1): exactly one operator per step
+    for (uint64_t j = 0; j < n; j++) {
+        std::vector<operations_research::sat::BoolVar> opsAtStep;
+        for (uint64_t i = 0; i < n; i++) {
+            if (hasO(i, j)) {
+                opsAtStep.push_back(getO(i, j));
+            }
+        }
+        cpModel.AddExactlyOne(opsAtStep);
+    }
+
+    // Constraint (2): each operator scheduled exactly once
+    for (uint64_t i = 0; i < n; i++) {
+        std::vector<operations_research::sat::BoolVar> stepsForOp;
+        for (uint64_t j = 0; j < n; j++) {
+            if (hasO(i, j)) {
+                stepsForOp.push_back(getO(i, j));
+            }
+        }
+        cpModel.AddExactlyOne(stepsForOp);
+    }
+
+    // Constraint (3): inputs must be available (O[i][j] => T[k][j])
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 0; j < n; j++) {
+            if (!hasO(i, j))
+                continue;
+
+            for (uint64_t k : graph.getInputTensors()[i]) {
+                if (hasT(k, j)) {
+                    cpModel.AddImplication(getO(i, j), getT(k, j));
+                } else {
+                    cpModel.AddEquality(getO(i, j), 0);
+                }
+            }
+        }
+    }
+
+    // Constraint (4a): T[i][j] => T[i][j-1] OR O[i][j]
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 1; j < n; j++) {
+            if (!hasT(i, j))
+                continue;
+
+            std::vector<operations_research::sat::BoolVar> clause;
+            clause.push_back(getT(i, j).Not());
+
+            if (hasT(i, j - 1)) {
+                clause.push_back(getT(i, j - 1));
+            }
+            if (hasO(i, j)) {
+                clause.push_back(getO(i, j));
+            }
+
+            cpModel.AddBoolOr(clause);
+        }
+    }
+
+    // Constraint (4b): O[i][j] => T[i][j]
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 0; j < n; j++) {
+            if (hasO(i, j) && hasT(i, j)) {
+                cpModel.AddImplication(getO(i, j), getT(i, j));
+            }
+        }
+    }
+
+    // Constraint (4c): T[i][j] => at least one consumer hasn't run yet
+    for (uint64_t i = 0; i < n; i++) {
+        const auto &users = graph.getTensorUsers()[i];
+        if (users.empty())
+            continue;
+
+        for (uint64_t j = 0; j < n; j++) {
+            if (!hasT(i, j))
+                continue;
+
+            std::vector<operations_research::sat::BoolVar> futureConsumers;
+            for (uint64_t c : users) {
+                for (uint64_t k = j; k < n; k++) {
+                    if (hasO(c, k)) {
+                        futureConsumers.push_back(getO(c, k));
+                    }
+                }
+            }
+
+            if (futureConsumers.empty()) {
+                cpModel.AddEquality(getT(i, j), 0);
+            } else {
+                std::vector<operations_research::sat::BoolVar> clause;
+                clause.push_back(getT(i, j).Not());
+                clause.insert(clause.end(), futureConsumers.begin(),
+                              futureConsumers.end());
+                cpModel.AddBoolOr(clause);
+            }
+        }
+    }
+
+    // Constraint (5): T[i][0] => O[i][0]
+    for (uint64_t i = 0; i < n; i++) {
+        if (hasT(i, 0)) {
+            if (hasO(i, 0)) {
+                cpModel.AddImplication(getT(i, 0), getO(i, 0));
+            } else {
+                cpModel.AddEquality(getT(i, 0), 0);
+            }
+        }
+    }
+
+    // Constraint (6): memory bound at each step
+    for (uint64_t j = 0; j < n; j++) {
+        for (uint64_t k = 0; k < n; k++) {
+            if (!hasO(k, j))
+                continue;
+
+            operations_research::sat::LinearExpr memExpr;
+            for (uint64_t i = 0; i < n; i++) {
+                if (hasT(i, j)) {
+                    memExpr += getT(i, j) *
+                               static_cast<int64_t>(graph.getTensorSizes()[i]);
+                }
+            }
+            memExpr +=
+                getO(k, j) * static_cast<int64_t>(graph.getExtraSizes()[k]);
+
+            cpModel.AddLessOrEqual(memExpr, mem);
+        }
+    }
+
+    cpModel.Minimize(mem);
+}
+
+void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
+                                    uint64_t peakMemory) {
+    uint64_t n = graph.getSize();
+
+    // Compute opToStep mapping
+    std::vector<uint64_t> opToStep(n);
+    for (uint64_t step = 0; step < n; step++) {
+        opToStep[schedule[step]] = step;
+    }
+
+    // Compute tensor liveness
+    std::vector<robin_hood::unordered_set<uint64_t>> live(n);
     for (uint64_t tensor = 0; tensor < n; tensor++) {
         uint64_t birthStep = opToStep[tensor];
-
         const auto &users = graph.getTensorUsers()[tensor];
-        uint64_t deathStep = birthStep;
 
+        uint64_t deathStep = birthStep;
         for (uint64_t user : users) {
             deathStep = std::max(deathStep, opToStep[user]);
         }
@@ -440,322 +669,99 @@ void ILPSolver::setWarmStart(const std::vector<uint64_t> &schedule) {
         }
     }
 
-    // Build hint pairs
-    std::vector<std::pair<const operations_research::MPVariable *, double>>
-        hint;
-
-    // Hints for O variables
+    // Add hints for O variables
     for (uint64_t op = 0; op < n; op++) {
         uint64_t scheduledStep = opToStep[op];
         for (uint64_t step = 0; step < n; step++) {
-            if (O[op][step]) {
-                hint.emplace_back(O[op][step],
-                                  (step == scheduledStep) ? 1.0 : 0.0);
+            if (hasO(op, step)) {
+                cpModel.AddHint(getO(op, step), step == scheduledStep ? 1 : 0);
             }
         }
     }
 
-    // Hints for T variables
+    // Add hints for T variables
     for (uint64_t tensor = 0; tensor < n; tensor++) {
         for (uint64_t step = 0; step < n; step++) {
-            if (T[tensor][step]) {
-                hint.emplace_back(T[tensor][step],
-                                  live[step].count(tensor) ? 1.0 : 0.0);
+            if (hasT(tensor, step)) {
+                cpModel.AddHint(getT(tensor, step),
+                                live[step].count(tensor) ? 1 : 0);
             }
         }
     }
 
-    // Compute heuristic peak memory
-    uint64_t heuristicPeak = 0;
-    for (uint64_t step = 0; step < n; step++) {
-        uint64_t memAtStep = 0;
-
-        for (uint64_t tensor : live[step]) {
-            memAtStep += graph.getTensorSizes()[tensor];
-        }
-
-        uint64_t op = schedule[step];
-        memAtStep += graph.getExtraSizes()[op];
-
-        heuristicPeak = std::max(heuristicPeak, memAtStep);
-    }
-
-    // Add mem variable hint
-    hint.emplace_back(mem, static_cast<double>(heuristicPeak));
-
-    solver->SetHint(hint);
-
-    if (debug) {
-        std::cerr << "Warm start peak memory hint: " << heuristicPeak
-                  << std::endl;
-    }
+    // Add hint for mem variable
+    cpModel.AddHint(mem, static_cast<int64_t>(peakMemory));
 }
 
-/**
- * Variables:
- * - O[i][j] ∈ {0,1}: operator i scheduled at step j
- * - T[i][j] ∈ {0,1}: tensor i in memory at step j
- * - mem: peak memory
- *
- * Constraints:
- * (1) Σᵢ O[i][j] = 1  ∀j        -- one operator per step
- * (2) Σⱼ O[i][j] = 1  ∀i        -- each operator scheduled once
- * (3) O[i][j] ≤ T[k][j]  ∀k∈IN[i]  -- inputs available
- * (4a) T[i][j] ≤ T[i][j-1] + O[i][j]  -- tensor persistence upper bound
- * (4b) T[i][j] ≥ O[i][j]              -- tensor must exist when created
- * (4c) T[i][j] ≤ Σ_{c∈users[i]} Σ_{k≥j} O[c][k]  -- tensor freed after last
- * consumer
- * (5) T[i][0] ≤ O[i][0]          -- initial condition
- * (6) Σᵢ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem  -- memory bound
- *
- * Pruning:
- * (7) O[i][j] = 0 for j < |anc(i)|
- * (8) T[i][j] = 0 for j < |anc(i)|
- * (9) O[i][j] = 0 for j > n-1-|des(i)|
- */
-
-void ILPSolver::createVariables(const std::vector<uint64_t> &earliestOp,
-                                const std::vector<uint64_t> &latestOp,
-                                const std::vector<uint64_t> &earliestTensor,
-                                const std::vector<uint64_t> &latestTensor) {
-    O.assign(graph.getSize(), std::vector<operations_research::MPVariable *>(
-                                  graph.getSize(), nullptr));
-    T.assign(graph.getSize(), std::vector<operations_research::MPVariable *>(
-                                  graph.getSize(), nullptr));
-
-    uint64_t num_O = 0, num_T = 0;
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (earliestOp[i] <= j && j <= latestOp[i]) {
-                O[i][j] = solver->MakeBoolVar("O_" + std::to_string(i) + "_" +
-                                              std::to_string(j));
-                num_O++;
-            }
-            if (earliestTensor[i] <= j && j <= latestTensor[i]) {
-                T[i][j] = solver->MakeBoolVar("T_" + std::to_string(i) + "_" +
-                                              std::to_string(j));
-                num_T++;
-            }
-        }
-    }
-
-    mem = solver->MakeNumVar(0, solver->infinity(), "mem");
-
-    if (debug) {
-        std::cerr << "\nVariables: O=" << num_O << ", T=" << num_T
-                  << ", total=" << (num_O + num_T) << ", out of maximum "
-                  << graph.getSize() * graph.getSize() * 2 << std::endl;
-    }
-
-    // Constraint (1): exactly one operator per step
-    for (uint64_t j = 0; j < graph.getSize(); j++) {
-        operations_research::MPConstraint *ct = solver->MakeRowConstraint(
-            1, 1, "one_per_step_" + std::to_string(j));
-        for (uint64_t i = 0; i < graph.getSize(); i++) {
-            if (O[i][j])
-                ct->SetCoefficient(O[i][j], 1);
-        }
-    }
-
-    // Constraint (2): each operator scheduled exactly once
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        operations_research::MPConstraint *ct = solver->MakeRowConstraint(
-            1, 1, "scheduled_once_" + std::to_string(i));
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (O[i][j])
-                ct->SetCoefficient(O[i][j], 1);
-        }
-    }
-
-    // Constraint (3): inputs must be available
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (!O[i][j])
-                continue;
-            for (uint64_t k : graph.getInputTensors()[i]) {
-                if (T[k][j]) {
-                    operations_research::MPConstraint *ct =
-                        solver->MakeRowConstraint(-solver->infinity(), 0,
-                                                  "input_" + std::to_string(i) +
-                                                      "_" + std::to_string(j) +
-                                                      "_" + std::to_string(k));
-                    ct->SetCoefficient(O[i][j], 1);
-                    ct->SetCoefficient(T[k][j], -1);
-                } else {
-                    operations_research::MPConstraint *ct =
-                        solver->MakeRowConstraint(
-                            0, 0,
-                            "input_pruned_" + std::to_string(i) + "_" +
-                                std::to_string(j) + "_" + std::to_string(k));
-                    ct->SetCoefficient(O[i][j], 1);
-                }
-            }
-        }
-    }
-
-    // Constraint (4a): tensor persistence upper bound
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        for (uint64_t j = 1; j < graph.getSize(); j++) {
-            if (!T[i][j])
-                continue;
-            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
-                -solver->infinity(), 0,
-                "persist_upper_" + std::to_string(i) + "_" + std::to_string(j));
-            ct->SetCoefficient(T[i][j], 1);
-            if (T[i][j - 1])
-                ct->SetCoefficient(T[i][j - 1], -1);
-            if (O[i][j])
-                ct->SetCoefficient(O[i][j], -1);
-        }
-    }
-
-    // Constraint (4b): tensor must exist when created
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (O[i][j] && T[i][j]) {
-                operations_research::MPConstraint *ct =
-                    solver->MakeRowConstraint(-solver->infinity(), 0,
-                                              "must_exist_" +
-                                                  std::to_string(i) + "_" +
-                                                  std::to_string(j));
-                ct->SetCoefficient(O[i][j], 1);
-                ct->SetCoefficient(T[i][j], -1);
-            }
-        }
-    }
-
-    // Constraint (4c): tensor can only exist if at least one consumer hasn't
-    // run yet
-    // T[i][j] ≤ Σ_{c ∈ users} Σ_{k≥j} O[c][k]
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        const auto &users = graph.getTensorUsers()[i];
-        if (users.empty())
-            continue; // Output tensor, no constraint needed
-
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (!T[i][j])
-                continue;
-
-            // T[i][j] - Σ_{c} Σ_{k≥j} O[c][k] ≤ 0
-            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
-                -solver->infinity(), 0,
-                "lifetime_" + std::to_string(i) + "_" + std::to_string(j));
-
-            ct->SetCoefficient(T[i][j], 1);
-
-            for (uint64_t c : users) {
-                for (uint64_t k = j; k < graph.getSize(); k++) {
-                    if (O[c][k]) {
-                        ct->SetCoefficient(O[c][k], -1);
-                    }
-                }
-            }
-        }
-    }
-
-    // Constraint (5): initial condition
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        if (T[i][0]) {
-            if (O[i][0]) {
-                operations_research::MPConstraint *ct =
-                    solver->MakeRowConstraint(-solver->infinity(), 0,
-                                              "init_" + std::to_string(i));
-                ct->SetCoefficient(T[i][0], 1);
-                ct->SetCoefficient(O[i][0], -1);
-            } else {
-                operations_research::MPConstraint *ct =
-                    solver->MakeRowConstraint(0, 0,
-                                              "init_zero_" + std::to_string(i));
-                ct->SetCoefficient(T[i][0], 1);
-            }
-        }
-    }
-
-    // Constraint (6): memory bound
-    for (uint64_t j = 0; j < graph.getSize(); j++) {
-        for (uint64_t k = 0; k < graph.getSize(); k++) {
-            if (!O[k][j])
-                continue;
-
-            // ∑ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem
-            // Rearranged: ∑ T[i][j]·S[i] + ES[k]·O[k][j] - mem ≤ 0
-            operations_research::MPConstraint *ct = solver->MakeRowConstraint(
-                -solver->infinity(), 0,
-                "mem_" + std::to_string(j) + "_" + std::to_string(k));
-
-            // Sum of live tensor sizes
-            for (uint64_t i = 0; i < graph.getSize(); i++) {
-                if (T[i][j]) {
-                    ct->SetCoefficient(T[i][j], graph.getTensorSizes()[i]);
-                }
-            }
-
-            // Extra workspace for operator k
-            ct->SetCoefficient(O[k][j], graph.getExtraSizes()[k]);
-
-            // -mem (moved to LHS)
-            ct->SetCoefficient(mem, -1);
-        }
-    }
-}
-
-std::tuple<operations_research::MPSolver::ResultStatus, std::vector<uint64_t>,
+std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-ILPSolver::solve(uint64_t timeLimitSeconds) {
-    std::vector<uint64_t> earliestOp(graph.getSize()),
-        latestOp(graph.getSize());
-    std::vector<uint64_t> earliestTensor(graph.getSize()),
-        latestTensor(graph.getSize());
+CPSATSolver::solve(uint64_t timeLimitSeconds) {
+    uint64_t n = graph.getSize();
 
-    computePruningBound(earliestOp, latestOp, earliestTensor, latestTensor);
-    createVariables(earliestOp, latestOp, earliestTensor, latestTensor);
+    // Compute pruning bounds
+    computePruningBounds();
 
-    // Compute RPO heuristic and set as warm start
-    std::vector<uint64_t> rpoSchedule = computeRPOSchedule();
-    setWarmStart(rpoSchedule);
+    // Get heuristic schedule
+    rpo::RPOScheduler rpoScheduler(graph, debug);
+    auto [heuristicSchedule, heuristicPeak] = rpoScheduler.solve();
 
-    // Objective: minimize peak memory
-    operations_research::MPObjective *objective = solver->MutableObjective();
-    objective->SetCoefficient(mem, 1);
-    objective->SetMinimization();
+    // Build model
+    createVariablesAndConstraints(heuristicPeak);
+
+    // Set warm start hints
+    setWarmStartHints(heuristicSchedule, heuristicPeak);
+
+    // Configure solver
+    operations_research::sat::SatParameters params;
+    params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
+    params.set_num_search_workers(1);
+    params.set_log_search_progress(debug);
 
     if (debug) {
-        std::cerr << "Constraints: " << solver->NumConstraints() << std::endl;
-        std::cerr << "\nSolving..." << std::endl;
+        std::cerr << "\nSolving with CP-SAT..." << std::endl;
     }
 
-    solver->SetTimeLimit(absl::Seconds(timeLimitSeconds));
+    // Solve
+    operations_research::sat::Model model;
+    model.Add(NewSatParameters(params));
 
     auto start = std::chrono::steady_clock::now();
-    operations_research::MPSolver::ResultStatus status = solver->Solve();
+    operations_research::sat::CpSolverResponse response =
+        SolveCpModel(cpModel.Build(), &model);
     auto end = std::chrono::steady_clock::now();
     auto elapsed =
         std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
 
-    std::ostringstream statusString;
-    statusString << status;
     if (debug) {
-        std::cerr << "Solver status: " << statusString.str() << std::endl;
-        std::cerr << "Wall time: " << solver->wall_time() << " ms" << std::endl;
+        std::cerr << "Solver status: " << CpSolverResponseStats(response)
+                  << std::endl;
         std::cerr << "Measured elapsed: " << elapsed << " seconds" << std::endl;
     }
 
-    if (status == operations_research::MPSolver::OPTIMAL ||
-        status == operations_research::MPSolver::FEASIBLE) {
+    // Extract results
+    if (response.status() ==
+            operations_research::sat::CpSolverStatus::OPTIMAL ||
+        response.status() ==
+            operations_research::sat::CpSolverStatus::FEASIBLE) {
         uint64_t peakMemory =
-            static_cast<uint64_t>(std::round(mem->solution_value()));
+            static_cast<uint64_t>(SolutionIntegerValue(response, mem));
+
         if (debug) {
-            std::cerr << (status == operations_research::MPSolver::OPTIMAL
-                              ? "OPTIMAL"
-                              : "FEASIBLE")
-                      << " solution found!" << std::endl;
+            std::cerr
+                << (response.status() ==
+                            operations_research::sat::CpSolverStatus::OPTIMAL
+                        ? "OPTIMAL"
+                        : "FEASIBLE")
+                << " solution found!" << std::endl;
             std::cerr << "Peak memory: " << peakMemory << std::endl;
         }
 
-        std::vector<uint64_t> schedule(graph.getSize(), -1);
-        for (uint64_t i = 0; i < graph.getSize(); i++) {
-            for (uint64_t j = 0; j < graph.getSize(); j++) {
-                if (O[i][j] && O[i][j]->solution_value() > 0.5) {
+        std::vector<uint64_t> schedule(n, UINT64_MAX);
+        for (uint64_t i = 0; i < n; i++) {
+            for (uint64_t j = 0; j < n; j++) {
+                if (hasO(i, j) &&
+                    operations_research::sat::SolutionBooleanValue(
+                        response, getO(i, j))) {
                     schedule[j] = i;
                     break;
                 }
@@ -764,44 +770,25 @@ ILPSolver::solve(uint64_t timeLimitSeconds) {
 
         if (debug) {
             std::cerr << "Schedule: ";
-            for (uint64_t i = 0; i < graph.getSize(); i++) {
+            for (uint64_t i = 0; i < n; i++) {
                 std::cerr << schedule[i] << " ";
             }
             std::cerr << std::endl;
         }
 
-        return {status, schedule, peakMemory};
+        return {response.status(), schedule, peakMemory};
     }
 
-    throw std::runtime_error("No solution found by ILP solver. Status: " +
-                             statusString.str());
+    throw std::runtime_error(
+        "No solution found by CP-SAT solver. Status: " +
+        std::to_string(static_cast<int>(response.status())));
 }
 
-void ILPSolver::printVariables(std::ostream &os) const {
-    for (uint64_t i = 0; i < graph.getSize(); i++) {
-        for (uint64_t j = 0; j < graph.getSize(); j++) {
-            if (O[i][j]) {
-                os << "O[" << i << "][" << j
-                   << "] = " << O[i][j]->solution_value() << std::endl;
-            } else {
-                os << "O[" << i << "][" << j << "] = NULL" << std::endl;
-            }
-            if (T[i][j]) {
-                os << "T[" << i << "][" << j
-                   << "] = " << T[i][j]->solution_value() << std::endl;
-            } else {
-                os << "T[" << i << "][" << j << "] = NULL" << std::endl;
-            }
-            os << std::endl;
-        }
-    }
-}
-
-} // namespace ilp
+} // namespace cpsat
 
 namespace bruteforce {
 
-BruteForceSolver::BruteForceSolver(const ilp::ILPGraph &graph, bool debug)
+BruteForceSolver::BruteForceSolver(const HyperGraph &graph, bool debug)
     : graph(graph), debug(debug) {}
 
 uint64_t
@@ -828,13 +815,11 @@ BruteForceSolver::computePeakMemory(const std::vector<uint64_t> &order) const {
         live.insert(op);
 
         // Remove tensors whose last consumer just ran
-        // (A tensor can be freed after all its consumers have executed)
         std::vector<uint64_t> toRemove;
         for (uint64_t t : live) {
             bool canFree = true;
             for (uint64_t i = 0; i < n; i++) {
                 if (inputTensors[i].count(t)) {
-                    // Operator i needs tensor t - check if i has run
                     bool hasRun = false;
                     for (uint64_t s = 0; s <= step; s++) {
                         if (order[s] == i) {
@@ -936,7 +921,7 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
 } // namespace bruteforce
 
 Scheduler::Scheduler(const core::Graph &originalGraph,
-                     std::vector<uint64_t> &partitionMapping, bool debug,
+                     const std::vector<uint64_t> &partitionMapping, bool debug,
                      bool verify)
     : originalGraph(originalGraph), partitionMapping(partitionMapping),
       debug(debug), verify(verify) {}
@@ -1086,13 +1071,13 @@ void Scheduler::buildCoarseGraph() {
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds) {
     buildCoarseGraph();
-    ilp::ILPGraph ilpGraph(*coarseGraph);
+    HyperGraph hyperGraph(*coarseGraph);
 
-    ilp::ILPSolver solver(ilpGraph, debug);
+    cpsat::CPSATSolver solver(hyperGraph, debug);
     auto [status, schedule, peakMemory] = solver.solve(timeLimitSeconds);
 
     if (verify) {
-        bruteforce::BruteForceSolver bfSolver(ilpGraph, debug);
+        bruteforce::BruteForceSolver bfSolver(hyperGraph, debug);
         auto [bfSchedule, bfPeakMemory] = bfSolver.solve();
 
         if (peakMemory != bfPeakMemory) {
@@ -1103,11 +1088,11 @@ Scheduler::run(uint64_t timeLimitSeconds) {
             std::cerr << *coarseGraph;
             std::cerr << std::endl;
 
-            std::cerr << "=== ILPGraph ===\n";
-            std::cerr << ilpGraph;
+            std::cerr << "=== HyperGraph ===\n";
+            std::cerr << hyperGraph;
             std::cerr << std::endl;
 
-            std::cerr << "=== ILP Solution ===\n";
+            std::cerr << "=== CP-SAT Solution ===\n";
             std::cerr << "Peak Memory: " << peakMemory << std::endl;
             std::cerr << "Schedule: ";
             for (size_t i = 0; i < schedule.size(); ++i) {
@@ -1123,40 +1108,32 @@ Scheduler::run(uint64_t timeLimitSeconds) {
             }
             std::cerr << "\n" << std::endl;
 
-            solver.printVariables(std::cerr);
-
-            std::cerr << "\nStatus of the ILP solver: ";
+            std::cerr << "\nStatus: ";
             switch (status) {
-            case operations_research::MPSolver::ResultStatus::OPTIMAL:
+            case operations_research::sat::CpSolverStatus::OPTIMAL:
                 std::cerr << "OPTIMAL" << std::endl;
                 break;
-            case operations_research::MPSolver::ResultStatus::FEASIBLE:
+            case operations_research::sat::CpSolverStatus::FEASIBLE:
                 std::cerr << "FEASIBLE" << std::endl;
                 break;
-            case operations_research::MPSolver::ResultStatus::INFEASIBLE:
+            case operations_research::sat::CpSolverStatus::INFEASIBLE:
                 std::cerr << "INFEASIBLE" << std::endl;
                 break;
-            case operations_research::MPSolver::ResultStatus::UNBOUNDED:
-                std::cerr << "UNBOUNDED" << std::endl;
-                break;
-            case operations_research::MPSolver::ResultStatus::ABNORMAL:
-                std::cerr << "ABNORMAL" << std::endl;
-                break;
-            case operations_research::MPSolver::ResultStatus::NOT_SOLVED:
-                std::cerr << "NOT_SOLVED" << std::endl;
-                break;
-            case operations_research::MPSolver::ResultStatus::MODEL_INVALID:
+            case operations_research::sat::CpSolverStatus::MODEL_INVALID:
                 std::cerr << "MODEL_INVALID" << std::endl;
+                break;
+            case operations_research::sat::CpSolverStatus::UNKNOWN:
+                std::cerr << "UNKNOWN" << std::endl;
                 break;
             }
 
             std::cerr << "\n=== VERIFICATION FAILED: DUMP END ===\n"
                       << std::endl;
 
-            throw std::runtime_error("Verification failed: ILP peak memory (" +
-                                     std::to_string(peakMemory) +
-                                     ") != brute-force peak memory (" +
-                                     std::to_string(bfPeakMemory) + ")");
+            throw std::runtime_error(
+                "Verification failed: CP-SAT peak memory (" +
+                std::to_string(peakMemory) + ") != brute-force peak memory (" +
+                std::to_string(bfPeakMemory) + ")");
         }
     }
 

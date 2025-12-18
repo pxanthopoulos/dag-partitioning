@@ -3,7 +3,7 @@
  * @brief Memory-aware scheduling for DAGs
  *
  * Performs scheduling of DAG operations to minimize peak memory
- * usage. Uses an ILP-based solver (brute-force solver for small
+ * usage. Uses a CP-SAT solver (brute-force solver for small
  * graphs for verification).
  */
 
@@ -12,7 +12,8 @@
 
 #include <Graph.h>
 
-#include "ortools/linear_solver/linear_solver.h"
+#include "ortools/sat/cp_model.h"
+#include "ortools/sat/cp_model_solver.h"
 #include "robin_hood.h"
 #include <cstdint>
 #include <iostream>
@@ -57,9 +58,7 @@ struct Tensor {
 
 } // namespace packing
 
-namespace ilp {
-
-class ILPGraph {
+class HyperGraph {
   private:
     uint64_t size;
     std::vector<uint64_t> tensorSizes; // S_i: output tensor size
@@ -94,12 +93,12 @@ class ILPGraph {
 
   public:
     /**
-     * @brief Constructs ILP graph from a DAG
+     * @brief Constructs a hyper graph from a DAG
      * @param graph Input graph to analyze
      */
-    ILPGraph(const core::Graph &graph);
+    HyperGraph(const core::Graph &graph);
 
-    virtual ~ILPGraph() = default;
+    virtual ~HyperGraph() = default;
 
     /**
      * @brief Returns number of nodes
@@ -153,109 +152,148 @@ class ILPGraph {
      * @param graph Graph to output
      * @return Output stream
      */
-    friend std::ostream &operator<<(std::ostream &os, const ILPGraph &graph);
+    friend std::ostream &operator<<(std::ostream &os, const HyperGraph &graph);
 };
 
-class ILPSolver {
+namespace rpo {
+
+/**
+ * @brief RPO (Reverse Post-Order) heuristic scheduler
+ *
+ * Computes a schedule using reverse post-order traversal of the DAG.
+ * RPO tends to complete subtrees before moving to siblings, which
+ * reduces the number of simultaneously live tensors.
+ */
+class RPOScheduler {
   protected:
-    const ILPGraph &graph;
-    std::unique_ptr<operations_research::MPSolver> solver;
+    const HyperGraph &graph;
     bool debug = false;
-
-    // ILP variables
-    std::vector<std::vector<operations_research::MPVariable *>> O;
-    std::vector<std::vector<operations_research::MPVariable *>> T;
-    operations_research::MPVariable *mem = nullptr;
-
-    /**
-     * @brief Computes earliest/latest valid positions for pruning
-     *
-     * Uses topological information to determine valid time windows,
-     * reducing the number of ILP variables.
-     *
-     * @param earliestOp Earliest position each operation can run
-     * @param latestOp Latest position each operation can run
-     * @param earliestTensor Earliest time tensor can exist
-     * @param latestTensor Latest time tensor can be needed
-     */
-    void computePruningBound(std::vector<uint64_t> &earliestOp,
-                             std::vector<uint64_t> &latestOp,
-                             std::vector<uint64_t> &earliestTensor,
-                             std::vector<uint64_t> &latestTensor) const;
-
-    /**
-     * @brief Computes RPO (Reverse Post-Order) schedule as heuristic
-     *
-     * RPO scheduling tends to complete subtrees before moving to siblings,
-     * which reduces the number of simultaneously live tensors. This provides
-     * a good initial solution for the ILP solver warm start.
-     *
-     * @return Vector where result[step] = operator scheduled at that step
-     */
-    [[nodiscard]] std::vector<uint64_t> computeRPOSchedule() const;
-
-    /**
-     * @brief Sets warm start hints for the ILP solver
-     *
-     * Provides the solver with an initial feasible solution from RPO
-     * scheduling, which can dramatically reduce solve time by giving
-     * the solver a good upper bound for pruning.
-     *
-     * @param schedule Heuristic schedule where schedule[step] = operator
-     */
-    void setWarmStart(const std::vector<uint64_t> &schedule);
-
-    /**
-     * @brief Creates ILP variables and constraints
-     *
-     * Sets up O[i][j] (operation i at step j), T[i][j] (tensor i alive
-     * at step j), and memory bound variable. Adds all scheduling and
-     * memory constraints.
-     *
-     * @param earliestOp Earliest position each operation can run
-     * @param latestOp Latest position each operation can run
-     * @param earliestTensor Earliest time tensor can exist
-     * @param latestTensor Latest time tensor is needed
-     */
-    void createVariables(const std::vector<uint64_t> &earliestOp,
-                         const std::vector<uint64_t> &latestOp,
-                         const std::vector<uint64_t> &earliestTensor,
-                         const std::vector<uint64_t> &latestTensor);
 
   public:
     /**
      * @brief Constructor
-     * @param graph ILP graph representation
+     * @param graph Hyper graph representation
      * @param debug Enable debug output
      */
-    ILPSolver(const ILPGraph &graph, bool debug);
+    RPOScheduler(const HyperGraph &graph, bool debug = false);
 
-    virtual ~ILPSolver() = default;
+    virtual ~RPOScheduler() = default;
 
     /**
-     * @brief Solves the scheduling problem using ILP
+     * @brief Computes the RPO schedule
+     * @return Pair of (schedule, peak memory)
+     */
+    [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> solve() const;
+};
+
+} // namespace rpo
+
+namespace cpsat {
+
+/**
+ * @brief CP-SAT based solver for memory-aware scheduling
+ */
+class CPSATSolver {
+  protected:
+    const HyperGraph &graph;
+    bool debug = false;
+
+    // Pruning bounds computed from topology
+    std::vector<uint64_t> earliestOp;
+    std::vector<uint64_t> latestOp;
+    std::vector<uint64_t> earliestTensor;
+    std::vector<uint64_t> latestTensor;
+
+    // CP-SAT model and variables
+    operations_research::sat::CpModelBuilder cpModel;
+    robin_hood::unordered_map<uint64_t, operations_research::sat::BoolVar> O;
+    robin_hood::unordered_map<uint64_t, operations_research::sat::BoolVar> T;
+    operations_research::sat::IntVar mem;
+
+    /**
+     * @brief Computes earliest/latest valid positions for pruning
+     */
+    void computePruningBounds();
+
+    /**
+     * @brief Checks if O[i][j] variable exists (not pruned)
+     */
+    [[nodiscard]] bool hasO(uint64_t i, uint64_t j) const;
+
+    /**
+     * @brief Checks if T[i][j] variable exists (not pruned)
+     */
+    [[nodiscard]] bool hasT(uint64_t i, uint64_t j) const;
+
+    /**
+     * @brief Returns key for O variable storage
+     */
+    [[nodiscard]] uint64_t oKey(uint64_t i, uint64_t j) const;
+
+    /**
+     * @brief Returns key for T variable storage
+     */
+    [[nodiscard]] uint64_t tKey(uint64_t i, uint64_t j) const;
+
+    /**
+     * @brief Retrieves O[i][j] variable
+     */
+    [[nodiscard]] operations_research::sat::BoolVar getO(uint64_t i,
+                                                         uint64_t j) const;
+
+    /**
+     * @brief Retrieves T[i][j] variable
+     */
+    [[nodiscard]] operations_research::sat::BoolVar getT(uint64_t i,
+                                                         uint64_t j) const;
+
+    /**
+     * @brief Creates CP-SAT variables and constraints
+     *
+     * Builds the complete CP-SAT model including O[i][j], T[i][j],
+     * mem variables and all scheduling/memory constraints.
+     *
+     * @param memoryUpperBound Upper bound for peak memory variable
+     */
+    void createVariablesAndConstraints(uint64_t memoryUpperBound);
+
+    /**
+     * @brief Sets warm start hints from a heuristic schedule
+     *
+     * @param schedule Heuristic schedule where schedule[step] = operator
+     * @param peakMemory Peak memory of the heuristic schedule
+     */
+    void setWarmStartHints(const std::vector<uint64_t> &schedule,
+                           uint64_t peakMemory);
+
+  public:
+    /**
+     * @brief Constructor
+     * @param graph Hyper graph representation
+     * @param debug Enable debug output
+     */
+    CPSATSolver(const HyperGraph &graph, bool debug = false);
+
+    virtual ~CPSATSolver() = default;
+
+    /**
+     * @brief Solves the scheduling problem using CP-SAT
      *
      * @param timeLimitSeconds Time limit for solver in seconds
      * @return Tuple of (solver status, schedule, peak memory)
      */
-    [[nodiscard]] std::tuple<operations_research::MPSolver::ResultStatus,
+    [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
                              std::vector<uint64_t>, uint64_t>
     solve(uint64_t timeLimitSeconds = 600);
-
-    /**
-     * @brief Outputs variable values for debugging
-     * @param os Output stream
-     */
-    void printVariables(std::ostream &os) const;
 };
 
-} // namespace ilp
+} // namespace cpsat
 
 namespace bruteforce {
 
 class BruteForceSolver {
   protected:
-    const ilp::ILPGraph &graph;
+    const HyperGraph &graph;
     bool debug = false;
 
     /**
@@ -295,10 +333,10 @@ class BruteForceSolver {
     /**
      * @brief Constructor
      *
-     * @param graph ILP graph representing the scheduling problem
+     * @param graph Hyper graph representing the scheduling problem
      * @param debug Enable debug output
      */
-    BruteForceSolver(const ilp::ILPGraph &graph, bool debug = false);
+    BruteForceSolver(const HyperGraph &graph, bool debug = false);
 
     virtual ~BruteForceSolver() = default;
 
@@ -349,7 +387,7 @@ class Scheduler {
      * matches
      */
     Scheduler(const core::Graph &originalGraph,
-              std::vector<uint64_t> &partitionMapping, bool debug = false,
+              const std::vector<uint64_t> &partitionMapping, bool debug = false,
               bool verify = false);
 
     /**
