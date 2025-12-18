@@ -4,109 +4,16 @@
  */
 
 #include "Scheduling.h"
+#include "Utils.h"
 
 #include <cassert>
+#include <queue>
 #include <sstream>
 #include <stack>
 
 namespace dag_partitioning {
 
 namespace scheduling {
-
-namespace packing {
-
-uint64_t packBestFit(std::vector<Tensor> &tensors) {
-    auto overlaps = [](const Tensor &a, const Tensor &b) {
-        return !(a.death < b.birth || b.death < a.birth);
-    };
-
-    auto verify = [&overlaps](const std::vector<Tensor> &tensors) {
-        for (size_t i = 0; i < tensors.size(); ++i) {
-            for (size_t j = i + 1; j < tensors.size(); ++j) {
-                if (overlaps(tensors[i], tensors[j])) {
-                    uint64_t end1 = tensors[i].offset + tensors[i].size;
-                    uint64_t end2 = tensors[j].offset + tensors[j].size;
-                    if (!(end1 <= tensors[j].offset ||
-                          end2 <= tensors[i].offset)) {
-                        std::cerr << "CONFLICT: tensor " << i << " and " << j
-                                  << "\n";
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    };
-
-    if (tensors.empty())
-        return 0;
-
-    for (size_t i = 0; i < tensors.size(); ++i) {
-        Tensor &t = tensors[i];
-
-        std::vector<std::pair<uint64_t, uint64_t>> occupied;
-        for (size_t j = 0; j < i; ++j) { // all previously placed
-            if (overlaps(t, tensors[j])) {
-                occupied.push_back(
-                    {tensors[j].offset, tensors[j].offset + tensors[j].size});
-            }
-        }
-
-        // Sort and merge overlapping intervals
-        std::sort(occupied.begin(), occupied.end());
-        std::vector<std::pair<uint64_t, uint64_t>> merged;
-        for (auto &iv : occupied) {
-            if (merged.empty() || merged.back().second < iv.first) {
-                merged.push_back(iv);
-            } else {
-                merged.back().second =
-                    std::max(merged.back().second, iv.second);
-            }
-        }
-
-        // Best-fit: find smallest gap >= t.size
-        uint64_t bestOffset = 0;
-        uint64_t bestWaste = UINT64_MAX;
-
-        if (merged.empty()) {
-            bestOffset = 0;
-        } else {
-            // Gap before first interval [0, merged[0].first)
-            if (merged[0].first >= t.size &&
-                merged[0].first - t.size < bestWaste) {
-                bestWaste = merged[0].first - t.size;
-                bestOffset = 0;
-            }
-
-            // Gaps between intervals
-            for (size_t i = 0; i + 1 < merged.size(); ++i) {
-                uint64_t gapSize = merged[i + 1].first - merged[i].second;
-                if (gapSize >= t.size && gapSize - t.size < bestWaste) {
-                    bestWaste = gapSize - t.size;
-                    bestOffset = merged[i].second;
-                }
-            }
-
-            // If no gap fits, place after last interval
-            if (bestWaste == UINT64_MAX) {
-                bestOffset = merged.back().second;
-            }
-        }
-
-        t.offset = bestOffset;
-    }
-
-    uint64_t peak = 0;
-    for (const Tensor &t : tensors) {
-        peak = std::max(peak, t.offset + t.size);
-    }
-
-    assert(verify(tensors) && "Memory packing verification failed");
-
-    return peak;
-}
-
-} // namespace packing
 
 HyperGraph::HyperGraph(const core::Graph &graph) {
     size = graph.size;
@@ -398,8 +305,6 @@ CPSATSolver::CPSATSolver(const HyperGraph &graph, bool debug)
     latestOp.resize(n);
     earliestTensor.resize(n);
     latestTensor.resize(n);
-
-    cpModel = operations_research::sat::CpModelBuilder();
 }
 
 /**
@@ -695,7 +600,7 @@ void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-CPSATSolver::solve(uint64_t timeLimitSeconds, uint64_t numWorkers) {
+CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     uint64_t n = graph.getSize();
 
     // Compute pruning bounds
@@ -967,7 +872,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
     }
 
     // Collect tensors per partition
-    std::vector<std::vector<packing::Tensor>> partitionTensors(numPartitions);
+    std::vector<std::vector<utils::Tensor>> partitionTensors(numPartitions);
 
     for (uint64_t producer = 0; producer < originalGraph.size; ++producer) {
         uint64_t producerPartition = partitionMapping[producer];
@@ -992,8 +897,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
 
         // If there are only internal consumers, add tensor to partition
         if (hasInternalConsumers && !hasExternalConsumers) {
-            packing::Tensor tensor;
-            tensor.producer = producer;
+            utils::Tensor tensor;
             tensor.size = originalGraph.nodeWeights[producer];
             tensor.birth = nodeToLocalPosition[producer];
             tensor.death = lastConsumerPosition;
@@ -1015,14 +919,14 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
         // Sort tensors by birth time, then by death time (for deterministic
         // packing)
         std::sort(tensors.begin(), tensors.end(),
-                  [](const packing::Tensor &a, const packing::Tensor &b) {
+                  [](const utils::Tensor &a, const utils::Tensor &b) {
                       if (a.birth != b.birth)
                           return a.birth < b.birth;
                       return a.death < b.death;
                   });
 
         // Best-fit packing algorithm
-        uint64_t peakMemory = packing::packBestFit(tensors);
+        uint64_t peakMemory = utils::packBestFit(tensors);
 
         partitionWeights[partition] = peakMemory;
     }
@@ -1073,7 +977,7 @@ void Scheduler::buildCoarseGraph() {
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>
-Scheduler::run(uint64_t timeLimitSeconds, uint64_t numWorkers) {
+Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
     buildCoarseGraph();
     HyperGraph hyperGraph(*coarseGraph);
 

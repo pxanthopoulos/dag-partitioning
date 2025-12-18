@@ -1,5 +1,6 @@
 add_library(Scheduling OBJECT
         src/Scheduling.cpp
+        src/Utils.cpp
 )
 
 target_include_directories(Scheduling
