@@ -280,11 +280,12 @@ class CPSATSolver {
      * @brief Solves the scheduling problem using CP-SAT
      *
      * @param timeLimitSeconds Time limit for solver in seconds
+     * @param numWorkers Number of parallel workers for the solver
      * @return Tuple of (solver status, schedule, peak memory)
      */
     [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
                              std::vector<uint64_t>, uint64_t>
-    solve(uint64_t timeLimitSeconds = 600);
+    solve(uint64_t timeLimitSeconds = 600, uint64_t numWorkers = 1);
 };
 
 } // namespace cpsat
@@ -402,11 +403,12 @@ class Scheduler {
      * packing and inter-partition edge weights.
      *
      * @param timeLimitSeconds Time limit for solver in seconds
+     * @param numWorkers Number of parallel workers for the solver
      * @return Pair of a vector with partition numbers ordered by their
      * scheduled execution and the peak memory usage of the schedule
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
-    run(uint64_t timeLimitSeconds = 600);
+    run(uint64_t timeLimitSeconds = 600, uint64_t numWorkers = 1);
 };
 
 } // namespace scheduling

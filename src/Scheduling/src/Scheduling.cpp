@@ -695,7 +695,7 @@ void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-CPSATSolver::solve(uint64_t timeLimitSeconds) {
+CPSATSolver::solve(uint64_t timeLimitSeconds, uint64_t numWorkers) {
     uint64_t n = graph.getSize();
 
     // Compute pruning bounds
@@ -714,7 +714,7 @@ CPSATSolver::solve(uint64_t timeLimitSeconds) {
     // Configure solver
     operations_research::sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
-    params.set_num_search_workers(1);
+    params.set_num_search_workers(numWorkers);
     params.set_log_search_progress(debug);
 
     if (debug) {
@@ -1069,12 +1069,13 @@ void Scheduler::buildCoarseGraph() {
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>
-Scheduler::run(uint64_t timeLimitSeconds) {
+Scheduler::run(uint64_t timeLimitSeconds, uint64_t numWorkers) {
     buildCoarseGraph();
     HyperGraph hyperGraph(*coarseGraph);
 
     cpsat::CPSATSolver solver(hyperGraph, debug);
-    auto [status, schedule, peakMemory] = solver.solve(timeLimitSeconds);
+    auto [status, schedule, peakMemory] =
+        solver.solve(timeLimitSeconds, numWorkers);
 
     if (verify) {
         bruteforce::BruteForceSolver bfSolver(hyperGraph, debug);
