@@ -1,6 +1,7 @@
 add_library(Scheduling OBJECT
         src/Scheduling.cpp
         src/Utils.cpp
+        src/HyperGraph.cpp
 )
 
 target_include_directories(Scheduling
