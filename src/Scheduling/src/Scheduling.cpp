@@ -976,18 +976,22 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
         uint64_t lastConsumerPosition =
             nodeToLocalPosition[producer]; // Birth time
         bool hasInternalConsumers = false;
+        bool hasExternalConsumers = false;
 
         for (const auto &[consumer, edgeWeight] : originalGraph.adj[producer]) {
-            // Only consider consumers in the same partition
+            // Tensor is packed only if it has internal consumers only
             if (partitionMapping[consumer] == producerPartition) {
                 hasInternalConsumers = true;
                 lastConsumerPosition = std::max(lastConsumerPosition,
                                                 nodeToLocalPosition[consumer]);
+            } else {
+                hasExternalConsumers = true;
+                break;
             }
         }
 
-        // If there are internal consumers, add tensor to partition
-        if (hasInternalConsumers) {
+        // If there are only internal consumers, add tensor to partition
+        if (hasInternalConsumers && !hasExternalConsumers) {
             packing::Tensor tensor;
             tensor.producer = producer;
             tensor.size = originalGraph.nodeWeights[producer];
