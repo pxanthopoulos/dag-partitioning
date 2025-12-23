@@ -128,13 +128,12 @@ class Graph {
     distancesFromNode(uint64_t startNode, bool reverseGraph = false) const;
 
     /**
-     * @brief Calculates topological positions of nodes based on partitioning
+     * @brief Computes topological order of partitions in the partition graph
      * @param partitionInfo Vector mapping node IDs to their partition IDs
-     * @return Vector of topological positions where vec[i] is the position of
-     * node i in a topological order
+     * @return Vector containing partition IDs in topological order
      */
     [[nodiscard]] std::vector<uint64_t>
-    groupedTopSortPositions(const std::vector<uint64_t> &partitionInfo) const;
+    partitionTopologicalOrder(const std::vector<uint64_t> &partitionInfo) const;
 
     /**
      * @brief Prints graph information to the specified output stream

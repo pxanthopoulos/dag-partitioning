@@ -324,7 +324,7 @@ std::vector<uint64_t> Graph::distancesFromNode(uint64_t startNode,
     return distances;
 }
 
-std::vector<uint64_t> Graph::groupedTopSortPositions(
+std::vector<uint64_t> Graph::partitionTopologicalOrder(
     const std::vector<uint64_t> &partitionInfo) const {
     if (partitionInfo.size() != size) {
         throw std::invalid_argument(
@@ -370,8 +370,8 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(
     }
 
     // Step 2: Topologically sort the partition graph
-    std::vector<uint64_t> coarseTopologicalOrder;
-    coarseTopologicalOrder.reserve(numPartitions);
+    std::vector<uint64_t> partitionTopologicalOrder;
+    partitionTopologicalOrder.reserve(numPartitions);
 
     // Start with nodes having no incoming edges
     std::queue<uint64_t> q;
@@ -385,7 +385,7 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(
     while (!q.empty()) {
         uint64_t curr = q.front();
         q.pop();
-        coarseTopologicalOrder.push_back(curr);
+        partitionTopologicalOrder.push_back(curr);
 
         // Update in-degrees and add new nodes with zero in-degree
         for (uint64_t next : coarseGraph[curr]) {
@@ -396,26 +396,12 @@ std::vector<uint64_t> Graph::groupedTopSortPositions(
         }
     }
 
-    if (coarseTopologicalOrder.size() != numPartitions) {
+    if (partitionTopologicalOrder.size() != numPartitions) {
         throw std::runtime_error(
             "Partition graph contains cycles - cannot determine ordering");
     }
 
-    // Step 3: Calculate the position of each partition in the topological order
-    std::vector<uint64_t> coarseTopSortPositions(numPartitions);
-    for (uint64_t i = 0; i < numPartitions; ++i) {
-        coarseTopSortPositions[coarseTopologicalOrder[i]] = i;
-    }
-
-    // Step 4: Assign the same topological position to all nodes in the same
-    // partition
-    std::vector<uint64_t> result(size);
-    for (uint64_t i = 0; i < size; ++i) {
-        uint64_t partition = partitionInfo[i];
-        result[i] = coarseTopSortPositions[partition];
-    }
-
-    return result;
+    return partitionTopologicalOrder;
 }
 
 // Print graph information to output stream
