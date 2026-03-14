@@ -190,9 +190,9 @@ int main(int argc, char **argv) {
 
     if (enableScheduling) {
         dag_partitioning::scheduling::Scheduler scheduler(
-            graph, partitionMapping, false, false);
+            graph, partitionMapping, false, true);
         start = std::chrono::high_resolution_clock::now();
-        auto [schedule, peakMemory] = scheduler.run();
+        auto [schedule, peakMemory] = scheduler.run(600, 7);
         end = std::chrono::high_resolution_clock::now();
         schedulingDuration =
             std::chrono::duration_cast<std::chrono::microseconds>(end - start)

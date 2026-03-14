@@ -18,16 +18,18 @@ This process uses recursive bisection to achieve partitions into `k` parts.
 
 - **High-performance containers**: Uses Robin Hood hashing for improved memory efficiency and performance
 - **OpenMP support**: Optional parallel processing capabilities
+- **Memory-aware scheduling**: After partitioning, optionally schedule the execution order of partitions to minimize peak memory usage using a CP-SAT solver
 
 ## Requirements
 
 - A C++17 compatible compiler.
 - CMake 3.28 or later.
+- [OR-Tools](https://developers.google.com/optimization) (system installation required, used for the CP-SAT scheduler).
 - (Optional) Valgrind for memory profiling.
 
 ## Building the Project
 
-This project uses CMake to automatically download and build its dependencies (GKlib, METIS, Scotch, and Robin Hood Hashing).
+This project uses CMake to automatically download and build most of its dependencies (GKlib, METIS, Scotch, and Robin Hood Hashing). OR-Tools must be installed separately as a system dependency before building.
 
 ### Build Instructions
 
@@ -73,11 +75,23 @@ After building, you can use the `dag-test` executable to partition DAGs:
 ```bash
 # From the install directory
 
-# <enable_multithreading>: 1 to enable, 0 to disable
-./bin/dag-test <input.dot> <num_partitions> <enable_multithreading>
+# Required arguments:
+#   <# of partitions>       Number of partitions to produce
+#   <dot file path>         Path to the input DOT file
+#   <clustering method>     FORB, CYC, or HYB
+#   <bisection method>      GGG, UNDIRSCOTCH, UNDIRMETIS, or UNDIRBOTH
+#   <refinement method>     BOUNDARYFM, BOUNDARYKL, or MIXED
+#   <enable parallel>       1 to enable parallel processing, 0 for sequential
+# Optional arguments:
+#   [min size for parallel] Minimum subgraph size to parallelize (default: 100)
+#   [max parallel depth]    Maximum recursion depth for parallelization (default: 10)
+#   [enable scheduling]     1 to run the memory-aware scheduler after partitioning, 0 to skip (default: 0)
 
-# Example
-./bin/dag-test ../test/example.dot 4 1
+# Example: partition into 4 parts with default settings, parallel enabled
+./bin/dag-test 4 ../test/example.dot HYB GGG BOUNDARYFM 1
+
+# Example: also run the scheduler
+./bin/dag-test 4 ../test/example.dot HYB GGG BOUNDARYFM 1 100 10 1
 
 # For detailed usage
 ./bin/dag-test
@@ -95,7 +109,7 @@ Use the `rand-dag` tool to generate test graphs:
 
 # This creates a DOT format graph that can be used with the dag-test executable
 ./bin/rand-dag 1000 150 0 random_dag.dot
-./bin/dag-test random_dag.dot 4 1
+./bin/dag-test 4 random_dag.dot HYB GGG BOUNDARYFM 1
 
 # For detailed usage
 ./bin/rand-dag
@@ -146,12 +160,27 @@ digraph cfg {
 }
 ```
 
+## Scheduling
+
+After partitioning, the tool can optionally compute an execution order for the partitions that minimizes peak memory usage. This is useful when the partitions will be executed sequentially and memory is a constraint.
+
+The scheduler works as follows:
+
+1. **Coarse graph construction**: Builds a graph where each node represents a partition. Node weights capture the peak memory used within each partition (computed via best-fit tensor packing), and edge weights represent the volume of inter-partition data transfers.
+2. **CP-SAT formulation**: The partition execution order is found by solving a constraint programming problem using Google OR-Tools' CP-SAT solver. The formulation is an adaptation to CP-SAT of an ILP formulation from [Zhong et.al.](https://arxiv.org/abs/2308.13898).
+3. **Warm start**: An RPO (Reverse Post-Order) heuristic provides an initial feasible schedule that seeds the CP-SAT solver, accelerating convergence.
+
+The scheduler is invoked by passing `1` as the last argument to `dag-test` (see Usage above). It reports the peak memory of the found schedule and the time taken by the solver.
+
 ## Output Format
 
-The program outputs:
+The program outputs (comma-separated):
 
-- Partition assignments for each vertex
+- Clustering, bisection, and refinement method names
 - Edge cut value
+- Partition load imbalance (%)
+- Partitioning time (microseconds)
+- Scheduling time in microseconds (0 if scheduling was not run)
 
 ## Performance and Comparison
 
@@ -180,5 +209,7 @@ CC BY-NC 4.0
 
 ## References
 
-Based on the [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865):
+Partitioning based on the [paper](https://epubs.siam.org/doi/abs/10.1137/18M1176865):
 "Multilevel Algorithms for Acyclic Partitioning of Directed Acyclic Graphs" by Herrmann et al.
+
+Scheduling formulation adapted to CP-SAT from [Zhong et.al.](https://arxiv.org/abs/2308.13898).
