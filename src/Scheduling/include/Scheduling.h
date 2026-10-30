@@ -96,9 +96,9 @@ class CPSATSolver {
     [[nodiscard]] bool hasO(uint64_t i, uint64_t j) const;
 
     /**
-     * @brief Checks if T[i][j] variable exists (not pruned)
+     * @brief Checks if T[t][j] variable exists (not pruned)
      */
-    [[nodiscard]] bool hasT(uint64_t i, uint64_t j) const;
+    [[nodiscard]] bool hasT(uint64_t t, uint64_t j) const;
 
     /**
      * @brief Returns key for O variable storage
@@ -108,7 +108,7 @@ class CPSATSolver {
     /**
      * @brief Returns key for T variable storage
      */
-    [[nodiscard]] uint64_t tKey(uint64_t i, uint64_t j) const;
+    [[nodiscard]] uint64_t tKey(uint64_t t, uint64_t j) const;
 
     /**
      * @brief Retrieves O[i][j] variable
@@ -117,15 +117,15 @@ class CPSATSolver {
                                                          uint64_t j) const;
 
     /**
-     * @brief Retrieves T[i][j] variable
+     * @brief Retrieves T[t][j] variable
      */
-    [[nodiscard]] operations_research::sat::BoolVar getT(uint64_t i,
+    [[nodiscard]] operations_research::sat::BoolVar getT(uint64_t t,
                                                          uint64_t j) const;
 
     /**
      * @brief Creates CP-SAT variables and constraints
      *
-     * Builds the complete CP-SAT model including O[i][j], T[i][j],
+     * Builds the complete CP-SAT model including O[i][j], T[t][j],
      * mem variables and all scheduling/memory constraints.
      *
      * @param memoryUpperBound Upper bound for peak memory variable
@@ -230,7 +230,7 @@ class Scheduler {
   protected:
     const core::Graph &originalGraph;              // Original graph to schedule
     const std::vector<uint64_t> &partitionMapping; // Node to partition mapping
-    std::unique_ptr<core::Graph> coarseGraph;      // Resulting coarse graph
+    std::unique_ptr<hypergraph::HyperGraph> coarseGraph; // Coarse graph
     bool debug = false;
     bool verify = false;
 
@@ -238,18 +238,31 @@ class Scheduler {
      * @brief Calculates memory requirements for each partition
      *
      * Uses best-fit memory packing to compute peak memory usage for
-     * each partition based on tensor lifetimes.
+     * each partition based on tensor lifetimes, and collects the tensors
+     * that escape each partition.
      *
+     * A node with weight 0 whose results are consumed is a tied op: its
+     * result aliases the buffer of the input whose edge weight equals the
+     * result size (the last-defined one if several match). All values that
+     * alias one buffer share its lifetime. A buffer whose values and users
+     * are all in one partition is packed into the partition's weight; any
+     * other buffer escapes as a tensor of its producing partition, live
+     * until its last consuming partition (until the end for graph outputs).
+     *
+     * @param escapingTensors Output: escaping tensors (producer and users
+     * are partition ids)
      * @return Vector of partition weights (peak memory usage)
      */
-    [[nodiscard]] std::vector<uint64_t> calculatePartitionWeights() const;
+    [[nodiscard]] std::vector<uint64_t> calculatePartitionWeights(
+        std::vector<hypergraph::Tensor> &escapingTensors) const;
 
     /**
      * @brief Builds the coarse graph from partitioned original graph
      *
-     * Creates a new graph where each node represents a partition.
-     * Node weights are computed using memory packing, and edge weights
-     * represent inter-partition communication.
+     * Creates a hyper graph where each node represents a partition.
+     * Node weights are computed using memory packing, and every partition
+     * produces one tensor per buffer that escapes it, with its own size and
+     * consuming partitions.
      */
     void buildCoarseGraph();
 

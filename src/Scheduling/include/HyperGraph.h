@@ -3,8 +3,9 @@
  * @brief Hyper graph representation for memory-aware scheduling
  *
  * Represents a DAG as a hyper graph where nodes are operations and
- * hyper edges represent tensor dependencies. Provides methods to
- * analyze the graph topology for scheduling purposes.
+ * hyper edges represent tensor dependencies. A node may produce any
+ * number of tensors, each with its own size and users. Provides methods
+ * to analyze the graph topology for scheduling purposes.
  */
 
 #ifndef DAG_PARTITIONING_SCHEDULING_HYPERGRAPH_H
@@ -27,11 +28,24 @@ namespace scheduling {
 
 namespace hypergraph {
 
+/**
+ * @brief Tensor (hyper edge): one producer, any number of users
+ */
+struct Tensor {
+    uint64_t producer;           // Node that creates the tensor
+    uint64_t size;               // Size in bytes
+    std::vector<uint64_t> users; // Nodes that read the tensor
+    bool liveOut = false;        // Live until the end of the schedule
+};
+
 class HyperGraph {
   private:
     uint64_t size;
-    std::vector<uint64_t> tensorSizes; // S_i: output tensor size
-    std::vector<uint64_t> extraSizes;  // ES_i: extra memory during execution
+    std::vector<uint64_t> tensorSizes;     // S_t: tensor size
+    std::vector<uint64_t> tensorProducers; // Producer of tensor t
+    std::vector<bool> liveOut;             // Tensor t is live until the end
+    std::vector<uint64_t> extraSizes; // ES_i: extra memory during execution
+    std::vector<std::vector<uint64_t>> outputTensors; // OUT_i: output tensors
     std::vector<robin_hood::unordered_set<uint64_t>>
         inputTensors; // IN_i: input tensors
 
@@ -62,10 +76,12 @@ class HyperGraph {
 
   public:
     /**
-     * @brief Constructs a hyper graph from a DAG
-     * @param graph Input graph to analyze
+     * @brief Constructs a hyper graph from its tensors
+     * @param extraSizes Extra memory of every node during its execution
+     * @param tensors Tensors; producers and users index extraSizes
      */
-    HyperGraph(const core::Graph &graph);
+    HyperGraph(std::vector<uint64_t> extraSizes,
+               const std::vector<Tensor> &tensors);
 
     virtual ~HyperGraph() = default;
 
@@ -74,6 +90,26 @@ class HyperGraph {
      * @return Graph size
      */
     uint64_t getSize() const;
+
+    /**
+     * @brief Returns number of tensors
+     */
+    uint64_t getNumTensors() const;
+
+    /**
+     * @brief Returns the producer of every tensor
+     */
+    const std::vector<uint64_t> &getTensorProducers() const;
+
+    /**
+     * @brief Returns whether every tensor is live until the end
+     */
+    const std::vector<bool> &getLiveOut() const;
+
+    /**
+     * @brief Returns the tensors every node produces
+     */
+    const std::vector<std::vector<uint64_t>> &getOutputTensors() const;
 
     /**
      * @brief Returns ancestor sets for all nodes
@@ -114,6 +150,20 @@ class HyperGraph {
      */
     const std::vector<robin_hood::unordered_set<uint64_t>> &
     getInputTensors() const;
+
+    /**
+     * @brief Peak memory of an execution order
+     *
+     * While order[s] runs, memory holds its extra memory and every tensor t
+     * with birth(t) <= s <= death(t): birth is the step of its producer,
+     * death the step of its last user (the last step if live-out, the birth
+     * if it has no users).
+     *
+     * @param order Topological order of all nodes
+     * @return Peak memory usage
+     */
+    [[nodiscard]] uint64_t
+    computePeakMemory(const std::vector<uint64_t> &order) const;
 
     /**
      * @brief Stream output operator

@@ -7,6 +7,7 @@
 
 #include <cassert>
 #include <queue>
+#include <set>
 #include <sstream>
 #include <stack>
 
@@ -28,7 +29,7 @@ std::pair<std::vector<uint64_t>, uint64_t> RPOScheduler::solve() const {
     std::vector<std::vector<uint64_t>> children(n);
     for (uint64_t i = 0; i < n; i++) {
         for (uint64_t input : graph.getInputTensors()[i]) {
-            children[input].push_back(i);
+            children[graph.getTensorProducers()[input]].push_back(i);
         }
     }
 
@@ -96,36 +97,8 @@ std::pair<std::vector<uint64_t>, uint64_t> RPOScheduler::solve() const {
         std::cerr << std::endl;
     }
 
-    // Compute opToStep mapping
-    std::vector<uint64_t> opToStep(n);
-    for (uint64_t step = 0; step < n; step++) {
-        opToStep[schedule[step]] = step;
-    }
-
     // Compute peak memory
-    uint64_t peakMemory = 0;
-    for (uint64_t step = 0; step < n; step++) {
-        uint64_t memAtStep = 0;
-
-        for (uint64_t tensor = 0; tensor < n; tensor++) {
-            uint64_t birthStep = opToStep[tensor];
-            const auto &users = graph.getTensorUsers()[tensor];
-
-            uint64_t deathStep = birthStep;
-            for (uint64_t user : users) {
-                deathStep = std::max(deathStep, opToStep[user]);
-            }
-
-            if (birthStep <= step && step <= deathStep) {
-                memAtStep += graph.getTensorSizes()[tensor];
-            }
-        }
-
-        uint64_t op = schedule[step];
-        memAtStep += graph.getExtraSizes()[op];
-
-        peakMemory = std::max(peakMemory, memAtStep);
-    }
+    uint64_t peakMemory = graph.computePeakMemory(schedule);
 
     if (debug) {
         std::cerr << "RPO peak memory: " << peakMemory << std::endl;
@@ -143,32 +116,30 @@ CPSATSolver::CPSATSolver(const hypergraph::HyperGraph &graph, bool debug)
     uint64_t n = graph.getSize();
     earliestOp.resize(n);
     latestOp.resize(n);
-    earliestTensor.resize(n);
-    latestTensor.resize(n);
+    earliestTensor.resize(graph.getNumTensors());
+    latestTensor.resize(graph.getNumTensors());
 }
 
 /**
  * Pruning:
  * (7) O[i][j] exists for j >= |anc(i)|
- * (8) T[i][j] exists for j >= |anc(i)|
+ * (8) T[t][j] exists for j >= |anc(prod(t))|
  * (9) O[i][j] exists for j <= n-1-|des(i)|
+ * (10) T[t][j] exists for j <= max over users u of n-1-|des(u)| (n-1 for
+ * live-out tensors)
  */
 void CPSATSolver::computePruningBounds() {
     uint64_t n = graph.getSize();
     for (uint64_t i = 0; i < n; i++) {
         earliestOp[i] = graph.getAncestors()[i].size();
         latestOp[i] = n - 1 - graph.getDescendants()[i].size();
-        earliestTensor[i] = graph.getAncestors()[i].size();
-
-        const auto &users = graph.getTensorUsers()[i];
-        if (users.empty()) {
-            latestTensor[i] = n - 1;
-        } else {
-            uint64_t minDes = n;
-            for (uint64_t u : users) {
-                minDes = std::min(minDes, graph.getDescendants()[u].size());
-            }
-            latestTensor[i] = n - 1 - minDes;
+    }
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+        uint64_t producer = graph.getTensorProducers()[t];
+        earliestTensor[t] = earliestOp[producer];
+        latestTensor[t] = graph.getLiveOut()[t] ? n - 1 : latestOp[producer];
+        for (uint64_t u : graph.getTensorUsers()[t]) {
+            latestTensor[t] = std::max(latestTensor[t], latestOp[u]);
         }
     }
 
@@ -177,9 +148,12 @@ void CPSATSolver::computePruningBounds() {
         for (uint64_t i = 0; i < n; i++) {
             std::cerr << "  Node " << i << ":"
                       << " earliestOp=" << earliestOp[i]
-                      << ", latestOp=" << latestOp[i]
-                      << ", earliestTensor=" << earliestTensor[i]
-                      << ", latestTensor=" << latestTensor[i] << std::endl;
+                      << ", latestOp=" << latestOp[i] << std::endl;
+        }
+        for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+            std::cerr << "  Tensor " << t << ":"
+                      << " earliestTensor=" << earliestTensor[t]
+                      << ", latestTensor=" << latestTensor[t] << std::endl;
         }
     }
 }
@@ -188,16 +162,16 @@ bool CPSATSolver::hasO(uint64_t i, uint64_t j) const {
     return earliestOp[i] <= j && j <= latestOp[i];
 }
 
-bool CPSATSolver::hasT(uint64_t i, uint64_t j) const {
-    return earliestTensor[i] <= j && j <= latestTensor[i];
+bool CPSATSolver::hasT(uint64_t t, uint64_t j) const {
+    return earliestTensor[t] <= j && j <= latestTensor[t];
 }
 
 uint64_t CPSATSolver::oKey(uint64_t i, uint64_t j) const {
     return i * graph.getSize() + j;
 }
 
-uint64_t CPSATSolver::tKey(uint64_t i, uint64_t j) const {
-    return i * graph.getSize() + j;
+uint64_t CPSATSolver::tKey(uint64_t t, uint64_t j) const {
+    return t * graph.getSize() + j;
 }
 
 operations_research::sat::BoolVar CPSATSolver::getO(uint64_t i,
@@ -205,9 +179,9 @@ operations_research::sat::BoolVar CPSATSolver::getO(uint64_t i,
     return O.at(oKey(i, j));
 }
 
-operations_research::sat::BoolVar CPSATSolver::getT(uint64_t i,
+operations_research::sat::BoolVar CPSATSolver::getT(uint64_t t,
                                                     uint64_t j) const {
-    return T.at(tKey(i, j));
+    return T.at(tKey(t, j));
 }
 
 /**
@@ -215,24 +189,27 @@ operations_research::sat::BoolVar CPSATSolver::getT(uint64_t i,
  *
  * Variables:
  * - O[i][j] ∈ {0,1}: operator i scheduled at step j
- * - T[i][j] ∈ {0,1}: tensor i in memory at step j
+ * - T[t][j] ∈ {0,1}: tensor t in memory at step j (an operator may produce
+ *   any number of tensors; p(t) is the producer of t)
  * - mem ∈ [0, memoryUpperBound]: peak memory
  *
  * Constraints:
  * (1) ExactlyOne(O[i][j] for all i) for each j -- one operator per step
  * (2) ExactlyOne(O[i][j] for all j) for each i -- each operator scheduled once
- * (3) O[i][j] => T[k][j] for all k∈IN[i]   -- inputs available (implication)
- * (4a) T[i][j] => T[i][j-1] OR O[i][j]     -- tensor persistence upper bound
- * (4b) O[i][j] => T[i][j]                  -- tensor must exist when created
- * (4c) T[i][j] => OR_{c∈users} OR_{k>=j} O[c][k] -- tensor freed after last
- * consumer
- * (5) T[i][0] => O[i][0]          -- initial condition
- * (6) Σᵢ T[i][j]·S[i] + ES[k]·O[k][j] ≤ mem  -- memory bound
+ * (3) O[i][j] => T[t][j] for all t∈IN[i]   -- inputs available (implication)
+ * (4a) T[t][j] => T[t][j-1] OR O[p(t)][j]  -- tensor persistence upper bound
+ * (4b) O[p(t)][j] => T[t][j]               -- tensor must exist when created
+ * (4c) T[t][j] => T[t][j+1] OR OR_{c∈users} O[c][j] -- tensor freed after
+ * last consumer (T[t][j] => T[t][j+1] for live-out tensors)
+ * (5) T[t][0] => O[p(t)][0]       -- initial condition
+ * (6) Σ_t T[t][j]·S[t] + Σᵢ ES[i]·O[i][j] ≤ mem  -- memory bound
  *
  * Objective: minimize mem
  */
 void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
     uint64_t n = graph.getSize();
+    uint64_t m = graph.getNumTensors();
+    const auto &producers = graph.getTensorProducers();
 
     // Create O and T variables
     uint64_t numO = 0, numT = 0;
@@ -242,8 +219,12 @@ void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
                 O[oKey(i, j)] = cpModel.NewBoolVar();
                 numO++;
             }
-            if (hasT(i, j)) {
-                T[tKey(i, j)] = cpModel.NewBoolVar();
+        }
+    }
+    for (uint64_t t = 0; t < m; t++) {
+        for (uint64_t j = 0; j < n; j++) {
+            if (hasT(t, j)) {
+                T[tKey(t, j)] = cpModel.NewBoolVar();
                 numT++;
             }
         }
@@ -294,95 +275,95 @@ void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
         }
     }
 
-    // Constraint (4a): T[i][j] => T[i][j-1] OR O[i][j]
-    for (uint64_t i = 0; i < n; i++) {
+    // Constraint (4a): T[t][j] => T[t][j-1] OR O[p(t)][j]
+    for (uint64_t t = 0; t < m; t++) {
         for (uint64_t j = 1; j < n; j++) {
-            if (!hasT(i, j))
+            if (!hasT(t, j))
                 continue;
 
             std::vector<operations_research::sat::BoolVar> clause;
-            clause.push_back(getT(i, j).Not());
+            clause.push_back(getT(t, j).Not());
 
-            if (hasT(i, j - 1)) {
-                clause.push_back(getT(i, j - 1));
+            if (hasT(t, j - 1)) {
+                clause.push_back(getT(t, j - 1));
             }
-            if (hasO(i, j)) {
-                clause.push_back(getO(i, j));
+            if (hasO(producers[t], j)) {
+                clause.push_back(getO(producers[t], j));
             }
 
             cpModel.AddBoolOr(clause);
         }
     }
 
-    // Constraint (4b): O[i][j] => T[i][j]
-    for (uint64_t i = 0; i < n; i++) {
+    // Constraint (4b): O[p(t)][j] => T[t][j]
+    for (uint64_t t = 0; t < m; t++) {
         for (uint64_t j = 0; j < n; j++) {
-            if (hasO(i, j) && hasT(i, j)) {
-                cpModel.AddImplication(getO(i, j), getT(i, j));
+            if (hasO(producers[t], j) && hasT(t, j)) {
+                cpModel.AddImplication(getO(producers[t], j), getT(t, j));
             }
         }
     }
 
-    // Constraint (4c): T[i][j] => at least one consumer hasn't run yet
-    for (uint64_t i = 0; i < n; i++) {
-        const auto &users = graph.getTensorUsers()[i];
-        if (users.empty())
-            continue;
-
+    // Constraint (4c): T[t][j] => still live at j+1 or a consumer runs at j
+    // (so a tensor live at j has a consumer at j or later); live-out tensors
+    // stay live
+    for (uint64_t t = 0; t < m; t++) {
+        const auto &users = graph.getTensorUsers()[t];
         for (uint64_t j = 0; j < n; j++) {
-            if (!hasT(i, j))
+            if (!hasT(t, j))
                 continue;
 
-            std::vector<operations_research::sat::BoolVar> futureConsumers;
+            std::vector<operations_research::sat::BoolVar> clause;
+            clause.push_back(getT(t, j).Not());
+            if (hasT(t, j + 1)) {
+                clause.push_back(getT(t, j + 1));
+            }
+            if (graph.getLiveOut()[t]) {
+                if (clause.size() > 1)
+                    cpModel.AddBoolOr(clause);
+                continue;
+            }
             for (uint64_t c : users) {
-                for (uint64_t k = j; k < n; k++) {
-                    if (hasO(c, k)) {
-                        futureConsumers.push_back(getO(c, k));
-                    }
+                if (hasO(c, j)) {
+                    clause.push_back(getO(c, j));
                 }
             }
+            // Without consumers, a tensor only lives while it is created
+            if (users.empty() && hasO(producers[t], j)) {
+                clause.push_back(getO(producers[t], j));
+            }
+            cpModel.AddBoolOr(clause);
+        }
+    }
 
-            if (futureConsumers.empty()) {
-                cpModel.AddEquality(getT(i, j), 0);
+    // Constraint (5): T[t][0] => O[p(t)][0]
+    for (uint64_t t = 0; t < m; t++) {
+        if (hasT(t, 0)) {
+            if (hasO(producers[t], 0)) {
+                cpModel.AddImplication(getT(t, 0), getO(producers[t], 0));
             } else {
-                std::vector<operations_research::sat::BoolVar> clause;
-                clause.push_back(getT(i, j).Not());
-                clause.insert(clause.end(), futureConsumers.begin(),
-                              futureConsumers.end());
-                cpModel.AddBoolOr(clause);
+                cpModel.AddEquality(getT(t, 0), 0);
             }
         }
     }
 
-    // Constraint (5): T[i][0] => O[i][0]
-    for (uint64_t i = 0; i < n; i++) {
-        if (hasT(i, 0)) {
-            if (hasO(i, 0)) {
-                cpModel.AddImplication(getT(i, 0), getO(i, 0));
-            } else {
-                cpModel.AddEquality(getT(i, 0), 0);
-            }
-        }
-    }
-
-    // Constraint (6): memory bound at each step
+    // Constraint (6): memory bound at each step (exactly one operator runs)
     for (uint64_t j = 0; j < n; j++) {
-        for (uint64_t k = 0; k < n; k++) {
-            if (!hasO(k, j))
-                continue;
-
-            operations_research::sat::LinearExpr memExpr;
-            for (uint64_t i = 0; i < n; i++) {
-                if (hasT(i, j)) {
-                    memExpr += getT(i, j) *
-                               static_cast<int64_t>(graph.getTensorSizes()[i]);
-                }
+        operations_research::sat::LinearExpr memExpr;
+        for (uint64_t t = 0; t < m; t++) {
+            if (hasT(t, j)) {
+                memExpr += getT(t, j) *
+                           static_cast<int64_t>(graph.getTensorSizes()[t]);
             }
-            memExpr +=
-                getO(k, j) * static_cast<int64_t>(graph.getExtraSizes()[k]);
-
-            cpModel.AddLessOrEqual(memExpr, mem);
         }
+        for (uint64_t k = 0; k < n; k++) {
+            if (hasO(k, j)) {
+                memExpr +=
+                    getO(k, j) * static_cast<int64_t>(graph.getExtraSizes()[k]);
+            }
+        }
+
+        cpModel.AddLessOrEqual(memExpr, mem);
     }
 
     cpModel.Minimize(mem);
@@ -400,11 +381,11 @@ void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
 
     // Compute tensor liveness
     std::vector<robin_hood::unordered_set<uint64_t>> live(n);
-    for (uint64_t tensor = 0; tensor < n; tensor++) {
-        uint64_t birthStep = opToStep[tensor];
+    for (uint64_t tensor = 0; tensor < graph.getNumTensors(); tensor++) {
+        uint64_t birthStep = opToStep[graph.getTensorProducers()[tensor]];
         const auto &users = graph.getTensorUsers()[tensor];
 
-        uint64_t deathStep = birthStep;
+        uint64_t deathStep = graph.getLiveOut()[tensor] ? n - 1 : birthStep;
         for (uint64_t user : users) {
             deathStep = std::max(deathStep, opToStep[user]);
         }
@@ -425,7 +406,7 @@ void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
     }
 
     // Add hints for T variables
-    for (uint64_t tensor = 0; tensor < n; tensor++) {
+    for (uint64_t tensor = 0; tensor < graph.getNumTensors(); tensor++) {
         for (uint64_t step = 0; step < n; step++) {
             if (hasT(tensor, step)) {
                 cpModel.AddHint(getT(tensor, step),
@@ -539,61 +520,14 @@ BruteForceSolver::BruteForceSolver(const hypergraph::HyperGraph &graph,
 
 uint64_t
 BruteForceSolver::computePeakMemory(const std::vector<uint64_t> &order) const {
-    uint64_t n = order.size();
-    robin_hood::unordered_set<uint64_t> live;
-    uint64_t peak = 0;
-
-    const auto &inputTensors = graph.getInputTensors();
-    const auto &tensorSizes = graph.getTensorSizes();
-    const auto &extraSizes = graph.getExtraSizes();
-
-    for (uint64_t step = 0; step < n; step++) {
-        uint64_t op = order[step];
-
-        // Memory during execution: live tensors + new output + workspace
-        uint64_t mem = extraSizes[op] + tensorSizes[op];
-        for (uint64_t t : live) {
-            mem += tensorSizes[t];
-        }
-        peak = std::max(peak, mem);
-
-        // Add output tensor to live set
-        live.insert(op);
-
-        // Remove tensors whose last consumer just ran
-        std::vector<uint64_t> toRemove;
-        for (uint64_t t : live) {
-            bool canFree = true;
-            for (uint64_t i = 0; i < n; i++) {
-                if (inputTensors[i].count(t)) {
-                    bool hasRun = false;
-                    for (uint64_t s = 0; s <= step; s++) {
-                        if (order[s] == i) {
-                            hasRun = true;
-                            break;
-                        }
-                    }
-                    if (!hasRun) {
-                        canFree = false;
-                        break;
-                    }
-                }
-            }
-            if (canFree)
-                toRemove.push_back(t);
-        }
-        for (uint64_t t : toRemove)
-            live.erase(t);
-    }
-
-    return peak;
+    return graph.computePeakMemory(order);
 }
 
 bool BruteForceSolver::canPlace(uint64_t node,
                                 const std::vector<bool> &placed) const {
     const auto &inputTensors = graph.getInputTensors();
-    for (uint64_t dep : inputTensors[node]) {
-        if (!placed[dep])
+    for (uint64_t t : inputTensors[node]) {
+        if (!placed[graph.getTensorProducers()[t]])
             return false;
     }
     return true;
@@ -672,7 +606,8 @@ Scheduler::Scheduler(const core::Graph &originalGraph,
     : originalGraph(originalGraph), partitionMapping(partitionMapping),
       debug(debug), verify(verify) {}
 
-std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
+std::vector<uint64_t> Scheduler::calculatePartitionWeights(
+    std::vector<hypergraph::Tensor> &escapingTensors) const {
     std::vector<uint64_t> topologicalOrder = originalGraph.topologicalSort();
 
     // Create global position mapping
@@ -712,38 +647,80 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights() const {
         }
     }
 
+    // Buffer of every value: a tied op (weight 0, consumed results) writes
+    // into the input whose edge weight equals its result size, preferring
+    // the last-defined one (the init operand)
+    std::vector<uint64_t> root(originalGraph.size, UINT64_MAX);
+    for (uint64_t node : topologicalOrder) {
+        if (originalGraph.nodeWeights[node] > 0) {
+            root[node] = node;
+            continue;
+        }
+        uint64_t resultSize = 0;
+        for (const auto &[consumer, edgeWeight] : originalGraph.adj[node])
+            resultSize = std::max(resultSize, edgeWeight);
+        uint64_t tiedInput = UINT64_MAX;
+        for (const auto &[input, edgeWeight] : originalGraph.revAdj[node]) {
+            if (resultSize > 0 && edgeWeight == resultSize &&
+                (tiedInput == UINT64_MAX ||
+                 globalNodeToPosition[input] > globalNodeToPosition[tiedInput]))
+                tiedInput = input;
+        }
+        if (tiedInput != UINT64_MAX)
+            root[node] = root[tiedInput];
+    }
+    std::vector<std::vector<uint64_t>> aliases(originalGraph.size);
+    for (uint64_t node = 0; node < originalGraph.size; ++node) {
+        if (root[node] != UINT64_MAX)
+            aliases[root[node]].push_back(node);
+    }
+
     // Collect tensors per partition
     std::vector<std::vector<utils::Tensor>> partitionTensors(numPartitions);
+    escapingTensors.clear();
 
     for (uint64_t producer = 0; producer < originalGraph.size; ++producer) {
+        if (aliases[producer].empty())
+            continue;
         uint64_t producerPartition = partitionMapping[producer];
 
-        // Find all consumers of this producer within the same partition
+        // Find all users of the buffer's values within the same partition,
+        // and the partitions it escapes to
         uint64_t lastConsumerPosition =
             nodeToLocalPosition[producer]; // Birth time
-        bool hasInternalConsumers = false;
-        bool hasExternalConsumers = false;
-
-        for (const auto &[consumer, edgeWeight] : originalGraph.adj[producer]) {
-            // Tensor is packed only if it has internal consumers only
-            if (partitionMapping[consumer] == producerPartition) {
-                hasInternalConsumers = true;
-                lastConsumerPosition = std::max(lastConsumerPosition,
-                                                nodeToLocalPosition[consumer]);
+        hypergraph::Tensor escaping{
+            producerPartition, originalGraph.nodeWeights[producer], {}, false};
+        auto use = [&](uint64_t node) {
+            if (partitionMapping[node] == producerPartition) {
+                lastConsumerPosition =
+                    std::max(lastConsumerPosition, nodeToLocalPosition[node]);
             } else {
-                hasExternalConsumers = true;
-                break;
+                escaping.users.push_back(partitionMapping[node]);
             }
+        };
+        for (uint64_t value : aliases[producer]) {
+            use(value);
+            // Graph outputs stay live until the end
+            if (originalGraph.adj[value].empty())
+                escaping.liveOut = true;
+            for (const auto &[consumer, edgeWeight] : originalGraph.adj[value])
+                use(consumer);
         }
 
-        // If there are only internal consumers, add tensor to partition
-        if (hasInternalConsumers && !hasExternalConsumers) {
+        // Tensor is packed only if it has internal users only
+        if (escaping.users.empty() && !escaping.liveOut) {
             utils::Tensor tensor;
             tensor.size = originalGraph.nodeWeights[producer];
             tensor.birth = nodeToLocalPosition[producer];
             tensor.death = lastConsumerPosition;
             tensor.offset = 0; // Will be assigned during packing
             partitionTensors[producerPartition].push_back(tensor);
+        } else {
+            std::sort(escaping.users.begin(), escaping.users.end());
+            escaping.users.erase(
+                std::unique(escaping.users.begin(), escaping.users.end()),
+                escaping.users.end());
+            escapingTensors.push_back(std::move(escaping));
         }
     }
 
@@ -781,46 +758,38 @@ void Scheduler::buildCoarseGraph() {
         *std::max_element(partitionMapping.begin(), partitionMapping.end()) + 1;
     assert(numPartitions != 0 && "Number of partitions must be > 0");
 
-    coarseGraph = std::make_unique<core::Graph>(numPartitions);
+    std::vector<hypergraph::Tensor> tensors;
+    std::vector<uint64_t> partitionWeights = calculatePartitionWeights(tensors);
 
-    std::vector<uint64_t> partitionWeights = calculatePartitionWeights();
-
-    // Add nodes to coarse graph - partition ID is the node ID
-    for (uint64_t partitionId = 0; partitionId < numPartitions; ++partitionId) {
-        coarseGraph->addNode(partitionId, partitionWeights[partitionId]);
+    // Partition edges that no tensor orders become empty tensors (e.g. a
+    // buffer allocated in A, written in place in B and read in C orders A
+    // before B and C, but not B before C)
+    std::set<std::pair<uint64_t, uint64_t>> ordered;
+    for (const auto &tensor : tensors) {
+        for (uint64_t user : tensor.users) {
+            ordered.insert({tensor.producer, user});
+        }
     }
-
-    // For each edge in the original graph, create an edge between partitions
-    // if needed, with total size of edges between partitions
-    std::vector<std::unordered_map<uint64_t, uint64_t>> newEdges(numPartitions);
     for (uint64_t from = 0; from < originalGraph.size; ++from) {
         for (const auto &[to, edgeWeight] : originalGraph.adj[from]) {
             uint64_t fromPartition = partitionMapping[from];
             uint64_t toPartition = partitionMapping[to];
 
-            if (fromPartition != toPartition) {
-                if (newEdges[fromPartition].find(toPartition) !=
-                    newEdges[fromPartition].end()) {
-                    newEdges[fromPartition][toPartition] += edgeWeight;
-                } else {
-                    newEdges[fromPartition].emplace(toPartition, edgeWeight);
-                }
+            if (fromPartition != toPartition &&
+                ordered.insert({fromPartition, toPartition}).second) {
+                tensors.push_back({fromPartition, 0, {toPartition}, false});
             }
         }
     }
 
-    for (uint64_t partitionId = 0; partitionId < newEdges.size();
-         ++partitionId) {
-        for (const auto &[neighborId, edgeWeight] : newEdges[partitionId]) {
-            coarseGraph->addEdge(partitionId, neighborId, edgeWeight);
-        }
-    }
+    coarseGraph = std::make_unique<hypergraph::HyperGraph>(
+        std::move(partitionWeights), tensors);
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
     buildCoarseGraph();
-    hypergraph::HyperGraph hyperGraph(*coarseGraph);
+    const hypergraph::HyperGraph &hyperGraph = *coarseGraph;
 
     cpsat::CPSATSolver solver(hyperGraph, debug);
     auto [status, schedule, peakMemory] =
@@ -833,10 +802,6 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
         if (peakMemory != bfPeakMemory) {
             std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n"
                       << std::endl;
-
-            std::cerr << "=== Coarse Graph ===\n";
-            std::cerr << *coarseGraph;
-            std::cerr << std::endl;
 
             std::cerr << "=== HyperGraph ===\n";
             std::cerr << hyperGraph;
