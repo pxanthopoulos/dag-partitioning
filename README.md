@@ -31,6 +31,21 @@ This process uses recursive bisection to achieve partitions into `k` parts.
 
 This project uses CMake to automatically download and build most of its dependencies (GKlib, METIS, Scotch, and Robin Hood Hashing). OR-Tools must be installed separately as a system dependency before building.
 
+### Installing OR-Tools
+
+Download the prebuilt C++ archive for your platform from the [OR-Tools releases](https://github.com/google/or-tools/releases) and extract it, for example to `/path/to/or-tools`:
+
+```bash
+tar xzf or-tools_amd64_ubuntu-24.04_cpp_v9.15.6755.tar.gz
+mv or-tools_x86_64_Ubuntu-24.04_cpp_v9.15.6755 /path/to/or-tools
+```
+
+If OR-Tools is not in a standard system location, tell CMake where to find it with `CMAKE_PREFIX_PATH` (or point `ortools_DIR` at `<prefix>/lib/cmake/ortools`). Without it, configuration fails with `Could not find a package configuration file provided by "ortools"`:
+
+```bash
+cmake -DCMAKE_PREFIX_PATH=/path/to/or-tools ..
+```
+
 ### Build Instructions
 
 ```bash
@@ -57,11 +72,12 @@ This will install the library, headers, and executables to the `install` directo
 - `DAG_PARTITIONING_OPENMP=ON` - Enable OpenMP support for parallel processing
 - `BUILD_SHARED_LIBS=ON` - Build shared libraries instead of static
 - `CMAKE_BUILD_TYPE=Release` - Build optimized release version (default)
+- `CMAKE_PREFIX_PATH=<path>` - Location of the OR-Tools installation, if not in a system path
 
 Example with options (for more options see `CMakeLists.txt`):
 
 ```bash
-cmake -DDAG_PARTITIONING_OPENMP=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=../install ..
+cmake -DCMAKE_PREFIX_PATH=/path/to/or-tools -DDAG_PARTITIONING_OPENMP=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=../install ..
 make
 make install
 ```
