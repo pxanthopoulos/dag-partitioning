@@ -32,11 +32,18 @@ struct Tensor {
  *
  * Assigns memory offsets to tensors while minimizing peak memory usage.
  * Uses a best-fit algorithm that finds the smallest gap for each tensor.
+ * Sizes are rounded up to rangeAlignment and offsets to offsetAlignment, as
+ * IREE does when it packs transient slices.
  *
- * @param tensors Vector of tensors to pack (modified in-place)
+ * @param tensors Vector of tensors to pack (modified in-place, sizes become
+ * the aligned sizes)
+ * @param offsetAlignment Alignment of every assigned offset
+ * @param rangeAlignment Alignment of every size and of the peak
  * @return Peak memory usage after packing
  */
-[[nodiscard]] uint64_t packBestFit(std::vector<Tensor> &tensors);
+[[nodiscard]] uint64_t packBestFit(std::vector<Tensor> &tensors,
+                                   uint64_t offsetAlignment = 1,
+                                   uint64_t rangeAlignment = 1);
 
 } // namespace utils
 

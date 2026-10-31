@@ -233,6 +233,8 @@ class Scheduler {
     std::unique_ptr<hypergraph::HyperGraph> coarseGraph; // Coarse graph
     bool debug = false;
     bool verify = false;
+    uint64_t offsetAlignment = 1; // Alignment of packed tensor offsets
+    uint64_t rangeAlignment = 1;  // Alignment of packed tensor sizes
 
     /**
      * @brief Calculates memory requirements for each partition
@@ -274,10 +276,14 @@ class Scheduler {
      * @param debug Enable debug output
      * @param verify If true, run brute-force solver and verify peak memory
      * matches
+     * @param offsetAlignment Alignment of packed tensor offsets
+     * @param rangeAlignment Alignment of packed tensor sizes and partition
+     * weights
      */
     Scheduler(const core::Graph &originalGraph,
               const std::vector<uint64_t> &partitionMapping, bool debug = false,
-              bool verify = false);
+              bool verify = false, uint64_t offsetAlignment = 1,
+              uint64_t rangeAlignment = 1);
 
     /**
      * @brief Virtual destructor for proper cleanup

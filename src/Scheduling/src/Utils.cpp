@@ -15,7 +15,12 @@ namespace scheduling {
 
 namespace utils {
 
-uint64_t packBestFit(std::vector<Tensor> &tensors) {
+uint64_t packBestFit(std::vector<Tensor> &tensors, uint64_t offsetAlignment,
+                     uint64_t rangeAlignment) {
+    auto align = [](uint64_t value, uint64_t alignment) {
+        return (value + alignment - 1) / alignment * alignment;
+    };
+
     auto overlaps = [](const Tensor &a, const Tensor &b) {
         return !(a.death < b.birth || b.death < a.birth);
     };
@@ -43,6 +48,7 @@ uint64_t packBestFit(std::vector<Tensor> &tensors) {
 
     for (size_t i = 0; i < tensors.size(); ++i) {
         Tensor &t = tensors[i];
+        t.size = align(t.size, rangeAlignment);
 
         std::vector<std::pair<uint64_t, uint64_t>> occupied;
         for (size_t j = 0; j < i; ++j) { // all previously placed
@@ -64,34 +70,21 @@ uint64_t packBestFit(std::vector<Tensor> &tensors) {
             }
         }
 
-        // Best-fit: find smallest gap >= t.size
-        uint64_t bestOffset = 0;
-        uint64_t bestWaste = UINT64_MAX;
-
-        if (merged.empty()) {
-            bestOffset = 0;
-        } else {
-            // Gap before first interval [0, merged[0].first)
-            if (merged[0].first >= t.size &&
-                merged[0].first - t.size < bestWaste) {
-                bestWaste = merged[0].first - t.size;
-                bestOffset = 0;
+        // Best-fit: the smallest gap that holds t at an aligned offset, else
+        // the aligned top of the last interval
+        uint64_t bestOffset = UINT64_MAX;
+        uint64_t bestGap = UINT64_MAX;
+        uint64_t gapStart = 0;
+        for (auto &[start, end] : merged) {
+            uint64_t offset = align(gapStart, offsetAlignment);
+            if (offset + t.size <= start && start - gapStart < bestGap) {
+                bestGap = start - gapStart;
+                bestOffset = offset;
             }
-
-            // Gaps between intervals
-            for (size_t j = 0; j + 1 < merged.size(); ++j) {
-                uint64_t gapSize = merged[j + 1].first - merged[j].second;
-                if (gapSize >= t.size && gapSize - t.size < bestWaste) {
-                    bestWaste = gapSize - t.size;
-                    bestOffset = merged[j].second;
-                }
-            }
-
-            // If no gap fits, place after last interval
-            if (bestWaste == UINT64_MAX) {
-                bestOffset = merged.back().second;
-            }
+            gapStart = end;
         }
+        if (bestOffset == UINT64_MAX)
+            bestOffset = align(gapStart, offsetAlignment);
 
         t.offset = bestOffset;
     }
@@ -103,7 +96,7 @@ uint64_t packBestFit(std::vector<Tensor> &tensors) {
 
     assert(verify(tensors) && "Memory packing verification failed");
 
-    return peak;
+    return align(peak, rangeAlignment);
 }
 
 } // namespace utils
