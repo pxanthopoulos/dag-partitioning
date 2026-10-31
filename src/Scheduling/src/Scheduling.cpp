@@ -6,6 +6,7 @@
 #include "Scheduling.h"
 
 #include <cassert>
+#include <chrono>
 #include <numeric>
 #include <queue>
 #include <set>
@@ -425,6 +426,8 @@ std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
 CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     uint64_t n = graph.getSize();
 
+    auto constructionStart = std::chrono::steady_clock::now();
+
     // Compute pruning bounds
     computePruningBounds();
 
@@ -451,18 +454,25 @@ CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     // Solve
     operations_research::sat::Model model;
     model.Add(NewSatParameters(params));
+    operations_research::sat::CpModelProto modelProto = cpModel.Build();
 
-    auto start = std::chrono::steady_clock::now();
+    auto solveStart = std::chrono::steady_clock::now();
     operations_research::sat::CpSolverResponse response =
-        SolveCpModel(cpModel.Build(), &model);
-    auto end = std::chrono::steady_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+        SolveCpModel(modelProto, &model);
+    auto solveEnd = std::chrono::steady_clock::now();
 
     if (debug) {
         std::cerr << "Solver status: " << CpSolverResponseStats(response)
                   << std::endl;
-        std::cerr << "Measured elapsed: " << elapsed << " seconds" << std::endl;
+        std::cerr << "CP-SAT model construction time: "
+                  << std::chrono::duration<double>(solveStart -
+                                                   constructionStart)
+                         .count()
+                  << " seconds" << std::endl;
+        std::cerr
+            << "CP-SAT solve time: "
+            << std::chrono::duration<double>(solveEnd - solveStart).count()
+            << " seconds" << std::endl;
     }
 
     // Extract results
@@ -803,7 +813,15 @@ void Scheduler::buildCoarseGraph() {
 
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
+    auto buildStart = std::chrono::steady_clock::now();
     buildCoarseGraph();
+    auto buildEnd = std::chrono::steady_clock::now();
+    if (debug) {
+        std::cerr
+            << "Coarse graph construction time: "
+            << std::chrono::duration<double>(buildEnd - buildStart).count()
+            << " seconds" << std::endl;
+    }
     const hypergraph::HyperGraph &hyperGraph = *coarseGraph;
 
     cpsat::CPSATSolver solver(hyperGraph, debug);
