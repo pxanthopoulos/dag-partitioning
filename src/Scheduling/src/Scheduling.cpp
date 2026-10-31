@@ -6,6 +6,7 @@
 #include "Scheduling.h"
 
 #include <cassert>
+#include <numeric>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -610,7 +611,18 @@ Scheduler::Scheduler(const core::Graph &originalGraph,
 
 std::vector<uint64_t> Scheduler::calculatePartitionWeights(
     std::vector<hypergraph::Tensor> &escapingTensors) const {
-    std::vector<uint64_t> topologicalOrder = originalGraph.topologicalSort();
+    // Node ids are the order when they are topological (as a compiler emits
+    // them, in block order); otherwise use a topological sort
+    bool idsAreTopological = true;
+    for (uint64_t from = 0; from < originalGraph.size; ++from) {
+        for (const auto &[to, edgeWeight] : originalGraph.adj[from])
+            idsAreTopological &= from < to;
+    }
+    std::vector<uint64_t> topologicalOrder(originalGraph.size);
+    if (idsAreTopological)
+        std::iota(topologicalOrder.begin(), topologicalOrder.end(), 0);
+    else
+        topologicalOrder = originalGraph.topologicalSort();
 
     // Create global position mapping
     std::vector<uint64_t> globalNodeToPosition(originalGraph.size);

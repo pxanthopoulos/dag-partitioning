@@ -243,6 +243,10 @@ class Scheduler {
      * each partition based on tensor lifetimes, and collects the tensors
      * that escape each partition.
      *
+     * Lifetimes are positions within a partition in node id order when the
+     * ids are a topological order (as a compiler emits them, in block order),
+     * and in topological sort order otherwise.
+     *
      * A node with weight 0 whose results are consumed is a tied op: its
      * result aliases the buffer of the input whose edge weight equals the
      * result size (the last-defined one if several match). All values that
