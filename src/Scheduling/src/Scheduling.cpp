@@ -817,7 +817,8 @@ void Scheduler::buildCoarseGraph() {
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>
-Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
+Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
+               Solver solver) {
     auto buildStart = std::chrono::steady_clock::now();
     buildCoarseGraph();
     auto buildEnd = std::chrono::steady_clock::now();
@@ -829,9 +830,24 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers) {
     }
     const hypergraph::HyperGraph &hyperGraph = *coarseGraph;
 
-    cpsat::CPSATSolver solver(hyperGraph, debug);
+    if (solver == Solver::RPO) {
+        auto solveStart = std::chrono::steady_clock::now();
+        heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
+        auto [schedule, peakMemory] = rpoScheduler.solve();
+        auto solveEnd = std::chrono::steady_clock::now();
+        if (debug) {
+            std::cerr
+                << "RPO solve time: "
+                << std::chrono::duration<double>(solveEnd - solveStart).count()
+                << " seconds" << std::endl;
+            std::cerr << "Peak memory: " << peakMemory << std::endl;
+        }
+        return {schedule, peakMemory};
+    }
+
+    cpsat::CPSATSolver cpsatSolver(hyperGraph, debug);
     auto [status, schedule, peakMemory] =
-        solver.solve(timeLimitSeconds, numWorkers);
+        cpsatSolver.solve(timeLimitSeconds, numWorkers);
 
     if (verify) {
         bruteforce::BruteForceSolver bfSolver(hyperGraph, debug);

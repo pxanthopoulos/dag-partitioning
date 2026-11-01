@@ -226,6 +226,14 @@ class BruteForceSolver {
 
 } // namespace bruteforce
 
+/**
+ * @brief Solver that orders the partitions
+ */
+enum class Solver {
+    CPSAT, // CP-SAT, warm-started with the RPO heuristic
+    RPO,   // The RPO heuristic alone
+};
+
 class Scheduler {
   protected:
     const core::Graph &originalGraph;              // Original graph to schedule
@@ -303,13 +311,16 @@ class Scheduler {
      * Builds the coarse graph with partition weights computed via memory
      * packing and inter-partition edge weights.
      *
-     * @param timeLimitSeconds Time limit for solver in seconds
-     * @param numWorkers Number of parallel workers for the solver
+     * @param timeLimitSeconds Time limit for solver in seconds (CP-SAT only)
+     * @param numWorkers Number of parallel workers for the solver (CP-SAT
+     * only)
+     * @param solver Solver that orders the partitions
      * @return Pair of a vector with partition numbers ordered by their
      * scheduled execution and the peak memory usage of the schedule
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
-    run(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1);
+    run(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,
+        Solver solver = Solver::CPSAT);
 };
 
 } // namespace scheduling
