@@ -235,13 +235,14 @@ class Scheduler {
     bool verify = false;
     uint64_t offsetAlignment = 1; // Alignment of packed tensor offsets
     uint64_t rangeAlignment = 1;  // Alignment of packed tensor sizes
+    utils::SlabPacker packer;     // Packs each partition's tensors
 
     /**
      * @brief Calculates memory requirements for each partition
      *
-     * Uses best-fit memory packing to compute peak memory usage for
-     * each partition based on tensor lifetimes, and collects the tensors
-     * that escape each partition.
+     * Packs each partition's tensors with the slab packer (best fit by
+     * default) to compute its peak memory usage from tensor lifetimes, and
+     * collects the tensors that escape each partition.
      *
      * Lifetimes are positions within a partition in node id order when the
      * ids are a topological order (as a compiler emits them, in block order),
@@ -283,11 +284,13 @@ class Scheduler {
      * @param offsetAlignment Alignment of packed tensor offsets
      * @param rangeAlignment Alignment of packed tensor sizes and partition
      * weights
+     * @param packer Packs each partition's tensors into its weight; empty
+     * means best fit (utils::packBestFit) with the two alignments
      */
     Scheduler(const core::Graph &originalGraph,
               const std::vector<uint64_t> &partitionMapping, bool debug = false,
               bool verify = false, uint64_t offsetAlignment = 1,
-              uint64_t rangeAlignment = 1);
+              uint64_t rangeAlignment = 1, utils::SlabPacker packer = {});
 
     /**
      * @brief Virtual destructor for proper cleanup

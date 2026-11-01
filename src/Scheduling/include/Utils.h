@@ -9,6 +9,7 @@
 #define DAG_PARTITIONING_UTILS_H
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace dag_partitioning {
@@ -44,6 +45,16 @@ struct Tensor {
 [[nodiscard]] uint64_t packBestFit(std::vector<Tensor> &tensors,
                                    uint64_t offsetAlignment = 1,
                                    uint64_t rangeAlignment = 1);
+
+/**
+ * @brief Packs the tensors of one partition into a slab
+ *
+ * Gets the partition's tensors sorted by birth, then death. Assigns each an
+ * offset (sizes may be rounded up in place) and returns the slab size, which
+ * becomes the partition's weight. Lets a compiler give the scheduler the
+ * packer it will itself use for the partition.
+ */
+using SlabPacker = std::function<uint64_t(std::vector<Tensor> &tensors)>;
 
 } // namespace utils
 

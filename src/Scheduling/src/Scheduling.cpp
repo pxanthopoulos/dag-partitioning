@@ -614,10 +614,17 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
 Scheduler::Scheduler(const core::Graph &originalGraph,
                      const std::vector<uint64_t> &partitionMapping, bool debug,
                      bool verify, uint64_t offsetAlignment,
-                     uint64_t rangeAlignment)
+                     uint64_t rangeAlignment, utils::SlabPacker packer)
     : originalGraph(originalGraph), partitionMapping(partitionMapping),
       debug(debug), verify(verify), offsetAlignment(offsetAlignment),
-      rangeAlignment(rangeAlignment) {}
+      rangeAlignment(rangeAlignment), packer(std::move(packer)) {
+    if (!this->packer) {
+        this->packer = [offsetAlignment,
+                        rangeAlignment](std::vector<utils::Tensor> &tensors) {
+            return utils::packBestFit(tensors, offsetAlignment, rangeAlignment);
+        };
+    }
+}
 
 std::vector<uint64_t> Scheduler::calculatePartitionWeights(
     std::vector<hypergraph::Tensor> &escapingTensors) const {
@@ -767,9 +774,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
                       return a.death < b.death;
                   });
 
-        // Best-fit packing algorithm
-        uint64_t peakMemory =
-            utils::packBestFit(tensors, offsetAlignment, rangeAlignment);
+        uint64_t peakMemory = packer(tensors);
 
         partitionWeights[partition] = peakMemory;
     }
