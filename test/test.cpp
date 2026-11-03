@@ -33,13 +33,13 @@ void printResults(const std::vector<uint64_t> &partition,
 }
 
 int main(int argc, char **argv) {
-    if (argc < 7 || argc > 10) {
+    if (argc < 7 || argc > 11) {
         std::cerr << "Usage: " << argv[0]
                   << " <# of partitions> <dot file path> <clustering method> "
                      "<bisection method> "
                      "<refinement method> <enable parallel> "
                      "[min size for parallel] [max parallel depth] [enable "
-                     "scheduling]"
+                     "scheduling] [scheduling objective]"
                   << std::endl;
         std::cerr << "  clustering method: FORB, CYC, or HYB" << std::endl;
         std::cerr
@@ -57,6 +57,9 @@ int main(int argc, char **argv) {
                   << std::endl;
         std::cerr << "  enable scheduling: 1 to enable scheduling, 0 to skip "
                      "(default: 0)"
+                  << std::endl;
+        std::cerr << "  scheduling objective: memory or transfers (default: "
+                     "memory)"
                   << std::endl;
         return 1;
     }
@@ -144,7 +147,7 @@ int main(int argc, char **argv) {
 
     // Parse enable scheduling flag (optional, defaults to false)
     bool enableScheduling = false;
-    if (argc == 10) {
+    if (argc >= 10) {
         try {
             int schedulingFlag = std::stoi(argv[9]);
             if (schedulingFlag != 0 && schedulingFlag != 1) {
@@ -160,6 +163,21 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
+
+    // Parse scheduling objective (optional, defaults to memory)
+    auto objective = dag_partitioning::scheduling::Objective::Memory;
+    if (argc == 11) {
+        std::string objectiveName = argv[10];
+        if (objectiveName == "transfers") {
+            objective = dag_partitioning::scheduling::Objective::Transfers;
+        } else if (objectiveName != "memory") {
+            std::cerr << "Error: scheduling objective must be memory or "
+                         "transfers"
+                      << std::endl;
+            return 1;
+        }
+    }
+
     dag_partitioning::core::Graph graph = dag_partitioning::core::readDotFile(
         dotPath, dotPath + ".node-mappings.txt");
 
@@ -192,7 +210,8 @@ int main(int argc, char **argv) {
         dag_partitioning::scheduling::Scheduler scheduler(
             graph, partitionMapping, false, true);
         start = std::chrono::high_resolution_clock::now();
-        auto [schedule, peakMemory] = scheduler.run(600, 7);
+        auto [schedule, cost] = scheduler.run(
+            600, 7, dag_partitioning::scheduling::Solver::CPSAT, objective);
         end = std::chrono::high_resolution_clock::now();
         schedulingDuration =
             std::chrono::duration_cast<std::chrono::microseconds>(end - start)

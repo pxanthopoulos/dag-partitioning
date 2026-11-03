@@ -7,6 +7,8 @@
 
 #include <cassert>
 #include <chrono>
+#include <cmath>
+#include <map>
 #include <numeric>
 #include <queue>
 #include <set>
@@ -521,17 +523,158 @@ CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
         std::to_string(static_cast<int>(response.status())));
 }
 
+TransferSolver::TransferSolver(const hypergraph::HyperGraph &graph,
+                               bool debug)
+    : graph(graph), debug(debug) {}
+
+std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
+           uint64_t>
+TransferSolver::solve(const std::vector<uint64_t> &hint,
+                      uint64_t timeLimitSeconds, int32_t numWorkers) const {
+    namespace sat = operations_research::sat;
+    auto constructionStart = std::chrono::steady_clock::now();
+    uint64_t n = graph.getSize();
+    const auto &producers = graph.getTensorProducers();
+    const auto &users = graph.getTensorUsers();
+    const auto &sizes = graph.getTensorSizes();
+    const auto &liveOut = graph.getLiveOut();
+
+    sat::CpModelBuilder cpModel;
+
+    // Positions, pruned to [|anc(i)|, n-1-|des(i)|]
+    std::vector<sat::IntVar> pos;
+    pos.reserve(n);
+    for (uint64_t i = 0; i < n; i++) {
+        pos.push_back(cpModel.NewIntVar(
+            {static_cast<int64_t>(graph.getAncestors()[i].size()),
+             static_cast<int64_t>(n - 1 - graph.getDescendants()[i].size())}));
+    }
+    cpModel.AddAllDifferent(pos);
+
+    // Producers run before their users. Without adjacencies every tensor
+    // with a consumer costs its offload and a fetch per consumer; collect
+    // what each producer and consumer pair saves if the consumer runs right
+    // after the producer (consumer n stands for after the last step)
+    int64_t total = 0;
+    std::map<std::pair<uint64_t, uint64_t>, int64_t> savings;
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+        uint64_t producer = producers[t];
+        std::vector<uint64_t> consumers(users[t].begin(), users[t].end());
+        for (uint64_t user : consumers)
+            cpModel.AddLessThan(pos[producer], pos[user]);
+        if (liveOut[t])
+            consumers.push_back(n);
+        if (consumers.empty() || sizes[t] == 0)
+            continue;
+        int64_t size = static_cast<int64_t>(sizes[t]);
+        total += size * static_cast<int64_t>(1 + consumers.size());
+        for (uint64_t consumer : consumers)
+            savings[{producer, consumer}] +=
+                consumers.size() == 1 ? 2 * size : size;
+    }
+
+    // adjacent may be true only if the consumer runs right after the
+    // producer; a node has at most one successor and one predecessor
+    sat::LinearExpr transfers(total);
+    std::vector<std::pair<std::pair<uint64_t, uint64_t>, sat::BoolVar>>
+        adjacencies;
+    std::vector<std::vector<sat::BoolVar>> successors(n), predecessors(n);
+    for (const auto &[pair, saving] : savings) {
+        auto [producer, consumer] = pair;
+        sat::BoolVar adjacent = cpModel.NewBoolVar();
+        if (consumer == n) {
+            cpModel.AddEquality(pos[producer], static_cast<int64_t>(n - 1))
+                .OnlyEnforceIf(adjacent);
+        } else {
+            cpModel.AddEquality(pos[consumer], pos[producer] + 1)
+                .OnlyEnforceIf(adjacent);
+            predecessors[consumer].push_back(adjacent);
+        }
+        successors[producer].push_back(adjacent);
+        transfers -= saving * adjacent;
+        adjacencies.push_back({pair, adjacent});
+    }
+    for (uint64_t i = 0; i < n; i++) {
+        cpModel.AddAtMostOne(successors[i]);
+        cpModel.AddAtMostOne(predecessors[i]);
+    }
+    cpModel.Minimize(transfers);
+
+    // Warm start from the heuristic schedule
+    std::vector<uint64_t> hintPos(n);
+    for (uint64_t step = 0; step < n; step++)
+        hintPos[hint[step]] = step;
+    for (uint64_t i = 0; i < n; i++)
+        cpModel.AddHint(pos[i], static_cast<int64_t>(hintPos[i]));
+    for (const auto &[pair, adjacent] : adjacencies) {
+        auto [producer, consumer] = pair;
+        uint64_t consumerPos = consumer == n ? n : hintPos[consumer];
+        cpModel.AddHint(adjacent, consumerPos == hintPos[producer] + 1);
+    }
+
+    sat::SatParameters params;
+    params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
+    params.set_num_search_workers(numWorkers);
+    params.set_log_search_progress(debug);
+    sat::Model model;
+    model.Add(NewSatParameters(params));
+
+    auto solveStart = std::chrono::steady_clock::now();
+    sat::CpSolverResponse response = SolveCpModel(cpModel.Build(), &model);
+    auto solveEnd = std::chrono::steady_clock::now();
+
+    if (debug) {
+        std::cerr << "Solver status: " << CpSolverResponseStats(response)
+                  << std::endl;
+        std::cerr << "CP-SAT model construction time: "
+                  << std::chrono::duration<double>(solveStart -
+                                                   constructionStart)
+                         .count()
+                  << " seconds" << std::endl;
+        std::cerr
+            << "CP-SAT solve time: "
+            << std::chrono::duration<double>(solveEnd - solveStart).count()
+            << " seconds" << std::endl;
+    }
+
+    if (response.status() == sat::CpSolverStatus::OPTIMAL ||
+        response.status() == sat::CpSolverStatus::FEASIBLE) {
+        std::vector<uint64_t> schedule(n);
+        for (uint64_t i = 0; i < n; i++)
+            schedule[SolutionIntegerValue(response, pos[i])] = i;
+        uint64_t transferred = graph.computeTransfers(schedule);
+        assert(std::llround(response.objective_value()) ==
+                   static_cast<long long>(transferred) &&
+               "CP-SAT objective must match computeTransfers");
+
+        if (debug) {
+            std::cerr << (response.status() == sat::CpSolverStatus::OPTIMAL
+                              ? "OPTIMAL"
+                              : "FEASIBLE")
+                      << " solution found!" << std::endl;
+            std::cerr << "Transferred bytes: " << transferred << std::endl;
+        }
+
+        return {response.status(), schedule, transferred};
+    }
+
+    throw std::runtime_error(
+        "No solution found by CP-SAT solver. Status: " +
+        std::to_string(static_cast<int>(response.status())));
+}
+
 } // namespace cpsat
 
 namespace bruteforce {
 
 BruteForceSolver::BruteForceSolver(const hypergraph::HyperGraph &graph,
-                                   bool debug)
-    : graph(graph), debug(debug) {}
+                                   bool debug, Objective objective)
+    : graph(graph), debug(debug), objective(objective) {}
 
 uint64_t
-BruteForceSolver::computePeakMemory(const std::vector<uint64_t> &order) const {
-    return graph.computePeakMemory(order);
+BruteForceSolver::computeCost(const std::vector<uint64_t> &order) const {
+    return objective == Objective::Memory ? graph.computePeakMemory(order)
+                                          : graph.computeTransfers(order);
 }
 
 bool BruteForceSolver::canPlace(uint64_t node,
@@ -545,26 +688,26 @@ bool BruteForceSolver::canPlace(uint64_t node,
 }
 
 void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
-                                 std::vector<bool> &placed, uint64_t &bestPeak,
+                                 std::vector<bool> &placed, uint64_t &bestCost,
                                  std::vector<uint64_t> &bestOrder,
                                  uint64_t &count,
                                  std::vector<std::string> &outputs) const {
     uint64_t n = graph.getSize();
     if (current.size() == n) {
         count++;
-        uint64_t peak = computePeakMemory(current);
+        uint64_t cost = computeCost(current);
 
         if (debug) {
             std::ostringstream oss;
-            oss << "Order " << count - 1 << " (peak " << peak << "): ";
+            oss << "Order " << count - 1 << " (cost " << cost << "): ";
             for (const uint64_t &node : current) {
                 oss << node << " ";
             }
             outputs.emplace_back(oss.str());
         }
 
-        if (peak < bestPeak) {
-            bestPeak = peak;
+        if (cost < bestCost) {
+            bestCost = cost;
             bestOrder = current;
         }
         return;
@@ -575,7 +718,7 @@ void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
             placed[node] = true;
             current.push_back(node);
 
-            enumerate(current, placed, bestPeak, bestOrder, count, outputs);
+            enumerate(current, placed, bestCost, bestOrder, count, outputs);
 
             current.pop_back();
             placed[node] = false;
@@ -589,24 +732,24 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
 
     std::vector<uint64_t> current, bestOrder;
     std::vector<bool> placed(n, false);
-    uint64_t bestPeak = UINT64_MAX;
+    uint64_t bestCost = UINT64_MAX;
     uint64_t count = 0;
 
-    enumerate(current, placed, bestPeak, bestOrder, count, outputs);
+    enumerate(current, placed, bestCost, bestOrder, count, outputs);
 
     if (debug) {
         std::cerr << "\nBrute-force results:\n";
         for (const auto &out : outputs) {
             std::cerr << out << std::endl;
         }
-        std::cerr << "Best result: peak memory " << bestPeak << " in order: ";
+        std::cerr << "Best result: cost " << bestCost << " in order: ";
         for (const uint64_t &node : bestOrder) {
             std::cerr << node << " ";
         }
         std::cerr << std::endl;
     }
 
-    return {bestOrder, bestPeak};
+    return {bestOrder, bestCost};
 }
 
 } // namespace bruteforce
@@ -817,8 +960,8 @@ void Scheduler::buildCoarseGraph() {
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>
-Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
-               Solver solver) {
+Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
+               Objective objective) {
     auto buildStart = std::chrono::steady_clock::now();
     buildCoarseGraph();
     auto buildEnd = std::chrono::steady_clock::now();
@@ -834,26 +977,42 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
         auto solveStart = std::chrono::steady_clock::now();
         heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
         auto [schedule, peakMemory] = rpoScheduler.solve();
+        uint64_t cost = objective == Objective::Memory
+                            ? peakMemory
+                            : hyperGraph.computeTransfers(schedule);
         auto solveEnd = std::chrono::steady_clock::now();
         if (debug) {
             std::cerr
                 << "RPO solve time: "
                 << std::chrono::duration<double>(solveEnd - solveStart).count()
                 << " seconds" << std::endl;
-            std::cerr << "Peak memory: " << peakMemory << std::endl;
+            std::cerr << (objective == Objective::Memory
+                              ? "Peak memory: "
+                              : "Transferred bytes: ")
+                      << cost << std::endl;
         }
-        return {schedule, peakMemory};
+        return {schedule, cost};
     }
 
-    cpsat::CPSATSolver cpsatSolver(hyperGraph, debug);
-    auto [status, schedule, peakMemory] =
-        cpsatSolver.solve(timeLimitSeconds, numWorkers);
+    operations_research::sat::CpSolverStatus status;
+    std::vector<uint64_t> schedule;
+    uint64_t cost;
+    if (objective == Objective::Memory) {
+        cpsat::CPSATSolver cpsatSolver(hyperGraph, debug);
+        std::tie(status, schedule, cost) =
+            cpsatSolver.solve(timeLimitSeconds, numWorkers);
+    } else {
+        heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
+        cpsat::TransferSolver transferSolver(hyperGraph, debug);
+        std::tie(status, schedule, cost) = transferSolver.solve(
+            rpoScheduler.solve().first, timeLimitSeconds, numWorkers);
+    }
 
     if (verify) {
-        bruteforce::BruteForceSolver bfSolver(hyperGraph, debug);
-        auto [bfSchedule, bfPeakMemory] = bfSolver.solve();
+        bruteforce::BruteForceSolver bfSolver(hyperGraph, debug, objective);
+        auto [bfSchedule, bfCost] = bfSolver.solve();
 
-        if (peakMemory != bfPeakMemory) {
+        if (cost != bfCost) {
             std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n"
                       << std::endl;
 
@@ -862,7 +1021,7 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
             std::cerr << std::endl;
 
             std::cerr << "=== CP-SAT Solution ===\n";
-            std::cerr << "Peak Memory: " << peakMemory << std::endl;
+            std::cerr << "Cost: " << cost << std::endl;
             std::cerr << "Schedule: ";
             for (size_t i = 0; i < schedule.size(); ++i) {
                 std::cerr << schedule[i] << " ";
@@ -870,7 +1029,7 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
             std::cerr << "\n" << std::endl;
 
             std::cerr << "=== Brute-Force Solution ===\n";
-            std::cerr << "Peak Memory: " << bfPeakMemory << std::endl;
+            std::cerr << "Cost: " << bfCost << std::endl;
             std::cerr << "Schedule: ";
             for (size_t i = 0; i < bfSchedule.size(); ++i) {
                 std::cerr << bfSchedule[i] << " ";
@@ -900,13 +1059,12 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers,
                       << std::endl;
 
             throw std::runtime_error(
-                "Verification failed: CP-SAT peak memory (" +
-                std::to_string(peakMemory) + ") != brute-force peak memory (" +
-                std::to_string(bfPeakMemory) + ")");
+                "Verification failed: CP-SAT cost (" + std::to_string(cost) +
+                ") != brute-force cost (" + std::to_string(bfCost) + ")");
         }
     }
 
-    return {schedule, peakMemory};
+    return {schedule, cost};
 }
 
 } // namespace scheduling

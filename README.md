@@ -102,6 +102,7 @@ After building, you can use the `dag-test` executable to partition DAGs:
 #   [min size for parallel] Minimum subgraph size to parallelize (default: 100)
 #   [max parallel depth]    Maximum recursion depth for parallelization (default: 10)
 #   [enable scheduling]     1 to run the memory-aware scheduler after partitioning, 0 to skip (default: 0)
+#   [scheduling objective]  memory or transfers (default: memory); see Scheduling
 
 # Example: partition into 4 parts with default settings, parallel enabled
 ./bin/dag-test 4 ../test/example.dot HYB GGG BOUNDARYFM 1
@@ -178,15 +179,18 @@ digraph cfg {
 
 ## Scheduling
 
-After partitioning, the tool can optionally compute an execution order for the partitions that minimizes peak memory usage. This is useful when the partitions will be executed sequentially and memory is a constraint.
+After partitioning, the tool can optionally compute an execution order for the partitions. It minimizes one of two objectives:
 
-The scheduler works as follows:
+- **memory** (default): peak memory usage. This is useful when the partitions will be executed sequentially and memory is a constraint.
+- **transfers**: the bytes moved between device and host when tensors that cross partitions are offloaded to host memory. A tensor stays on the device only if its one consumer runs right after its producer (a live-out tensor counts as consumed after the last partition); otherwise it is offloaded once and fetched once for every consumer that does not run right after its producer. The CP-SAT model gives each partition a position and rewards producer and consumer pairs that end up adjacent.
+
+The memory scheduler works as follows:
 
 1. **Coarse graph construction**: Builds a hyper graph where each node represents a partition. Node weights capture the peak memory used within each partition (computed via best-fit tensor packing of the buffers that never leave it). A partition can produce multiple output tensors: one per buffer that escapes it, with its true size and its own consuming partitions, so each tensor is freed after its own last use. Ops with weight 0 are treated as writing in place into one of their inputs, so their results share that input's buffer and lifetime.
 2. **CP-SAT formulation**: The partition execution order is found by solving a constraint programming problem using Google OR-Tools' CP-SAT solver. The formulation is an adaptation to CP-SAT of an ILP formulation from [Zhong et.al.](https://arxiv.org/abs/2308.13898), with one liveness variable per tensor and step, and one memory constraint per step.
 3. **Warm start**: An RPO (Reverse Post-Order) heuristic provides an initial feasible schedule that seeds the CP-SAT solver, accelerating convergence.
 
-The scheduler is invoked by passing `1` as the last argument to `dag-test` (see Usage above). It reports the peak memory of the found schedule and the time taken by the solver.
+The scheduler is invoked by passing `1` as the enable-scheduling argument to `dag-test` (see Usage above), optionally followed by the objective. It reports the time taken by the solver. With verification on, as in `dag-test`, a brute-force search over all orders checks that the solver's schedule is optimal for either objective.
 
 ## Output Format
 

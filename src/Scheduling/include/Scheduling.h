@@ -3,8 +3,8 @@
  * @brief Memory-aware scheduling for DAGs
  *
  * Performs scheduling of DAG operations to minimize peak memory
- * usage. Uses a CP-SAT solver (brute-force solver for small
- * graphs for verification).
+ * usage or the bytes transferred between device and host. Uses a CP-SAT
+ * solver (brute-force solver for small graphs for verification).
  */
 
 #ifndef DAG_PARTITIONING_SCHEDULING_H
@@ -29,6 +29,14 @@ class Graph;
 }
 
 namespace scheduling {
+
+/**
+ * @brief Criterion that a schedule minimizes
+ */
+enum class Objective {
+    Memory,    // Peak memory (hypergraph::HyperGraph::computePeakMemory)
+    Transfers, // Bytes moved (hypergraph::HyperGraph::computeTransfers)
+};
 
 namespace heuristic {
 
@@ -163,6 +171,45 @@ class CPSATSolver {
     solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1);
 };
 
+/**
+ * @brief CP-SAT based solver that minimizes the bytes moved between device
+ * and host (hypergraph::HyperGraph::computeTransfers)
+ *
+ * Each node gets a position. A boolean per producer and consumer pair may
+ * be true only if the consumer runs right after the producer, and the
+ * objective is the total transfer minus the bytes those adjacencies save:
+ * every tensor of the pair saves its fetch, and a tensor with one consumer
+ * also saves its offload.
+ */
+class TransferSolver {
+  protected:
+    const hypergraph::HyperGraph &graph;
+    bool debug = false;
+
+  public:
+    /**
+     * @brief Constructor
+     * @param graph Hyper graph representation
+     * @param debug Enable debug output
+     */
+    TransferSolver(const hypergraph::HyperGraph &graph, bool debug = false);
+
+    virtual ~TransferSolver() = default;
+
+    /**
+     * @brief Solves the scheduling problem using CP-SAT
+     *
+     * @param hint Heuristic schedule to warm-start from
+     * @param timeLimitSeconds Time limit for solver in seconds
+     * @param numWorkers Number of parallel workers for the solver
+     * @return Tuple of (solver status, schedule, transferred bytes)
+     */
+    [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
+                             std::vector<uint64_t>, uint64_t>
+    solve(const std::vector<uint64_t> &hint, uint64_t timeLimitSeconds = 600,
+          int32_t numWorkers = 1) const;
+};
+
 } // namespace cpsat
 
 namespace bruteforce {
@@ -171,15 +218,15 @@ class BruteForceSolver {
   protected:
     const hypergraph::HyperGraph &graph;
     bool debug = false;
+    Objective objective = Objective::Memory;
 
     /**
-     * @brief Computes peak memory for a given execution order
+     * @brief Computes the objective for a given execution order
      *
      * @param order Execution order of operations
-     * @return Peak memory usage
+     * @return Peak memory usage or transferred bytes
      */
-    [[nodiscard]] uint64_t
-    computePeakMemory(const std::vector<uint64_t> &order) const;
+    [[nodiscard]] uint64_t computeCost(const std::vector<uint64_t> &order) const;
 
     /**
      * @brief Checks if a node can be placed given current placement state
@@ -196,13 +243,13 @@ class BruteForceSolver {
      *
      * @param current Current partial order being built
      * @param placed Vector tracking which nodes have been placed
-     * @param bestPeak Best peak memory found so far
+     * @param bestCost Best cost found so far
      * @param bestOrder Best order found so far
      * @param count Counter for total orders enumerated
      * @param outputs Storage for debug output strings
      */
     void enumerate(std::vector<uint64_t> &current, std::vector<bool> &placed,
-                   uint64_t &bestPeak, std::vector<uint64_t> &bestOrder,
+                   uint64_t &bestCost, std::vector<uint64_t> &bestOrder,
                    uint64_t &count, std::vector<std::string> &outputs) const;
 
   public:
@@ -211,15 +258,17 @@ class BruteForceSolver {
      *
      * @param graph Hyper graph representing the scheduling problem
      * @param debug Enable debug output
+     * @param objective Criterion to minimize
      */
-    BruteForceSolver(const hypergraph::HyperGraph &graph, bool debug = false);
+    BruteForceSolver(const hypergraph::HyperGraph &graph, bool debug = false,
+                     Objective objective = Objective::Memory);
 
     virtual ~BruteForceSolver() = default;
 
     /**
      * @brief Solves the scheduling problem via brute-force enumeration
      *
-     * @return Pair of (schedule, peak memory)
+     * @return Pair of (schedule, cost)
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> solve() const;
 };
@@ -287,7 +336,7 @@ class Scheduler {
      * @param originalGraph Graph to schedule
      * @param partitionMapping Vector mapping each node to its partition
      * @param debug Enable debug output
-     * @param verify If true, run brute-force solver and verify peak memory
+     * @param verify If true, run brute-force solver and verify the cost
      * matches
      * @param offsetAlignment Alignment of packed tensor offsets
      * @param rangeAlignment Alignment of packed tensor sizes and partition
@@ -315,12 +364,14 @@ class Scheduler {
      * @param numWorkers Number of parallel workers for the solver (CP-SAT
      * only)
      * @param solver Solver that orders the partitions
+     * @param objective Criterion to minimize
      * @return Pair of a vector with partition numbers ordered by their
-     * scheduled execution and the peak memory usage of the schedule
+     * scheduled execution and the cost of the schedule (peak memory usage or
+     * transferred bytes)
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
     run(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,
-        Solver solver = Solver::CPSAT);
+        Solver solver = Solver::CPSAT, Objective objective = Objective::Memory);
 };
 
 } // namespace scheduling

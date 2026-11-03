@@ -134,6 +134,28 @@ HyperGraph::computePeakMemory(const std::vector<uint64_t> &order) const {
     return peak;
 }
 
+uint64_t
+HyperGraph::computeTransfers(const std::vector<uint64_t> &order) const {
+    uint64_t n = order.size();
+    std::vector<uint64_t> pos(size);
+    for (uint64_t step = 0; step < n; step++)
+        pos[order[step]] = step;
+
+    // A consumer is a step; step n stands for after the last step
+    uint64_t transfers = 0;
+    for (uint64_t t = 0; t < tensorSizes.size(); t++) {
+        uint64_t next = pos[tensorProducers[t]] + 1;
+        uint64_t fetches = 0;
+        for (uint64_t user : tensorUsers[t])
+            fetches += pos[user] != next;
+        if (liveOut[t])
+            fetches += next != n;
+        if (fetches != 0)
+            transfers += tensorSizes[t] * (1 + fetches);
+    }
+    return transfers;
+}
+
 void HyperGraph::print(std::ostream &os) const {
     os << "Nodes: " << size << ", tensors: " << tensorSizes.size() << std::endl;
 

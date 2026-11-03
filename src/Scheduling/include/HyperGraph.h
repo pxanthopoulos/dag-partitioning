@@ -166,6 +166,20 @@ class HyperGraph {
     computePeakMemory(const std::vector<uint64_t> &order) const;
 
     /**
+     * @brief Bytes moved between device and host by an execution order
+     *
+     * A tensor stays on the device only if its one consumer runs right
+     * after its producer; a live-out tensor counts as consumed after the
+     * last step. Otherwise it is offloaded once and fetched once for every
+     * consumer that does not run right after its producer.
+     *
+     * @param order Topological order of all nodes
+     * @return Transferred bytes (offloads plus fetches)
+     */
+    [[nodiscard]] uint64_t
+    computeTransfers(const std::vector<uint64_t> &order) const;
+
+    /**
      * @brief Stream output operator
      * @param os Output stream
      * @param graph Graph to output
