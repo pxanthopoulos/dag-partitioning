@@ -168,10 +168,12 @@ class HyperGraph {
     /**
      * @brief Bytes moved between device and host by an execution order
      *
-     * A tensor stays on the device only if its one consumer runs right
-     * after its producer; a live-out tensor counts as consumed after the
-     * last step. Otherwise it is offloaded once and fetched once for every
-     * consumer that does not run right after its producer.
+     * The producer and the consumers of a tensor form runs of consecutive
+     * steps (a live-out tensor counts as consumed after the last step). The
+     * tensor stays on the device through a run. Each run after the first, a
+     * gap, needs a fetch, and any gap needs one offload whose host copy
+     * serves every fetch: a tensor with g gaps moves (1 + g) times its size,
+     * or nothing if g = 0.
      *
      * @param order Topological order of all nodes
      * @return Transferred bytes (offloads plus fetches)

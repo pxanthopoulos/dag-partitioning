@@ -175,11 +175,12 @@ class CPSATSolver {
  * @brief CP-SAT based solver that minimizes the bytes moved between device
  * and host (hypergraph::HyperGraph::computeTransfers)
  *
- * Each node gets a position. A boolean per producer and consumer pair may
- * be true only if the consumer runs right after the producer, and the
- * objective is the total transfer minus the bytes those adjacencies save:
- * every tensor of the pair saves its fetch, and a tensor with one consumer
- * also saves its offload.
+ * Each node gets a position, and a boolean per ordered pair of nodes that
+ * share a tensor (its producer or consumers) may be true only if the second
+ * runs right after the first. A consumer needs a fetch unless another
+ * member of the tensor runs right before it, and any fetch of a tensor
+ * needs its one offload; the objective is the bytes of all fetches and
+ * offloads.
  */
 class TransferSolver {
   protected:

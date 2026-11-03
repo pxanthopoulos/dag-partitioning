@@ -141,17 +141,24 @@ HyperGraph::computeTransfers(const std::vector<uint64_t> &order) const {
     for (uint64_t step = 0; step < n; step++)
         pos[order[step]] = step;
 
-    // A consumer is a step; step n stands for after the last step
+    // The producer and the consumers of a tensor form runs of consecutive
+    // steps (a live-out tensor is consumed at step n, after the last step).
+    // Every run after the first is a gap: one fetch each, all served by one
+    // offload
     uint64_t transfers = 0;
+    std::vector<uint64_t> steps;
     for (uint64_t t = 0; t < tensorSizes.size(); t++) {
-        uint64_t next = pos[tensorProducers[t]] + 1;
-        uint64_t fetches = 0;
+        steps.assign(1, pos[tensorProducers[t]]);
         for (uint64_t user : tensorUsers[t])
-            fetches += pos[user] != next;
+            steps.push_back(pos[user]);
         if (liveOut[t])
-            fetches += next != n;
-        if (fetches != 0)
-            transfers += tensorSizes[t] * (1 + fetches);
+            steps.push_back(n);
+        std::sort(steps.begin(), steps.end());
+        uint64_t gaps = 0;
+        for (uint64_t k = 1; k < steps.size(); k++)
+            gaps += steps[k] != steps[k - 1] + 1;
+        if (gaps != 0)
+            transfers += tensorSizes[t] * (1 + gaps);
     }
     return transfers;
 }

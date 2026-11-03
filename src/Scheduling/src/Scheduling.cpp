@@ -551,66 +551,87 @@ TransferSolver::solve(const std::vector<uint64_t> &hint,
     }
     cpModel.AddAllDifferent(pos);
 
-    // Producers run before their users. Without adjacencies every tensor
-    // with a consumer costs its offload and a fetch per consumer; collect
-    // what each producer and consumer pair saves if the consumer runs right
-    // after the producer (consumer n stands for after the last step)
-    int64_t total = 0;
-    std::map<std::pair<uint64_t, uint64_t>, int64_t> savings;
+    // Producers run before their users
     for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
-        uint64_t producer = producers[t];
-        std::vector<uint64_t> consumers(users[t].begin(), users[t].end());
-        for (uint64_t user : consumers)
-            cpModel.AddLessThan(pos[producer], pos[user]);
-        if (liveOut[t])
-            consumers.push_back(n);
-        if (consumers.empty() || sizes[t] == 0)
-            continue;
-        int64_t size = static_cast<int64_t>(sizes[t]);
-        total += size * static_cast<int64_t>(1 + consumers.size());
-        for (uint64_t consumer : consumers)
-            savings[{producer, consumer}] +=
-                consumers.size() == 1 ? 2 * size : size;
+        for (uint64_t user : users[t])
+            cpModel.AddLessThan(pos[producers[t]], pos[user]);
     }
 
-    // adjacent may be true only if the consumer runs right after the
-    // producer; a node has at most one successor and one predecessor
-    sat::LinearExpr transfers(total);
-    std::vector<std::pair<std::pair<uint64_t, uint64_t>, sat::BoolVar>>
-        adjacencies;
+    // Warm start from the heuristic schedule; step n stands for after the
+    // last step
+    std::vector<uint64_t> hintPos(n);
+    for (uint64_t step = 0; step < n; step++)
+        hintPos[hint[step]] = step;
+    for (uint64_t i = 0; i < n; i++)
+        cpModel.AddHint(pos[i], static_cast<int64_t>(hintPos[i]));
+    auto hintAdjacent = [&](uint64_t before, uint64_t after) {
+        return (after == n ? n : hintPos[after]) == hintPos[before] + 1;
+    };
+
+    // adjacent[{before, after}] may be true only if after runs right after
+    // before (after = n: before runs last); a node has at most one
+    // successor and one predecessor
+    std::map<std::pair<uint64_t, uint64_t>, sat::BoolVar> adjacent;
     std::vector<std::vector<sat::BoolVar>> successors(n), predecessors(n);
-    for (const auto &[pair, saving] : savings) {
-        auto [producer, consumer] = pair;
-        sat::BoolVar adjacent = cpModel.NewBoolVar();
-        if (consumer == n) {
-            cpModel.AddEquality(pos[producer], static_cast<int64_t>(n - 1))
-                .OnlyEnforceIf(adjacent);
-        } else {
-            cpModel.AddEquality(pos[consumer], pos[producer] + 1)
-                .OnlyEnforceIf(adjacent);
-            predecessors[consumer].push_back(adjacent);
+    auto getAdjacent = [&](uint64_t before, uint64_t after) {
+        auto [it, inserted] = adjacent.try_emplace({before, after});
+        if (inserted) {
+            it->second = cpModel.NewBoolVar();
+            if (after == n) {
+                cpModel.AddEquality(pos[before], static_cast<int64_t>(n - 1))
+                    .OnlyEnforceIf(it->second);
+            } else {
+                cpModel.AddEquality(pos[after], pos[before] + 1)
+                    .OnlyEnforceIf(it->second);
+                predecessors[after].push_back(it->second);
+            }
+            successors[before].push_back(it->second);
+            cpModel.AddHint(it->second, hintAdjacent(before, after));
         }
-        successors[producer].push_back(adjacent);
-        transfers -= saving * adjacent;
-        adjacencies.push_back({pair, adjacent});
+        return it->second;
+    };
+
+    // A consumer of a tensor needs a fetch unless the producer or another
+    // consumer runs right before it, and any fetch needs the offload
+    sat::LinearExpr transfers;
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+        if (sizes[t] == 0)
+            continue;
+        std::vector<uint64_t> members = {producers[t]};
+        members.insert(members.end(), users[t].begin(), users[t].end());
+        std::vector<uint64_t> consumers(users[t].begin(), users[t].end());
+        if (liveOut[t])
+            consumers.push_back(n);
+        if (consumers.empty())
+            continue;
+
+        int64_t size = static_cast<int64_t>(sizes[t]);
+        sat::BoolVar offload = cpModel.NewBoolVar();
+        transfers += size * offload;
+        bool hintOffload = false;
+        for (uint64_t consumer : consumers) {
+            sat::BoolVar fetch = cpModel.NewBoolVar();
+            std::vector<sat::BoolVar> covered = {fetch};
+            bool hintFetch = true;
+            for (uint64_t member : members) {
+                if (member == consumer)
+                    continue;
+                covered.push_back(getAdjacent(member, consumer));
+                hintFetch &= !hintAdjacent(member, consumer);
+            }
+            cpModel.AddBoolOr(covered);
+            cpModel.AddImplication(fetch, offload);
+            transfers += size * fetch;
+            cpModel.AddHint(fetch, hintFetch);
+            hintOffload |= hintFetch;
+        }
+        cpModel.AddHint(offload, hintOffload);
     }
     for (uint64_t i = 0; i < n; i++) {
         cpModel.AddAtMostOne(successors[i]);
         cpModel.AddAtMostOne(predecessors[i]);
     }
     cpModel.Minimize(transfers);
-
-    // Warm start from the heuristic schedule
-    std::vector<uint64_t> hintPos(n);
-    for (uint64_t step = 0; step < n; step++)
-        hintPos[hint[step]] = step;
-    for (uint64_t i = 0; i < n; i++)
-        cpModel.AddHint(pos[i], static_cast<int64_t>(hintPos[i]));
-    for (const auto &[pair, adjacent] : adjacencies) {
-        auto [producer, consumer] = pair;
-        uint64_t consumerPos = consumer == n ? n : hintPos[consumer];
-        cpModel.AddHint(adjacent, consumerPos == hintPos[producer] + 1);
-    }
 
     sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
@@ -642,9 +663,13 @@ TransferSolver::solve(const std::vector<uint64_t> &hint,
         std::vector<uint64_t> schedule(n);
         for (uint64_t i = 0; i < n; i++)
             schedule[SolutionIntegerValue(response, pos[i])] = i;
+        // The objective may keep an avoidable fetch or offload in a
+        // solution that is only feasible, never in an optimal one
         uint64_t transferred = graph.computeTransfers(schedule);
-        assert(std::llround(response.objective_value()) ==
-                   static_cast<long long>(transferred) &&
+        long long objective = std::llround(response.objective_value());
+        assert(objective >= static_cast<long long>(transferred) &&
+               (response.status() != sat::CpSolverStatus::OPTIMAL ||
+                objective == static_cast<long long>(transferred)) &&
                "CP-SAT objective must match computeTransfers");
 
         if (debug) {

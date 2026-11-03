@@ -182,7 +182,7 @@ digraph cfg {
 After partitioning, the tool can optionally compute an execution order for the partitions. It minimizes one of two objectives:
 
 - **memory** (default): peak memory usage. This is useful when the partitions will be executed sequentially and memory is a constraint.
-- **transfers**: the bytes moved between device and host when tensors that cross partitions are offloaded to host memory. A tensor stays on the device only if its one consumer runs right after its producer (a live-out tensor counts as consumed after the last partition); otherwise it is offloaded once and fetched once for every consumer that does not run right after its producer. The CP-SAT model gives each partition a position and rewards producer and consumer pairs that end up adjacent.
+- **transfers**: the bytes moved between device and host when tensors that cross partitions are offloaded to host memory. The producer and the consumers of a tensor form runs of consecutive partitions (a live-out tensor counts as consumed after the last partition), and the tensor stays on the device through a run. Each later run, a gap, needs a fetch, and any gap needs one offload whose host copy serves every fetch: a tensor with g gaps moves (1 + g) times its size, or nothing if g = 0. The CP-SAT model gives each partition a position and lets a consumer skip its fetch only if another partition of the same tensor runs right before it.
 
 The memory scheduler works as follows:
 
