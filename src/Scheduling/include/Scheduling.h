@@ -76,7 +76,7 @@ namespace cpsat {
 /**
  * @brief CP-SAT based solver for memory-aware scheduling
  */
-class CPSATSolver {
+class CPSATMemorySolver {
   protected:
     const hypergraph::HyperGraph &graph;
     bool debug = false;
@@ -155,9 +155,9 @@ class CPSATSolver {
      * @param graph Hyper graph representation
      * @param debug Enable debug output
      */
-    CPSATSolver(const hypergraph::HyperGraph &graph, bool debug = false);
+    CPSATMemorySolver(const hypergraph::HyperGraph &graph, bool debug = false);
 
-    virtual ~CPSATSolver() = default;
+    virtual ~CPSATMemorySolver() = default;
 
     /**
      * @brief Solves the scheduling problem using CP-SAT
@@ -182,7 +182,7 @@ class CPSATSolver {
  * needs its one offload; the objective is the bytes of all fetches and
  * offloads.
  */
-class TransferSolver {
+class CPSATTransferSolver {
   protected:
     const hypergraph::HyperGraph &graph;
     bool debug = false;
@@ -193,22 +193,22 @@ class TransferSolver {
      * @param graph Hyper graph representation
      * @param debug Enable debug output
      */
-    TransferSolver(const hypergraph::HyperGraph &graph, bool debug = false);
+    CPSATTransferSolver(const hypergraph::HyperGraph &graph,
+                        bool debug = false);
 
-    virtual ~TransferSolver() = default;
+    virtual ~CPSATTransferSolver() = default;
 
     /**
-     * @brief Solves the scheduling problem using CP-SAT
+     * @brief Solves the scheduling problem using CP-SAT, warm-started with
+     * the RPO heuristic
      *
-     * @param hint Heuristic schedule to warm-start from
      * @param timeLimitSeconds Time limit for solver in seconds
      * @param numWorkers Number of parallel workers for the solver
      * @return Tuple of (solver status, schedule, transferred bytes)
      */
     [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
                              std::vector<uint64_t>, uint64_t>
-    solve(const std::vector<uint64_t> &hint, uint64_t timeLimitSeconds = 600,
-          int32_t numWorkers = 1) const;
+    solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1) const;
 };
 
 } // namespace cpsat
@@ -227,7 +227,8 @@ class BruteForceSolver {
      * @param order Execution order of operations
      * @return Peak memory usage or transferred bytes
      */
-    [[nodiscard]] uint64_t computeCost(const std::vector<uint64_t> &order) const;
+    [[nodiscard]] uint64_t
+    computeCost(const std::vector<uint64_t> &order) const;
 
     /**
      * @brief Checks if a node can be placed given current placement state

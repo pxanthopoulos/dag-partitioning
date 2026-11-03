@@ -14,6 +14,7 @@
 #include <set>
 #include <sstream>
 #include <stack>
+#include <stdexcept>
 
 namespace dag_partitioning {
 
@@ -115,7 +116,8 @@ std::pair<std::vector<uint64_t>, uint64_t> RPOScheduler::solve() const {
 
 namespace cpsat {
 
-CPSATSolver::CPSATSolver(const hypergraph::HyperGraph &graph, bool debug)
+CPSATMemorySolver::CPSATMemorySolver(const hypergraph::HyperGraph &graph,
+                                     bool debug)
     : graph(graph), debug(debug) {
     uint64_t n = graph.getSize();
     earliestOp.resize(n);
@@ -132,7 +134,7 @@ CPSATSolver::CPSATSolver(const hypergraph::HyperGraph &graph, bool debug)
  * (10) T[t][j] exists for j <= max over users u of n-1-|des(u)| (n-1 for
  * live-out tensors)
  */
-void CPSATSolver::computePruningBounds() {
+void CPSATMemorySolver::computePruningBounds() {
     uint64_t n = graph.getSize();
     for (uint64_t i = 0; i < n; i++) {
         earliestOp[i] = graph.getAncestors()[i].size();
@@ -162,29 +164,29 @@ void CPSATSolver::computePruningBounds() {
     }
 }
 
-bool CPSATSolver::hasO(uint64_t i, uint64_t j) const {
+bool CPSATMemorySolver::hasO(uint64_t i, uint64_t j) const {
     return earliestOp[i] <= j && j <= latestOp[i];
 }
 
-bool CPSATSolver::hasT(uint64_t t, uint64_t j) const {
+bool CPSATMemorySolver::hasT(uint64_t t, uint64_t j) const {
     return earliestTensor[t] <= j && j <= latestTensor[t];
 }
 
-uint64_t CPSATSolver::oKey(uint64_t i, uint64_t j) const {
+uint64_t CPSATMemorySolver::oKey(uint64_t i, uint64_t j) const {
     return i * graph.getSize() + j;
 }
 
-uint64_t CPSATSolver::tKey(uint64_t t, uint64_t j) const {
+uint64_t CPSATMemorySolver::tKey(uint64_t t, uint64_t j) const {
     return t * graph.getSize() + j;
 }
 
-operations_research::sat::BoolVar CPSATSolver::getO(uint64_t i,
-                                                    uint64_t j) const {
+operations_research::sat::BoolVar CPSATMemorySolver::getO(uint64_t i,
+                                                          uint64_t j) const {
     return O.at(oKey(i, j));
 }
 
-operations_research::sat::BoolVar CPSATSolver::getT(uint64_t t,
-                                                    uint64_t j) const {
+operations_research::sat::BoolVar CPSATMemorySolver::getT(uint64_t t,
+                                                          uint64_t j) const {
     return T.at(tKey(t, j));
 }
 
@@ -210,7 +212,8 @@ operations_research::sat::BoolVar CPSATSolver::getT(uint64_t t,
  *
  * Objective: minimize mem
  */
-void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
+void CPSATMemorySolver::createVariablesAndConstraints(
+    uint64_t memoryUpperBound) {
     uint64_t n = graph.getSize();
     uint64_t m = graph.getNumTensors();
     const auto &producers = graph.getTensorProducers();
@@ -373,8 +376,8 @@ void CPSATSolver::createVariablesAndConstraints(uint64_t memoryUpperBound) {
     cpModel.Minimize(mem);
 }
 
-void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
-                                    uint64_t peakMemory) {
+void CPSATMemorySolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
+                                          uint64_t peakMemory) {
     uint64_t n = graph.getSize();
 
     // Compute opToStep mapping
@@ -425,7 +428,7 @@ void CPSATSolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
+CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     uint64_t n = graph.getSize();
 
     auto constructionStart = std::chrono::steady_clock::now();
@@ -523,17 +526,21 @@ CPSATSolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
         std::to_string(static_cast<int>(response.status())));
 }
 
-TransferSolver::TransferSolver(const hypergraph::HyperGraph &graph,
-                               bool debug)
+CPSATTransferSolver::CPSATTransferSolver(const hypergraph::HyperGraph &graph,
+                                         bool debug)
     : graph(graph), debug(debug) {}
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-TransferSolver::solve(const std::vector<uint64_t> &hint,
-                      uint64_t timeLimitSeconds, int32_t numWorkers) const {
+CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
+                           int32_t numWorkers) const {
     namespace sat = operations_research::sat;
     auto constructionStart = std::chrono::steady_clock::now();
     uint64_t n = graph.getSize();
+
+    // Get heuristic schedule
+    heuristic::RPOScheduler rpoScheduler(graph, debug);
+    std::vector<uint64_t> hint = rpoScheduler.solve().first;
     const auto &producers = graph.getTensorProducers();
     const auto &users = graph.getTensorUsers();
     const auto &sizes = graph.getTensorSizes();
@@ -698,8 +705,12 @@ BruteForceSolver::BruteForceSolver(const hypergraph::HyperGraph &graph,
 
 uint64_t
 BruteForceSolver::computeCost(const std::vector<uint64_t> &order) const {
-    return objective == Objective::Memory ? graph.computePeakMemory(order)
-                                          : graph.computeTransfers(order);
+    if (objective == Objective::Memory)
+        return graph.computePeakMemory(order);
+    else if (objective == Objective::Transfers)
+        return graph.computeTransfers(order);
+    else
+        throw std::invalid_argument("Unknown scheduling objective");
 }
 
 bool BruteForceSolver::canPlace(uint64_t node,
@@ -1002,19 +1013,24 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
         auto solveStart = std::chrono::steady_clock::now();
         heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
         auto [schedule, peakMemory] = rpoScheduler.solve();
-        uint64_t cost = objective == Objective::Memory
-                            ? peakMemory
-                            : hyperGraph.computeTransfers(schedule);
+        uint64_t cost;
+        const char *costLabel;
+        if (objective == Objective::Memory) {
+            cost = peakMemory;
+            costLabel = "Peak memory: ";
+        } else if (objective == Objective::Transfers) {
+            cost = hyperGraph.computeTransfers(schedule);
+            costLabel = "Transferred bytes: ";
+        } else {
+            throw std::invalid_argument("Unknown scheduling objective");
+        }
         auto solveEnd = std::chrono::steady_clock::now();
         if (debug) {
             std::cerr
                 << "RPO solve time: "
                 << std::chrono::duration<double>(solveEnd - solveStart).count()
                 << " seconds" << std::endl;
-            std::cerr << (objective == Objective::Memory
-                              ? "Peak memory: "
-                              : "Transferred bytes: ")
-                      << cost << std::endl;
+            std::cerr << costLabel << cost << std::endl;
         }
         return {schedule, cost};
     }
@@ -1023,14 +1039,15 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
     std::vector<uint64_t> schedule;
     uint64_t cost;
     if (objective == Objective::Memory) {
-        cpsat::CPSATSolver cpsatSolver(hyperGraph, debug);
+        cpsat::CPSATMemorySolver memorySolver(hyperGraph, debug);
         std::tie(status, schedule, cost) =
-            cpsatSolver.solve(timeLimitSeconds, numWorkers);
+            memorySolver.solve(timeLimitSeconds, numWorkers);
+    } else if (objective == Objective::Transfers) {
+        cpsat::CPSATTransferSolver transferSolver(hyperGraph, debug);
+        std::tie(status, schedule, cost) =
+            transferSolver.solve(timeLimitSeconds, numWorkers);
     } else {
-        heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
-        cpsat::TransferSolver transferSolver(hyperGraph, debug);
-        std::tie(status, schedule, cost) = transferSolver.solve(
-            rpoScheduler.solve().first, timeLimitSeconds, numWorkers);
+        throw std::invalid_argument("Unknown scheduling objective");
     }
 
     if (verify) {
