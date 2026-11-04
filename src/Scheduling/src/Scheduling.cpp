@@ -450,6 +450,8 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     operations_research::sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
     params.set_num_search_workers(numWorkers);
+    // Deterministic for any number of workers (unless the time limit is hit)
+    params.set_interleave_search(true);
     params.set_log_search_progress(debug);
 
     if (debug) {
@@ -643,6 +645,8 @@ CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
     sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
     params.set_num_search_workers(numWorkers);
+    // Deterministic for any number of workers (unless the time limit is hit)
+    params.set_interleave_search(true);
     params.set_log_search_progress(debug);
     sat::Model model;
     model.Add(NewSatParameters(params));
