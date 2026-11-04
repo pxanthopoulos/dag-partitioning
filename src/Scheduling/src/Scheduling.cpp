@@ -793,10 +793,15 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
 Scheduler::Scheduler(const core::Graph &originalGraph,
                      const std::vector<uint64_t> &partitionMapping, bool debug,
                      bool verify, uint64_t offsetAlignment,
-                     uint64_t rangeAlignment, utils::SlabPacker packer)
+                     uint64_t rangeAlignment, utils::SlabPacker packer,
+                     std::vector<bool> liveOutNodes)
     : originalGraph(originalGraph), partitionMapping(partitionMapping),
       debug(debug), verify(verify), offsetAlignment(offsetAlignment),
-      rangeAlignment(rangeAlignment), packer(std::move(packer)) {
+      rangeAlignment(rangeAlignment), packer(std::move(packer)),
+      liveOutNodes(std::move(liveOutNodes)) {
+    if (!this->liveOutNodes.empty() &&
+        this->liveOutNodes.size() != originalGraph.size)
+        throw std::invalid_argument("liveOutNodes needs one entry per node");
     if (!this->packer) {
         this->packer = [offsetAlignment,
                         rangeAlignment](std::vector<utils::Tensor> &tensors) {
@@ -911,7 +916,8 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
         for (uint64_t value : aliases[producer]) {
             use(value);
             // Graph outputs stay live until the end
-            if (originalGraph.adj[value].empty())
+            if (liveOutNodes.empty() ? originalGraph.adj[value].empty()
+                                     : liveOutNodes[value])
                 escaping.liveOut = true;
             for (const auto &[consumer, edgeWeight] : originalGraph.adj[value])
                 use(consumer);

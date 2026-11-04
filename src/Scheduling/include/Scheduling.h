@@ -295,6 +295,7 @@ class Scheduler {
     uint64_t offsetAlignment = 1; // Alignment of packed tensor offsets
     uint64_t rangeAlignment = 1;  // Alignment of packed tensor sizes
     utils::SlabPacker packer;     // Packs each partition's tensors
+    std::vector<bool> liveOutNodes; // Nodes whose results outlive the graph
 
     /**
      * @brief Calculates memory requirements for each partition
@@ -313,7 +314,9 @@ class Scheduler {
      * alias one buffer share its lifetime. A buffer whose values and users
      * are all in one partition is packed into the partition's weight; any
      * other buffer escapes as a tensor of its producing partition, live
-     * until its last consuming partition (until the end for graph outputs).
+     * until its last consuming partition (until the end for graph outputs:
+     * the values of liveOutNodes, or of the nodes without consumers if it
+     * is empty).
      *
      * @param escapingTensors Output: escaping tensors (producer and users
      * are partition ids)
@@ -345,11 +348,15 @@ class Scheduler {
      * weights
      * @param packer Packs each partition's tensors into its weight; empty
      * means best fit (utils::packBestFit) with the two alignments
+     * @param liveOutNodes For every node, whether its results are used after
+     * the graph (graph outputs); empty means the nodes without consumers. A
+     * node can have consumers in the graph and still be an output
      */
     Scheduler(const core::Graph &originalGraph,
               const std::vector<uint64_t> &partitionMapping, bool debug = false,
               bool verify = false, uint64_t offsetAlignment = 1,
-              uint64_t rangeAlignment = 1, utils::SlabPacker packer = {});
+              uint64_t rangeAlignment = 1, utils::SlabPacker packer = {},
+              std::vector<bool> liveOutNodes = {});
 
     /**
      * @brief Virtual destructor for proper cleanup
