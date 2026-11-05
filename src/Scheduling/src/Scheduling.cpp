@@ -10,6 +10,7 @@
 #include <cmath>
 #include <map>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <set>
 #include <sstream>
@@ -19,6 +20,74 @@
 namespace dag_partitioning {
 
 namespace scheduling {
+
+PartitionFootprints::PartitionFootprints(
+    std::vector<std::vector<utils::Tensor>> localTensors,
+    std::vector<Escaping> tensors, std::vector<std::vector<Use>> uses,
+    utils::SlabPacker packer)
+    : localTensors(std::move(localTensors)), tensors(std::move(tensors)),
+      uses(std::move(uses)), packer(std::move(packer)),
+      slabs(this->localTensors.size()) {}
+
+uint64_t PartitionFootprints::footprint(uint64_t partition, uint64_t pred,
+                                        uint64_t succ) const {
+    bool runsLast = succ == localTensors.size();
+    auto isMember = [&](uint64_t tensor, uint64_t node) {
+        const auto &members = tensors[tensor].members;
+        return std::binary_search(members.begin(), members.end(), node);
+    };
+
+    // Kept tensors count for the whole partition
+    const auto &partitionUses = uses[partition];
+    std::vector<bool> kept(partitionUses.size());
+    uint64_t held = 0;
+    for (uint64_t u = 0; u < partitionUses.size(); u++) {
+        uint64_t tensor = partitionUses[u].tensor;
+        kept[u] = isMember(tensor, pred) || isMember(tensor, succ) ||
+                  (runsLast && tensors[tensor].liveOut);
+        if (kept[u])
+            held += tensors[tensor].size;
+    }
+    // The last partition also holds the live-outs it doesn't use: it fetches
+    // them before it ends
+    if (runsLast) {
+        for (uint64_t t = 0; t < tensors.size(); t++) {
+            if (tensors[t].liveOut && !isMember(t, partition))
+                held += tensors[t].size;
+        }
+    }
+
+    // The others share the slab with the local tensors
+    auto [it, inserted] = slabs[partition].try_emplace(kept, 0);
+    if (inserted) {
+        std::vector<utils::Tensor> slab = localTensors[partition];
+        for (uint64_t u = 0; u < partitionUses.size(); u++) {
+            if (!kept[u])
+                slab.push_back({tensors[partitionUses[u].tensor].size,
+                                partitionUses[u].first, partitionUses[u].last,
+                                0});
+        }
+        std::sort(slab.begin(), slab.end(),
+                  [](const utils::Tensor &a, const utils::Tensor &b) {
+                      if (a.birth != b.birth)
+                          return a.birth < b.birth;
+                      return a.death < b.death;
+                  });
+        it->second = slab.empty() ? 0 : packer(slab);
+    }
+    return held + it->second;
+}
+
+uint64_t PartitionFootprints::peak(const std::vector<uint64_t> &order) const {
+    uint64_t peak = 0;
+    for (uint64_t step = 0; step < order.size(); step++) {
+        peak = std::max(
+            peak, footprint(order[step], step == 0 ? None : order[step - 1],
+                            step + 1 == order.size() ? localTensors.size()
+                                                     : order[step + 1]));
+    }
+    return peak;
+}
 
 namespace heuristic {
 
@@ -528,25 +597,28 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
         std::to_string(static_cast<int>(response.status())));
 }
 
-CPSATTransferSolver::CPSATTransferSolver(const hypergraph::HyperGraph &graph,
-                                         bool debug)
-    : graph(graph), debug(debug) {}
+CPSATTransferMemorySolver::CPSATTransferMemorySolver(
+    const hypergraph::HyperGraph &graph, const PartitionFootprints &footprints,
+    uint64_t memoryLimit, bool debug)
+    : graph(graph), footprints(footprints), memoryLimit(memoryLimit),
+      debug(debug) {}
 
-std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
-           uint64_t>
-CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
-                           int32_t numWorkers) const {
+bool CPSATTransferMemorySolver::Result::found() const {
+    return status == operations_research::sat::CpSolverStatus::OPTIMAL ||
+           status == operations_research::sat::CpSolverStatus::FEASIBLE;
+}
+
+CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
+    Goal goal, uint64_t limit, const std::vector<uint64_t> &hint,
+    uint64_t timeLimitSeconds, int32_t numWorkers) const {
     namespace sat = operations_research::sat;
     auto constructionStart = std::chrono::steady_clock::now();
     uint64_t n = graph.getSize();
-
-    // Get heuristic schedule
-    heuristic::RPOScheduler rpoScheduler(graph, debug);
-    std::vector<uint64_t> hint = rpoScheduler.solve().first;
     const auto &producers = graph.getTensorProducers();
     const auto &users = graph.getTensorUsers();
     const auto &sizes = graph.getTensorSizes();
     const auto &liveOut = graph.getLiveOut();
+    bool limitsMemory = goal == Goal::Peak || limit != UINT64_MAX;
 
     sat::CpModelBuilder cpModel;
 
@@ -566,8 +638,8 @@ CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
             cpModel.AddLessThan(pos[producers[t]], pos[user]);
     }
 
-    // Warm start from the heuristic schedule; step n stands for after the
-    // last step
+    // Warm start from the given schedule; step n stands for after the last
+    // step
     std::vector<uint64_t> hintPos(n);
     for (uint64_t step = 0; step < n; step++)
         hintPos[hint[step]] = step;
@@ -636,11 +708,113 @@ CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
         }
         cpModel.AddHint(offload, hintOffload);
     }
+
+    std::optional<sat::IntVar> peak;
+    if (limitsMemory) {
+        // The footprints need to know who runs last and the exact neighbors:
+        // here adjacent is also true whenever after runs right after before,
+        // else a solution could dodge a limit by leaving it false
+        for (uint64_t i = 0; i < n; i++)
+            getAdjacent(i, n);
+        for (const auto &[pair, literal] : adjacent) {
+            const auto &[before, after] = pair;
+            if (after == n) {
+                cpModel.AddNotEqual(pos[before], static_cast<int64_t>(n - 1))
+                    .OnlyEnforceIf(literal.Not());
+            } else {
+                cpModel.AddNotEqual(pos[after], pos[before] + 1)
+                    .OnlyEnforceIf(literal.Not());
+            }
+        }
+
+        // The neighbors of every node that can change its footprint
+        std::vector<std::vector<uint64_t>> before(n), after(n);
+        for (const auto &[pair, literal] : adjacent) {
+            after[pair.first].push_back(pair.second);
+            if (pair.second != n)
+                before[pair.second].push_back(pair.first);
+        }
+        const uint64_t none = PartitionFootprints::None;
+        auto withNone = [&](std::vector<uint64_t> neighbors) {
+            neighbors.insert(neighbors.begin(), none);
+            return neighbors;
+        };
+
+        // Literals that hold exactly when pred and succ are the relevant
+        // neighbors of i
+        auto literalsOf = [&](uint64_t i, uint64_t pred, uint64_t succ) {
+            std::vector<sat::BoolVar> literals;
+            if (pred != none) {
+                literals.push_back(adjacent.at({pred, i}));
+            } else {
+                for (uint64_t node : before[i])
+                    literals.push_back(adjacent.at({node, i}).Not());
+            }
+            if (succ != none) {
+                literals.push_back(adjacent.at({i, succ}));
+            } else {
+                for (uint64_t node : after[i])
+                    literals.push_back(adjacent.at({i, node}).Not());
+            }
+            return literals;
+        };
+
+        if (goal == Goal::Peak) {
+            // No order goes below the smallest footprint of any node, and the
+            // hint reaches its own peak
+            int64_t lowest = 0;
+            for (uint64_t i = 0; i < n; i++) {
+                uint64_t smallest = UINT64_MAX;
+                for (uint64_t pred : withNone(before[i])) {
+                    for (uint64_t succ : withNone(after[i])) {
+                        if (pred == none || pred != succ)
+                            smallest = std::min(
+                                smallest, footprints.footprint(i, pred, succ));
+                    }
+                }
+                lowest = std::max(lowest, static_cast<int64_t>(smallest));
+            }
+            int64_t hintPeak = static_cast<int64_t>(footprints.peak(hint));
+            peak = cpModel.NewIntVar({lowest, hintPeak});
+            cpModel.AddHint(*peak, hintPeak);
+            for (uint64_t i = 0; i < n; i++) {
+                for (uint64_t pred : withNone(before[i])) {
+                    for (uint64_t succ : withNone(after[i])) {
+                        if (pred != none && pred == succ)
+                            continue;
+                        int64_t footprint = static_cast<int64_t>(
+                            footprints.footprint(i, pred, succ));
+                        if (footprint > lowest)
+                            cpModel.AddGreaterOrEqual(*peak, footprint)
+                                .OnlyEnforceIf(literalsOf(i, pred, succ));
+                    }
+                }
+            }
+        } else {
+            for (uint64_t i = 0; i < n; i++) {
+                for (uint64_t pred : withNone(before[i])) {
+                    for (uint64_t succ : withNone(after[i])) {
+                        if ((pred != none && pred == succ) ||
+                            footprints.footprint(i, pred, succ) <= limit)
+                            continue;
+                        std::vector<sat::BoolVar> forbidden;
+                        for (const auto &literal : literalsOf(i, pred, succ))
+                            forbidden.push_back(literal.Not());
+                        cpModel.AddBoolOr(forbidden);
+                    }
+                }
+            }
+        }
+    }
+
     for (uint64_t i = 0; i < n; i++) {
         cpModel.AddAtMostOne(successors[i]);
         cpModel.AddAtMostOne(predecessors[i]);
     }
-    cpModel.Minimize(transfers);
+    if (goal == Goal::Peak)
+        cpModel.Minimize(*peak);
+    else
+        cpModel.Minimize(transfers);
 
     sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
@@ -669,34 +843,71 @@ CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
             << " seconds" << std::endl;
     }
 
-    if (response.status() == sat::CpSolverStatus::OPTIMAL ||
-        response.status() == sat::CpSolverStatus::FEASIBLE) {
-        std::vector<uint64_t> schedule(n);
-        for (uint64_t i = 0; i < n; i++)
-            schedule[SolutionIntegerValue(response, pos[i])] = i;
+    Result result{response.status(), {}, 0};
+    if (!result.found())
+        return result;
+
+    result.schedule.resize(n);
+    for (uint64_t i = 0; i < n; i++)
+        result.schedule[SolutionIntegerValue(response, pos[i])] = i;
+    long long objective = std::llround(response.objective_value());
+    if (goal == Goal::Peak) {
+        result.cost = footprints.peak(result.schedule);
+        assert(objective == static_cast<long long>(result.cost) &&
+               "CP-SAT objective must match the peak footprint");
+    } else {
         // The objective may keep an avoidable fetch or offload in a
         // solution that is only feasible, never in an optimal one
-        uint64_t transferred = graph.computeTransfers(schedule);
-        long long objective = std::llround(response.objective_value());
-        assert(objective >= static_cast<long long>(transferred) &&
+        result.cost = graph.computeTransfers(result.schedule);
+        assert(objective >= static_cast<long long>(result.cost) &&
                (response.status() != sat::CpSolverStatus::OPTIMAL ||
-                objective == static_cast<long long>(transferred)) &&
+                objective == static_cast<long long>(result.cost)) &&
                "CP-SAT objective must match computeTransfers");
-
-        if (debug) {
-            std::cerr << (response.status() == sat::CpSolverStatus::OPTIMAL
-                              ? "OPTIMAL"
-                              : "FEASIBLE")
-                      << " solution found!" << std::endl;
-            std::cerr << "Transferred bytes: " << transferred << std::endl;
-        }
-
-        return {response.status(), schedule, transferred};
+        assert((limit == UINT64_MAX ||
+                footprints.peak(result.schedule) <= limit) &&
+               "CP-SAT solution must meet the memory limit");
     }
+    return result;
+}
 
-    throw std::runtime_error(
-        "No solution found by CP-SAT solver. Status: " +
-        std::to_string(static_cast<int>(response.status())));
+std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
+           uint64_t>
+CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds,
+                                 int32_t numWorkers) const {
+    namespace sat = operations_research::sat;
+
+    // Get heuristic schedule
+    heuristic::RPOScheduler rpoScheduler(graph, debug);
+    std::vector<uint64_t> hint = rpoScheduler.solve().first;
+
+    Result result = solveOnce(Goal::Transfers, memoryLimit, hint,
+                              timeLimitSeconds, numWorkers);
+    sat::CpSolverStatus status = result.status;
+    if (!result.found()) {
+        // Nothing meets the limit (or the time limit hit first): move as little
+        // as possible at the lowest peak
+        Result lowest = solveOnce(Goal::Peak, UINT64_MAX, hint,
+                                  timeLimitSeconds, numWorkers);
+        if (!lowest.found()) {
+            throw std::runtime_error(
+                "No solution found by CP-SAT solver. Status: " +
+                std::to_string(static_cast<int>(lowest.status)));
+        }
+        result = solveOnce(Goal::Transfers, std::max(memoryLimit, lowest.cost),
+                           lowest.schedule, timeLimitSeconds, numWorkers);
+        if (!result.found()) {
+            result.schedule = lowest.schedule;
+            result.cost = graph.computeTransfers(lowest.schedule);
+        }
+        status = lowest.status == sat::CpSolverStatus::OPTIMAL ? result.status
+                                                               : lowest.status;
+    }
+    if (debug) {
+        std::cerr << "Transferred bytes: " << result.cost << std::endl;
+        std::cerr << "Peak footprint: " << footprints.peak(result.schedule)
+                  << std::endl;
+    }
+    return {status, result.schedule, result.cost};
 }
 
 } // namespace cpsat
@@ -704,18 +915,11 @@ CPSATTransferSolver::solve(uint64_t timeLimitSeconds,
 namespace bruteforce {
 
 BruteForceSolver::BruteForceSolver(const hypergraph::HyperGraph &graph,
-                                   bool debug, Objective objective)
-    : graph(graph), debug(debug), objective(objective) {}
-
-uint64_t
-BruteForceSolver::computeCost(const std::vector<uint64_t> &order) const {
-    if (objective == Objective::Memory)
-        return graph.computePeakMemory(order);
-    else if (objective == Objective::Transfers)
-        return graph.computeTransfers(order);
-    else
-        throw std::invalid_argument("Unknown scheduling objective");
-}
+                                   bool debug, Objective objective,
+                                   const PartitionFootprints *footprints,
+                                   uint64_t memoryLimit)
+    : graph(graph), debug(debug), objective(objective), footprints(footprints),
+      memoryLimit(memoryLimit) {}
 
 bool BruteForceSolver::canPlace(uint64_t node,
                                 const std::vector<bool> &placed) const {
@@ -731,23 +935,24 @@ void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
                                  std::vector<bool> &placed, uint64_t &bestCost,
                                  std::vector<uint64_t> &bestOrder,
                                  uint64_t &count,
-                                 std::vector<std::string> &outputs) const {
+                                 std::vector<std::string> &outputs,
+                                 const Cost &cost) const {
     uint64_t n = graph.getSize();
     if (current.size() == n) {
         count++;
-        uint64_t cost = computeCost(current);
+        uint64_t orderCost = cost(current);
 
         if (debug) {
             std::ostringstream oss;
-            oss << "Order " << count - 1 << " (cost " << cost << "): ";
+            oss << "Order " << count - 1 << " (cost " << orderCost << "): ";
             for (const uint64_t &node : current) {
                 oss << node << " ";
             }
             outputs.emplace_back(oss.str());
         }
 
-        if (cost < bestCost) {
-            bestCost = cost;
+        if (orderCost < bestCost) {
+            bestCost = orderCost;
             bestOrder = current;
         }
         return;
@@ -758,7 +963,8 @@ void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
             placed[node] = true;
             current.push_back(node);
 
-            enumerate(current, placed, bestCost, bestOrder, count, outputs);
+            enumerate(current, placed, bestCost, bestOrder, count, outputs,
+                      cost);
 
             current.pop_back();
             placed[node] = false;
@@ -767,6 +973,31 @@ void BruteForceSolver::enumerate(std::vector<uint64_t> &current,
 }
 
 std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
+    if (objective == Objective::Memory) {
+        return best([&](const std::vector<uint64_t> &order) {
+            return graph.computePeakMemory(order);
+        });
+    }
+    if (objective != Objective::TransferMemory)
+        throw std::invalid_argument("Unknown scheduling objective");
+
+    // The lowest peak any order reaches can be above the limit
+    uint64_t limit = memoryLimit;
+    if (limit != UINT64_MAX) {
+        uint64_t lowest = best([&](const std::vector<uint64_t> &order) {
+                              return footprints->peak(order);
+                          }).second;
+        limit = std::max(limit, lowest);
+    }
+    return best([&](const std::vector<uint64_t> &order) {
+        return limit == UINT64_MAX || footprints->peak(order) <= limit
+                   ? graph.computeTransfers(order)
+                   : UINT64_MAX;
+    });
+}
+
+std::pair<std::vector<uint64_t>, uint64_t>
+BruteForceSolver::best(const Cost &cost) const {
     uint64_t n = graph.getSize();
     std::vector<std::string> outputs;
 
@@ -775,7 +1006,7 @@ std::pair<std::vector<uint64_t>, uint64_t> BruteForceSolver::solve() const {
     uint64_t bestCost = UINT64_MAX;
     uint64_t count = 0;
 
-    enumerate(current, placed, bestCost, bestOrder, count, outputs);
+    enumerate(current, placed, bestCost, bestOrder, count, outputs, cost);
 
     if (debug) {
         std::cerr << "\nBrute-force results:\n";
@@ -815,7 +1046,7 @@ Scheduler::Scheduler(const core::Graph &originalGraph,
 }
 
 std::vector<uint64_t> Scheduler::calculatePartitionWeights(
-    std::vector<hypergraph::Tensor> &escapingTensors) const {
+    std::vector<hypergraph::Tensor> &escapingTensors) {
     // Node ids are the order when they are topological (as a compiler emits
     // them, in block order); otherwise use a topological sort
     bool idsAreTopological = true;
@@ -897,6 +1128,9 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
     // Collect tensors per partition
     std::vector<std::vector<utils::Tensor>> partitionTensors(numPartitions);
     escapingTensors.clear();
+    std::vector<PartitionFootprints::Escaping> footprintTensors;
+    std::vector<std::vector<PartitionFootprints::Use>> footprintUses(
+        numPartitions);
 
     for (uint64_t producer = 0; producer < originalGraph.size; ++producer) {
         if (aliases[producer].empty())
@@ -909,7 +1143,14 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
             nodeToLocalPosition[producer]; // Birth time
         hypergraph::Tensor escaping{
             producerPartition, originalGraph.nodeWeights[producer], {}, false};
+        // First and last use in every partition that uses it
+        std::map<uint64_t, std::pair<uint64_t, uint64_t>> usedAt;
         auto use = [&](uint64_t node) {
+            uint64_t local = nodeToLocalPosition[node];
+            auto [it, inserted] =
+                usedAt.try_emplace(partitionMapping[node], local, local);
+            it->second.first = std::min(it->second.first, local);
+            it->second.second = std::max(it->second.second, local);
             if (partitionMapping[node] == producerPartition) {
                 lastConsumerPosition =
                     std::max(lastConsumerPosition, nodeToLocalPosition[node]);
@@ -940,9 +1181,23 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
             escaping.users.erase(
                 std::unique(escaping.users.begin(), escaping.users.end()),
                 escaping.users.end());
+            if (escaping.size != 0) {
+                std::vector<uint64_t> members;
+                for (const auto &[partition, range] : usedAt) {
+                    footprintUses[partition].push_back(
+                        {footprintTensors.size(), range.first, range.second});
+                    members.push_back(partition);
+                }
+                footprintTensors.push_back(
+                    {escaping.size, std::move(members), escaping.liveOut});
+            }
             escapingTensors.push_back(std::move(escaping));
         }
     }
+
+    footprints = std::make_unique<PartitionFootprints>(
+        partitionTensors, std::move(footprintTensors), std::move(footprintUses),
+        packer);
 
     // Perform best-fit packing for each partition
     std::vector<uint64_t> partitionWeights(numPartitions, 0);
@@ -1007,7 +1262,7 @@ void Scheduler::buildCoarseGraph() {
 
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
-               Objective objective) {
+               Objective objective, uint64_t memoryLimit) {
     auto buildStart = std::chrono::steady_clock::now();
     buildCoarseGraph();
     auto buildEnd = std::chrono::steady_clock::now();
@@ -1028,7 +1283,7 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
         if (objective == Objective::Memory) {
             cost = peakMemory;
             costLabel = "Peak memory: ";
-        } else if (objective == Objective::Transfers) {
+        } else if (objective == Objective::TransferMemory) {
             cost = hyperGraph.computeTransfers(schedule);
             costLabel = "Transferred bytes: ";
         } else {
@@ -1052,8 +1307,9 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
         cpsat::CPSATMemorySolver memorySolver(hyperGraph, debug);
         std::tie(status, schedule, cost) =
             memorySolver.solve(timeLimitSeconds, numWorkers);
-    } else if (objective == Objective::Transfers) {
-        cpsat::CPSATTransferSolver transferSolver(hyperGraph, debug);
+    } else if (objective == Objective::TransferMemory) {
+        cpsat::CPSATTransferMemorySolver transferSolver(hyperGraph, *footprints,
+                                                        memoryLimit, debug);
         std::tie(status, schedule, cost) =
             transferSolver.solve(timeLimitSeconds, numWorkers);
     } else {
@@ -1061,10 +1317,16 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
     }
 
     if (verify) {
-        bruteforce::BruteForceSolver bfSolver(hyperGraph, debug, objective);
+        bruteforce::BruteForceSolver bfSolver(hyperGraph, debug, objective,
+                                              footprints.get(), memoryLimit);
         auto [bfSchedule, bfCost] = bfSolver.solve();
 
-        if (cost != bfCost) {
+        // Both must also stay within the limit, or the lowest peak above it
+        bool peakOk = objective != Objective::TransferMemory ||
+                      memoryLimit == UINT64_MAX ||
+                      footprints->peak(schedule) <=
+                          std::max(memoryLimit, footprints->peak(bfSchedule));
+        if (cost != bfCost || !peakOk) {
             std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n"
                       << std::endl;
 
@@ -1117,6 +1379,10 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
     }
 
     return {schedule, cost};
+}
+
+uint64_t Scheduler::peakFootprint(const std::vector<uint64_t> &schedule) const {
+    return footprints->peak(schedule);
 }
 
 } // namespace scheduling

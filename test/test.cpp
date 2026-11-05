@@ -33,13 +33,13 @@ void printResults(const std::vector<uint64_t> &partition,
 }
 
 int main(int argc, char **argv) {
-    if (argc < 7 || argc > 11) {
+    if (argc < 7 || argc > 12) {
         std::cerr << "Usage: " << argv[0]
                   << " <# of partitions> <dot file path> <clustering method> "
                      "<bisection method> "
                      "<refinement method> <enable parallel> "
                      "[min size for parallel] [max parallel depth] [enable "
-                     "scheduling] [scheduling objective]"
+                     "scheduling] [scheduling objective] [memory limit]"
                   << std::endl;
         std::cerr << "  clustering method: FORB, CYC, or HYB" << std::endl;
         std::cerr
@@ -58,8 +58,11 @@ int main(int argc, char **argv) {
         std::cerr << "  enable scheduling: 1 to enable scheduling, 0 to skip "
                      "(default: 0)"
                   << std::endl;
-        std::cerr << "  scheduling objective: memory or transfers (default: "
-                     "memory)"
+        std::cerr << "  scheduling objective: memory or transfer-memory "
+                     "(default: memory)"
+                  << std::endl;
+        std::cerr << "  memory limit: limit on the peak footprint of "
+                     "transfer-memory (default: none)"
                   << std::endl;
         return 1;
     }
@@ -166,17 +169,22 @@ int main(int argc, char **argv) {
 
     // Parse scheduling objective (optional, defaults to memory)
     auto objective = dag_partitioning::scheduling::Objective::Memory;
-    if (argc == 11) {
+    if (argc >= 11) {
         std::string objectiveName = argv[10];
-        if (objectiveName == "transfers") {
-            objective = dag_partitioning::scheduling::Objective::Transfers;
+        if (objectiveName == "transfer-memory") {
+            objective = dag_partitioning::scheduling::Objective::TransferMemory;
         } else if (objectiveName != "memory") {
             std::cerr << "Error: scheduling objective must be memory or "
-                         "transfers"
+                         "transfer-memory"
                       << std::endl;
             return 1;
         }
     }
+
+    // Parse memory limit (optional, defaults to none)
+    uint64_t memoryLimit = UINT64_MAX;
+    if (argc == 12)
+        memoryLimit = std::stoull(argv[11]);
 
     dag_partitioning::core::Graph graph = dag_partitioning::core::readDotFile(
         dotPath, dotPath + ".node-mappings.txt");
@@ -210,8 +218,14 @@ int main(int argc, char **argv) {
         dag_partitioning::scheduling::Scheduler scheduler(
             graph, partitionMapping, false, true);
         start = std::chrono::high_resolution_clock::now();
-        auto [schedule, cost] = scheduler.run(
-            600, 7, dag_partitioning::scheduling::Solver::CPSAT, objective);
+        auto [schedule, cost] =
+            scheduler.run(600, 7, dag_partitioning::scheduling::Solver::CPSAT,
+                          objective, memoryLimit);
+        if (objective ==
+            dag_partitioning::scheduling::Objective::TransferMemory) {
+            std::cerr << "cost " << cost << " peak "
+                      << scheduler.peakFootprint(schedule) << "\n";
+        }
         end = std::chrono::high_resolution_clock::now();
         schedulingDuration =
             std::chrono::duration_cast<std::chrono::microseconds>(end - start)

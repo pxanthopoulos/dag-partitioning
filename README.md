@@ -102,7 +102,8 @@ After building, you can use the `dag-test` executable to partition DAGs:
 #   [min size for parallel] Minimum subgraph size to parallelize (default: 100)
 #   [max parallel depth]    Maximum recursion depth for parallelization (default: 10)
 #   [enable scheduling]     1 to run the memory-aware scheduler after partitioning, 0 to skip (default: 0)
-#   [scheduling objective]  memory or transfers (default: memory); see Scheduling
+#   [scheduling objective]  memory or transfer-memory (default: memory); see Scheduling
+#   [memory limit]          limit on the peak footprint of transfer-memory (default: none)
 
 # Example: partition into 4 parts with default settings, parallel enabled
 ./bin/dag-test 4 ../test/example.dot HYB GGG BOUNDARYFM 1
@@ -182,7 +183,7 @@ digraph cfg {
 After partitioning, the tool can optionally compute an execution order for the partitions. It minimizes one of two objectives:
 
 - **memory** (default): peak memory usage. This is useful when the partitions will be executed sequentially and memory is a constraint.
-- **transfers**: the bytes moved between device and host when tensors that cross partitions are offloaded to host memory. The producer and the consumers of a tensor form runs of consecutive partitions (a live-out tensor counts as consumed after the last partition), and the tensor stays on the device through a run. Each later run, a gap, needs a fetch, and any gap needs one offload whose host copy serves every fetch: a tensor with g gaps moves (1 + g) times its size, or nothing if g = 0. The CP-SAT model gives each partition a position and lets a consumer skip its fetch only if another partition of the same tensor runs right before it.
+- **transfer-memory**: the bytes moved between device and host when tensors that cross partitions are offloaded to host memory. The producer and the consumers of a tensor form runs of consecutive partitions (a live-out tensor counts as consumed after the last partition), and the tensor stays on the device through a run. Each later run, a gap, needs a fetch, and any gap needs one offload whose host copy serves every fetch: a tensor with g gaps moves (1 + g) times its size, or nothing if g = 0. The CP-SAT model gives each partition a position and lets a consumer skip its fetch only if another partition of the same tensor runs right before it. Moving less can raise the peak device memory, because a tensor kept between adjacent partitions is on the device for the whole of both, while a fetched one is there only from the fetch to its last use. So a limit can bound the peak footprint: the footprint of a partition depends only on its two neighbors, and the limit forbids the pairs that exceed it. If no order meets the limit, the solver first minimizes the peak, then the bytes moved at that peak.
 
 The memory scheduler works as follows:
 
