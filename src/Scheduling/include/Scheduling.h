@@ -240,11 +240,14 @@ class CPSATMemorySolver {
      *
      * @param timeLimitSeconds Time limit for solver in seconds
      * @param numWorkers Number of parallel workers for the solver
+     * @param deterministic Same result for any number of workers, unless the
+     * time limit is hit; slower, as the workers wait for each other
      * @return Tuple of (solver status, schedule, peak memory)
      */
     [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
                              std::vector<uint64_t>, uint64_t>
-    solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1);
+    solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,
+          bool deterministic = true);
 };
 
 /**
@@ -291,7 +294,8 @@ class CPSATTransferMemorySolver {
     [[nodiscard]] Result solveOnce(Goal goal, uint64_t limit,
                                    const std::vector<uint64_t> &hint,
                                    uint64_t timeLimitSeconds,
-                                   int32_t numWorkers) const;
+                                   int32_t numWorkers,
+                                   bool deterministic) const;
 
   public:
     /**
@@ -314,12 +318,15 @@ class CPSATTransferMemorySolver {
      *
      * @param timeLimitSeconds Time limit for each solve in seconds
      * @param numWorkers Number of parallel workers for the solver
+     * @param deterministic Same result for any number of workers, unless the
+     * time limit is hit; slower, as the workers wait for each other
      * @return Tuple of (solver status, schedule, transferred bytes); the status
      * is OPTIMAL only if every solve was
      */
     [[nodiscard]] std::tuple<operations_research::sat::CpSolverStatus,
                              std::vector<uint64_t>, uint64_t>
-    solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1) const;
+    solve(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,
+          bool deterministic = true) const;
 };
 
 } // namespace cpsat
@@ -499,6 +506,8 @@ class Scheduler {
      * @param objective Criterion to minimize
      * @param memoryLimit Limit on the peak device footprint of
      * Objective::TransferMemory; UINT64_MAX means no limit
+     * @param deterministic Same result for any number of workers, unless the
+     * time limit is hit (CP-SAT only)
      * @return Pair of a vector with partition numbers ordered by their
      * scheduled execution and the cost of the schedule (peak memory usage or
      * transferred bytes)
@@ -506,7 +515,7 @@ class Scheduler {
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
     run(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,
         Solver solver = Solver::CPSAT, Objective objective = Objective::Memory,
-        uint64_t memoryLimit = UINT64_MAX);
+        uint64_t memoryLimit = UINT64_MAX, bool deterministic = true);
 
     /**
      * @brief Peak device footprint of a schedule returned by run

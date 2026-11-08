@@ -497,7 +497,8 @@ void CPSATMemorySolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
+CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
+                         bool deterministic) {
     uint64_t n = graph.getSize();
 
     auto constructionStart = std::chrono::steady_clock::now();
@@ -519,8 +520,9 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers) {
     operations_research::sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
     params.set_num_search_workers(numWorkers);
-    // Deterministic for any number of workers (unless the time limit is hit)
-    params.set_interleave_search(true);
+    // Interleaved search: the same result for any number of workers, unless
+    // the time limit is hit
+    params.set_interleave_search(deterministic);
     params.set_log_search_progress(debug);
 
     if (debug) {
@@ -610,7 +612,7 @@ bool CPSATTransferMemorySolver::Result::found() const {
 
 CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
     Goal goal, uint64_t limit, const std::vector<uint64_t> &hint,
-    uint64_t timeLimitSeconds, int32_t numWorkers) const {
+    uint64_t timeLimitSeconds, int32_t numWorkers, bool deterministic) const {
     namespace sat = operations_research::sat;
     auto constructionStart = std::chrono::steady_clock::now();
     uint64_t n = graph.getSize();
@@ -819,8 +821,9 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
     sat::SatParameters params;
     params.set_max_time_in_seconds(static_cast<double>(timeLimitSeconds));
     params.set_num_search_workers(numWorkers);
-    // Deterministic for any number of workers (unless the time limit is hit)
-    params.set_interleave_search(true);
+    // Interleaved search: the same result for any number of workers, unless
+    // the time limit is hit
+    params.set_interleave_search(deterministic);
     params.set_log_search_progress(debug);
     sat::Model model;
     model.Add(NewSatParameters(params));
@@ -872,8 +875,8 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
 
 std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
-CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds,
-                                 int32_t numWorkers) const {
+CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
+                                 bool deterministic) const {
     namespace sat = operations_research::sat;
 
     // Get heuristic schedule
@@ -881,20 +884,21 @@ CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds,
     std::vector<uint64_t> hint = rpoScheduler.solve().first;
 
     Result result = solveOnce(Goal::Transfers, memoryLimit, hint,
-                              timeLimitSeconds, numWorkers);
+                              timeLimitSeconds, numWorkers, deterministic);
     sat::CpSolverStatus status = result.status;
     if (!result.found()) {
         // Nothing meets the limit (or the time limit hit first): move as little
         // as possible at the lowest peak
         Result lowest = solveOnce(Goal::Peak, UINT64_MAX, hint,
-                                  timeLimitSeconds, numWorkers);
+                                  timeLimitSeconds, numWorkers, deterministic);
         if (!lowest.found()) {
             throw std::runtime_error(
                 "No solution found by CP-SAT solver. Status: " +
                 std::to_string(static_cast<int>(lowest.status)));
         }
         result = solveOnce(Goal::Transfers, std::max(memoryLimit, lowest.cost),
-                           lowest.schedule, timeLimitSeconds, numWorkers);
+                           lowest.schedule, timeLimitSeconds, numWorkers,
+                           deterministic);
         if (!result.found()) {
             result.schedule = lowest.schedule;
             result.cost = graph.computeTransfers(lowest.schedule);
@@ -1262,7 +1266,7 @@ void Scheduler::buildCoarseGraph() {
 
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
-               Objective objective, uint64_t memoryLimit) {
+               Objective objective, uint64_t memoryLimit, bool deterministic) {
     auto buildStart = std::chrono::steady_clock::now();
     buildCoarseGraph();
     auto buildEnd = std::chrono::steady_clock::now();
@@ -1306,12 +1310,12 @@ Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
     if (objective == Objective::Memory) {
         cpsat::CPSATMemorySolver memorySolver(hyperGraph, debug);
         std::tie(status, schedule, cost) =
-            memorySolver.solve(timeLimitSeconds, numWorkers);
+            memorySolver.solve(timeLimitSeconds, numWorkers, deterministic);
     } else if (objective == Objective::TransferMemory) {
         cpsat::CPSATTransferMemorySolver transferSolver(hyperGraph, *footprints,
                                                         memoryLimit, debug);
         std::tie(status, schedule, cost) =
-            transferSolver.solve(timeLimitSeconds, numWorkers);
+            transferSolver.solve(timeLimitSeconds, numWorkers, deterministic);
     } else {
         throw std::invalid_argument("Unknown scheduling objective");
     }
