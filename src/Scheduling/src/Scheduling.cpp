@@ -538,19 +538,18 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
     operations_research::sat::CpSolverResponse response =
         SolveCpModel(modelProto, &model);
     auto solveEnd = std::chrono::steady_clock::now();
+    lastConstructionSeconds =
+        std::chrono::duration<double>(solveStart - constructionStart).count();
+    lastSolveSeconds =
+        std::chrono::duration<double>(solveEnd - solveStart).count();
 
     if (debug) {
         std::cerr << "Solver status: " << CpSolverResponseStats(response)
                   << std::endl;
         std::cerr << "CP-SAT model construction time: "
-                  << std::chrono::duration<double>(solveStart -
-                                                   constructionStart)
-                         .count()
-                  << " seconds" << std::endl;
-        std::cerr
-            << "CP-SAT solve time: "
-            << std::chrono::duration<double>(solveEnd - solveStart).count()
-            << " seconds" << std::endl;
+                  << lastConstructionSeconds << " seconds" << std::endl;
+        std::cerr << "CP-SAT solve time: " << lastSolveSeconds << " seconds"
+                  << std::endl;
     }
 
     // Extract results

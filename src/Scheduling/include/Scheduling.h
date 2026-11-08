@@ -153,9 +153,21 @@ namespace cpsat {
  * @brief CP-SAT based solver for memory-aware scheduling
  */
 class CPSATMemorySolver {
+  public:
+    /**
+     * @brief Seconds the last solve() spent building the model (pruning
+     * bounds, RPO warm start, variables, constraints, hints) and solving it
+     */
+    [[nodiscard]] double constructionSeconds() const {
+        return lastConstructionSeconds;
+    }
+    [[nodiscard]] double solveSeconds() const { return lastSolveSeconds; }
+
   protected:
     const hypergraph::HyperGraph &graph;
     bool debug = false;
+    double lastConstructionSeconds = 0;
+    double lastSolveSeconds = 0;
 
     // Pruning bounds computed from topology
     std::vector<uint64_t> earliestOp;
