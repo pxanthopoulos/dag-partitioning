@@ -24,10 +24,10 @@ namespace scheduling {
 PartitionFootprints::PartitionFootprints(
     std::vector<std::vector<utils::Tensor>> localTensors,
     std::vector<Escaping> tensors, std::vector<std::vector<Use>> uses,
-    utils::SlabPacker packer)
+    utils::SlabPacker packer, std::vector<hypergraph::LiveIn> liveIns)
     : localTensors(std::move(localTensors)), tensors(std::move(tensors)),
       uses(std::move(uses)), packer(std::move(packer)),
-      slabs(this->localTensors.size()) {}
+      liveIns(std::move(liveIns)), slabs(this->localTensors.size()) {}
 
 uint64_t PartitionFootprints::footprint(uint64_t partition, uint64_t pred,
                                         uint64_t succ) const {
@@ -79,12 +79,35 @@ uint64_t PartitionFootprints::footprint(uint64_t partition, uint64_t pred,
 }
 
 uint64_t PartitionFootprints::peak(const std::vector<uint64_t> &order) const {
+    // The live-in bytes held at each step: every live-in up to its last user
+    std::vector<uint64_t> held(order.size() + 1, 0);
+    if (!liveIns.empty()) {
+        std::vector<uint64_t> pos(localTensors.size());
+        for (uint64_t step = 0; step < order.size(); step++)
+            pos[order[step]] = step;
+        std::vector<int64_t> delta(order.size() + 1, 0);
+        for (const auto &liveIn : liveIns) {
+            if (liveIn.users.empty())
+                continue;
+            uint64_t last = 0;
+            for (uint64_t user : liveIn.users)
+                last = std::max(last, pos[user]);
+            delta[0] += static_cast<int64_t>(liveIn.size);
+            delta[last + 1] -= static_cast<int64_t>(liveIn.size);
+        }
+        int64_t live = 0;
+        for (uint64_t step = 0; step < order.size(); step++) {
+            live += delta[step];
+            held[step] = static_cast<uint64_t>(live);
+        }
+    }
     uint64_t peak = 0;
     for (uint64_t step = 0; step < order.size(); step++) {
         peak = std::max(
-            peak, footprint(order[step], step == 0 ? None : order[step - 1],
-                            step + 1 == order.size() ? localTensors.size()
-                                                     : order[step + 1]));
+            peak, held[step] +
+                      footprint(order[step], step == 0 ? None : order[step - 1],
+                                step + 1 == order.size() ? localTensors.size()
+                                                         : order[step + 1]));
     }
     return peak;
 }
@@ -277,7 +300,10 @@ operations_research::sat::BoolVar CPSATMemorySolver::getT(uint64_t t,
  * (4c) T[t][j] => T[t][j+1] OR OR_{c∈users} O[c][j] -- tensor freed after
  * last consumer (T[t][j] => T[t][j+1] for live-out tensors)
  * (5) T[t][0] => O[p(t)][0]       -- initial condition
- * (6) Σ_t T[t][j]·S[t] + Σᵢ ES[i]·O[i][j] ≤ mem  -- memory bound
+ * (5b) L[l][j] => L[l][j-1], O[u][j] => L[l][j] for users u of live-in l
+ *      -- a live-in tensor is on the device from the start to its last user
+ * (6) Σ_t T[t][j]·S[t] + Σ_l L[l][j]·S[l] + Σᵢ ES[i]·O[i][j] ≤ mem
+ *      -- memory bound
  *
  * Objective: minimize mem
  */
@@ -302,6 +328,29 @@ void CPSATMemorySolver::createVariablesAndConstraints(
             if (hasT(t, j)) {
                 T[tKey(t, j)] = cpModel.NewBoolVar();
                 numT++;
+            }
+        }
+    }
+
+    // Live-in tensors: L[l][j] up to the latest step of their last user; a user
+    // running at j keeps it at j and before (on the device from the start)
+    const auto &liveIns = graph.getLiveIns();
+    L.assign(liveIns.size(), {});
+    for (uint64_t l = 0; l < liveIns.size(); l++) {
+        if (liveIns[l].users.empty())
+            continue;
+        uint64_t latest = 0;
+        for (uint64_t u : liveIns[l].users)
+            latest = std::max(latest, latestOp[u]);
+        for (uint64_t j = 0; j <= latest; j++) {
+            L[l].push_back(cpModel.NewBoolVar());
+            if (j > 0)
+                cpModel.AddImplication(L[l][j], L[l][j - 1]);
+        }
+        for (uint64_t u : liveIns[l].users) {
+            for (uint64_t j = 0; j <= latest; j++) {
+                if (hasO(u, j))
+                    cpModel.AddImplication(getO(u, j), L[l][j]);
             }
         }
     }
@@ -438,6 +487,10 @@ void CPSATMemorySolver::createVariablesAndConstraints(
                     getO(k, j) * static_cast<int64_t>(graph.getExtraSizes()[k]);
             }
         }
+        for (uint64_t l = 0; l < L.size(); l++) {
+            if (j < L[l].size())
+                memExpr += L[l][j] * static_cast<int64_t>(liveIns[l].size);
+        }
 
         cpModel.AddLessOrEqual(memExpr, mem);
     }
@@ -489,6 +542,16 @@ void CPSATMemorySolver::setWarmStartHints(const std::vector<uint64_t> &schedule,
                                 live[step].count(tensor) ? 1 : 0);
             }
         }
+    }
+
+    // Add hints for the live-in tensors: on the device up to their last user
+    const auto &liveIns = graph.getLiveIns();
+    for (uint64_t l = 0; l < L.size(); l++) {
+        uint64_t last = 0;
+        for (uint64_t user : liveIns[l].users)
+            last = std::max(last, opToStep[user]);
+        for (uint64_t j = 0; j < L[l].size(); j++)
+            cpModel.AddHint(L[l][j], j <= last ? 1 : 0);
     }
 
     // Add hint for mem variable
@@ -760,6 +823,48 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
             return literals;
         };
 
+        // The live-in tensors, which footprint leaves out: node i also holds
+        // every live-in whose last user runs at or after it, heldAt[i] bytes,
+        // at most heldMax[i]. A user, or an ancestor of one, always holds it;
+        // a descendant of every user never does
+        const auto &ancestors = graph.getAncestors();
+        std::vector<sat::LinearExpr> heldAt(n);
+        std::vector<int64_t> heldMax(n, 0);
+        for (const auto &liveIn : footprints.getLiveIns()) {
+            if (liveIn.users.empty())
+                continue;
+            int64_t size = static_cast<int64_t>(liveIn.size);
+            std::vector<sat::LinearExpr> userPositions;
+            uint64_t hintLast = 0;
+            for (uint64_t user : liveIn.users) {
+                userPositions.push_back(pos[user]);
+                hintLast = std::max(hintLast, hintPos[user]);
+            }
+            sat::IntVar last =
+                cpModel.NewIntVar({0, static_cast<int64_t>(n - 1)});
+            cpModel.AddMaxEquality(last, userPositions);
+            cpModel.AddHint(last, static_cast<int64_t>(hintLast));
+            for (uint64_t i = 0; i < n; i++) {
+                bool always = false, never = true;
+                for (uint64_t user : liveIn.users) {
+                    always |= user == i || ancestors[user].count(i);
+                    never &= ancestors[i].count(user) > 0;
+                }
+                if (always) {
+                    heldAt[i] += size;
+                    heldMax[i] += size;
+                } else if (!never) {
+                    // Not held only if it runs after the last user
+                    sat::BoolVar held = cpModel.NewBoolVar();
+                    cpModel.AddGreaterThan(pos[i], last)
+                        .OnlyEnforceIf(held.Not());
+                    cpModel.AddHint(held, hintPos[i] <= hintLast);
+                    heldAt[i] += size * held;
+                    heldMax[i] += size;
+                }
+            }
+        }
+
         if (goal == Goal::Peak) {
             // No order goes below the smallest footprint of any node, and the
             // hint reaches its own peak
@@ -785,8 +890,9 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
                             continue;
                         int64_t footprint = static_cast<int64_t>(
                             footprints.footprint(i, pred, succ));
-                        if (footprint > lowest)
-                            cpModel.AddGreaterOrEqual(*peak, footprint)
+                        if (footprint + heldMax[i] > lowest)
+                            cpModel
+                                .AddGreaterOrEqual(*peak, heldAt[i] + footprint)
                                 .OnlyEnforceIf(literalsOf(i, pred, succ));
                     }
                 }
@@ -795,13 +901,26 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
             for (uint64_t i = 0; i < n; i++) {
                 for (uint64_t pred : withNone(before[i])) {
                     for (uint64_t succ : withNone(after[i])) {
-                        if ((pred != none && pred == succ) ||
-                            footprints.footprint(i, pred, succ) <= limit)
+                        if (pred != none && pred == succ)
                             continue;
-                        std::vector<sat::BoolVar> forbidden;
-                        for (const auto &literal : literalsOf(i, pred, succ))
-                            forbidden.push_back(literal.Not());
-                        cpModel.AddBoolOr(forbidden);
+                        uint64_t footprint =
+                            footprints.footprint(i, pred, succ);
+                        if (footprint > limit) {
+                            std::vector<sat::BoolVar> forbidden;
+                            for (const auto &literal :
+                                 literalsOf(i, pred, succ))
+                                forbidden.push_back(literal.Not());
+                            cpModel.AddBoolOr(forbidden);
+                        } else if (footprint +
+                                       static_cast<uint64_t>(heldMax[i]) >
+                                   limit) {
+                            // Then only as many live-ins as fit
+                            cpModel
+                                .AddLessOrEqual(
+                                    heldAt[i],
+                                    static_cast<int64_t>(limit - footprint))
+                                .OnlyEnforceIf(literalsOf(i, pred, succ));
+                        }
                     }
                 }
             }
@@ -1032,14 +1151,23 @@ Scheduler::Scheduler(const core::Graph &originalGraph,
                      const std::vector<uint64_t> &partitionMapping, bool debug,
                      bool verify, uint64_t offsetAlignment,
                      uint64_t rangeAlignment, utils::SlabPacker packer,
-                     std::vector<bool> liveOutNodes)
+                     std::vector<bool> liveOutNodes,
+                     std::vector<LiveIn> liveIns)
     : originalGraph(originalGraph), partitionMapping(partitionMapping),
       debug(debug), verify(verify), offsetAlignment(offsetAlignment),
       rangeAlignment(rangeAlignment), packer(std::move(packer)),
-      liveOutNodes(std::move(liveOutNodes)) {
+      liveOutNodes(std::move(liveOutNodes)), liveIns(std::move(liveIns)) {
     if (!this->liveOutNodes.empty() &&
         this->liveOutNodes.size() != originalGraph.size)
         throw std::invalid_argument("liveOutNodes needs one entry per node");
+    for (const LiveIn &liveIn : this->liveIns) {
+        for (const auto *nodes : {&liveIn.users, &liveIn.tiedUsers}) {
+            for (uint64_t node : *nodes) {
+                if (node >= originalGraph.size)
+                    throw std::invalid_argument("live-in user out of range");
+            }
+        }
+    }
     if (!this->packer) {
         this->packer = [offsetAlignment,
                         rangeAlignment](std::vector<utils::Tensor> &tensors) {
@@ -1100,12 +1228,37 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
         }
     }
 
+    // A tied op writing into a live-in starts a buffer of the live-in's size
+    // (the live-in is not a node, so it would have no buffer at all)
+    std::vector<uint64_t> bufferSize(originalGraph.nodeWeights.begin(),
+                                     originalGraph.nodeWeights.end());
+    std::vector<bool> startsBuffer(originalGraph.size, false);
+    for (const LiveIn &liveIn : liveIns) {
+        for (uint64_t node : liveIn.tiedUsers) {
+            if (originalGraph.nodeWeights[node] == 0) {
+                startsBuffer[node] = true;
+                bufferSize[node] = liveIn.size;
+            }
+        }
+    }
+
+    // The live-ins, with the partitions of their users
+    partitionLiveIns.clear();
+    for (const LiveIn &liveIn : liveIns) {
+        std::set<uint64_t> partitions;
+        for (uint64_t user : liveIn.users)
+            partitions.insert(partitionMapping[user]);
+        partitionLiveIns.push_back(
+            {liveIn.size,
+             std::vector<uint64_t>(partitions.begin(), partitions.end())});
+    }
+
     // Buffer of every value: a tied op (weight 0, consumed results) writes
     // into the input whose edge weight equals its result size, preferring
     // the last-defined one (the init operand)
     std::vector<uint64_t> root(originalGraph.size, UINT64_MAX);
     for (uint64_t node : topologicalOrder) {
-        if (originalGraph.nodeWeights[node] > 0) {
+        if (originalGraph.nodeWeights[node] > 0 || startsBuffer[node]) {
             root[node] = node;
             continue;
         }
@@ -1145,7 +1298,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
         uint64_t lastConsumerPosition =
             nodeToLocalPosition[producer]; // Birth time
         hypergraph::Tensor escaping{
-            producerPartition, originalGraph.nodeWeights[producer], {}, false};
+            producerPartition, bufferSize[producer], {}, false};
         // First and last use in every partition that uses it
         std::map<uint64_t, std::pair<uint64_t, uint64_t>> usedAt;
         auto use = [&](uint64_t node) {
@@ -1174,7 +1327,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
         // Tensor is packed only if it has internal users only
         if (escaping.users.empty() && !escaping.liveOut) {
             utils::Tensor tensor;
-            tensor.size = originalGraph.nodeWeights[producer];
+            tensor.size = bufferSize[producer];
             tensor.birth = nodeToLocalPosition[producer];
             tensor.death = lastConsumerPosition;
             tensor.offset = 0; // Will be assigned during packing
@@ -1200,7 +1353,7 @@ std::vector<uint64_t> Scheduler::calculatePartitionWeights(
 
     footprints = std::make_unique<PartitionFootprints>(
         partitionTensors, std::move(footprintTensors), std::move(footprintUses),
-        packer);
+        packer, partitionLiveIns);
 
     // Perform best-fit packing for each partition
     std::vector<uint64_t> partitionWeights(numPartitions, 0);
@@ -1260,7 +1413,7 @@ void Scheduler::buildCoarseGraph() {
     }
 
     coarseGraph = std::make_unique<hypergraph::HyperGraph>(
-        std::move(partitionWeights), tensors);
+        std::move(partitionWeights), tensors, partitionLiveIns);
 }
 
 std::pair<std::vector<uint64_t>, uint64_t>

@@ -56,6 +56,10 @@ enum class Objective {
  *    with what isn't live at the same time.
  * The partition that runs last also holds every live-out tensor, for the whole
  * partition. So the footprint of a partition depends only on its two neighbors.
+ * Live-in tensors (hypergraph::LiveIn, produced before the partitions and not
+ * moved to the host) are held by every partition up to their last user, for
+ * the whole partition; they depend on the order, so footprint leaves them
+ * out and peak adds them.
  */
 class PartitionFootprints {
   public:
@@ -84,14 +88,23 @@ class PartitionFootprints {
      * @param tensors The escaping tensors
      * @param uses Per partition, its uses of the escaping tensors
      * @param packer Packs the tensors of a partition into a slab
+     * @param liveIns The live-in tensors; users are partitions
      */
     PartitionFootprints(std::vector<std::vector<utils::Tensor>> localTensors,
                         std::vector<Escaping> tensors,
                         std::vector<std::vector<Use>> uses,
-                        utils::SlabPacker packer);
+                        utils::SlabPacker packer,
+                        std::vector<hypergraph::LiveIn> liveIns = {});
 
     /**
-     * @brief Footprint of a partition
+     * @brief The live-in tensors (users are partitions)
+     */
+    [[nodiscard]] const std::vector<hypergraph::LiveIn> &getLiveIns() const {
+        return liveIns;
+    }
+
+    /**
+     * @brief Footprint of a partition, without the live-in tensors
      * @param partition The partition
      * @param pred The partition right before it, or None
      * @param succ The partition right after it, None, or the number of
@@ -101,7 +114,8 @@ class PartitionFootprints {
                                      uint64_t succ) const;
 
     /**
-     * @brief Largest footprint of an order of all partitions
+     * @brief Largest footprint of an order of all partitions, with the
+     * live-in tensors each holds
      */
     [[nodiscard]] uint64_t peak(const std::vector<uint64_t> &order) const;
 
@@ -110,6 +124,7 @@ class PartitionFootprints {
     std::vector<Escaping> tensors;
     std::vector<std::vector<Use>> uses;
     utils::SlabPacker packer;
+    std::vector<hypergraph::LiveIn> liveIns;
     // Per partition, the slab size by which of its uses are kept
     mutable std::vector<std::map<std::vector<bool>, uint64_t>> slabs;
 };
@@ -179,6 +194,9 @@ class CPSATMemorySolver {
     operations_research::sat::CpModelBuilder cpModel;
     robin_hood::unordered_map<uint64_t, operations_research::sat::BoolVar> O;
     robin_hood::unordered_map<uint64_t, operations_research::sat::BoolVar> T;
+    // Per live-in tensor, per step up to the latest step of its last user:
+    // whether it is still on the device
+    std::vector<std::vector<operations_research::sat::BoolVar>> L;
     operations_research::sat::IntVar mem;
 
     /**
@@ -426,6 +444,17 @@ enum class Solver {
 };
 
 class Scheduler {
+  public:
+    /**
+     * @brief A tensor the graph reads but that is produced before it, which
+     * stays on the device until its last user
+     */
+    struct LiveIn {
+        uint64_t size;                   // Size in bytes
+        std::vector<uint64_t> users;     // Nodes that read it
+        std::vector<uint64_t> tiedUsers; // Users that write into it in place
+    };
+
   protected:
     const core::Graph &originalGraph;              // Original graph to schedule
     const std::vector<uint64_t> &partitionMapping; // Node to partition mapping
@@ -437,6 +466,9 @@ class Scheduler {
     uint64_t rangeAlignment = 1;    // Alignment of packed tensor sizes
     utils::SlabPacker packer;       // Packs each partition's tensors
     std::vector<bool> liveOutNodes; // Nodes whose results outlive the graph
+    std::vector<LiveIn> liveIns;    // Tensors from before the graph
+    // The live-ins with partitions as users (calculatePartitionWeights)
+    std::vector<hypergraph::LiveIn> partitionLiveIns;
 
     /**
      * @brief Calculates memory requirements for each partition
@@ -492,12 +524,16 @@ class Scheduler {
      * @param liveOutNodes For every node, whether its results are used after
      * the graph (graph outputs); empty means the nodes without consumers. A
      * node can have consumers in the graph and still be an output
+     * @param liveIns Tensors produced before the graph that stay on the device
+     * until their last user. A tied user (weight 0, writing into it in place)
+     * starts a buffer of the live-in's size, which escapes like any other
      */
     Scheduler(const core::Graph &originalGraph,
               const std::vector<uint64_t> &partitionMapping, bool debug = false,
               bool verify = false, uint64_t offsetAlignment = 1,
               uint64_t rangeAlignment = 1, utils::SlabPacker packer = {},
-              std::vector<bool> liveOutNodes = {});
+              std::vector<bool> liveOutNodes = {},
+              std::vector<LiveIn> liveIns = {});
 
     /**
      * @brief Virtual destructor for proper cleanup

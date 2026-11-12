@@ -16,8 +16,10 @@ namespace scheduling {
 namespace hypergraph {
 
 HyperGraph::HyperGraph(std::vector<uint64_t> extraSizes,
-                       const std::vector<Tensor> &tensors)
-    : size(extraSizes.size()), extraSizes(std::move(extraSizes)) {
+                       const std::vector<Tensor> &tensors,
+                       std::vector<LiveIn> liveIns)
+    : size(extraSizes.size()), liveIns(std::move(liveIns)),
+      extraSizes(std::move(extraSizes)) {
     outputTensors.resize(size);
     inputTensors.resize(size);
     tensorUsers.resize(tensors.size());
@@ -123,6 +125,16 @@ HyperGraph::computePeakMemory(const std::vector<uint64_t> &order) const {
         delta[birth] += static_cast<int64_t>(tensorSizes[t]);
         delta[death + 1] -= static_cast<int64_t>(tensorSizes[t]);
     }
+    // A live-in tensor adds its size to the steps [0, its last user]
+    for (const LiveIn &liveIn : liveIns) {
+        if (liveIn.users.empty())
+            continue;
+        uint64_t death = 0;
+        for (uint64_t user : liveIn.users)
+            death = std::max(death, pos[user]);
+        delta[0] += static_cast<int64_t>(liveIn.size);
+        delta[death + 1] -= static_cast<int64_t>(liveIn.size);
+    }
 
     uint64_t peak = 0;
     int64_t live = 0;
@@ -220,6 +232,8 @@ const std::vector<uint64_t> &HyperGraph::getTensorProducers() const {
 }
 
 const std::vector<bool> &HyperGraph::getLiveOut() const { return liveOut; }
+
+const std::vector<LiveIn> &HyperGraph::getLiveIns() const { return liveIns; }
 
 const std::vector<std::vector<uint64_t>> &HyperGraph::getOutputTensors() const {
     return outputTensors;

@@ -38,12 +38,23 @@ struct Tensor {
     bool liveOut = false;        // Live until the end of the schedule
 };
 
+/**
+ * @brief Tensor from before the graph (produced outside it, and neither
+ * moved to the host nor left out of the memory): on the device from the first
+ * step until its last user runs
+ */
+struct LiveIn {
+    uint64_t size;               // Size in bytes
+    std::vector<uint64_t> users; // Nodes that read it
+};
+
 class HyperGraph {
   private:
     uint64_t size;
     std::vector<uint64_t> tensorSizes;     // S_t: tensor size
     std::vector<uint64_t> tensorProducers; // Producer of tensor t
     std::vector<bool> liveOut;             // Tensor t is live until the end
+    std::vector<LiveIn> liveIns;           // Tensors from before the graph
     std::vector<uint64_t> extraSizes; // ES_i: extra memory during execution
     std::vector<std::vector<uint64_t>> outputTensors; // OUT_i: output tensors
     std::vector<robin_hood::unordered_set<uint64_t>>
@@ -79,9 +90,11 @@ class HyperGraph {
      * @brief Constructs a hyper graph from its tensors
      * @param extraSizes Extra memory of every node during its execution
      * @param tensors Tensors; producers and users index extraSizes
+     * @param liveIns Tensors from before the graph; users index extraSizes
      */
     HyperGraph(std::vector<uint64_t> extraSizes,
-               const std::vector<Tensor> &tensors);
+               const std::vector<Tensor> &tensors,
+               std::vector<LiveIn> liveIns = {});
 
     virtual ~HyperGraph() = default;
 
@@ -105,6 +118,11 @@ class HyperGraph {
      * @brief Returns whether every tensor is live until the end
      */
     const std::vector<bool> &getLiveOut() const;
+
+    /**
+     * @brief Returns the tensors from before the graph
+     */
+    const std::vector<LiveIn> &getLiveIns() const;
 
     /**
      * @brief Returns the tensors every node produces
@@ -157,7 +175,7 @@ class HyperGraph {
      * While order[s] runs, memory holds its extra memory and every tensor t
      * with birth(t) <= s <= death(t): birth is the step of its producer,
      * death the step of its last user (the last step if live-out, the birth
-     * if it has no users).
+     * if it has no users). A live-in tensor is born at the first step.
      *
      * @param order Topological order of all nodes
      * @return Peak memory usage
