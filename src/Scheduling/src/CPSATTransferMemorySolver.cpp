@@ -43,7 +43,8 @@ class OrderModel {
      */
     OrderModel(const hypergraph::HyperGraph &graph,
                const std::vector<uint64_t> &hint)
-        : n(graph.getSize()), hintPos(n), successors(n), predecessors(n) {
+        : n(graph.getSize()), graph(graph), hintPos(n), successors(n),
+          predecessors(n) {
         pos.reserve(n);
         for (uint64_t i = 0; i < n; i++) {
             pos.push_back(cpModel.NewIntVar(
@@ -64,6 +65,30 @@ class OrderModel {
             hintPos[hint[step]] = step;
         for (uint64_t i = 0; i < n; i++)
             cpModel.AddHint(pos[i], static_cast<int64_t>(hintPos[i]));
+    }
+
+    /**
+     * @brief Whether after can run right after before (after = n: before can
+     * run last): their positions allow it, and no node has to run between
+     * them, a predecessor of after that descends from before
+     */
+    [[nodiscard]] bool canBeAdjacent(uint64_t before, uint64_t after) const {
+        const auto &ancestors = graph.getAncestors();
+        uint64_t lastBefore = n - 1 - graph.getDescendants()[before].size();
+        if (after == n)
+            return lastBefore == n - 1;
+        uint64_t firstAfter = ancestors[after].size();
+        uint64_t lastAfter = n - 1 - graph.getDescendants()[after].size();
+        if (std::max<uint64_t>(ancestors[before].size() + 1, firstAfter) >
+                std::min(lastBefore + 1, lastAfter) ||
+            ancestors[before].count(after))
+            return false;
+        for (uint64_t t : graph.getInputTensors()[after]) {
+            uint64_t pred = graph.getTensorProducers()[t];
+            if (ancestors[pred].count(before))
+                return false;
+        }
+        return true;
     }
 
     /**
@@ -112,11 +137,13 @@ class OrderModel {
 
     /**
      * @brief Makes every adjacency literal also true whenever after runs
-     * right after before, and gives every node one for running last
+     * right after before, and gives every node that can run last one for it
      */
     void makeAdjacencyExact() {
-        for (uint64_t i = 0; i < n; i++)
-            adjacent(i, n);
+        for (uint64_t i = 0; i < n; i++) {
+            if (canBeAdjacent(i, n))
+                adjacent(i, n);
+        }
         for (const auto &[pair, literal] : literals) {
             const auto &[before, after] = pair;
             if (after == n) {
@@ -156,6 +183,7 @@ class OrderModel {
 
   private:
     uint64_t n;
+    const hypergraph::HyperGraph &graph;
     std::vector<uint64_t> hintPos;
     std::map<std::pair<uint64_t, uint64_t>, sat::BoolVar> literals;
     std::vector<std::vector<sat::BoolVar>> successors, predecessors;
@@ -195,7 +223,8 @@ sat::LinearExpr addTransfers(OrderModel &model,
             std::vector<sat::BoolVar> covered = {fetch};
             bool hintFetch = true;
             for (uint64_t member : members) {
-                if (member == consumer)
+                if (member == consumer ||
+                    !model.canBeAdjacent(member, consumer))
                     continue;
                 covered.push_back(model.adjacent(member, consumer));
                 hintFetch &= !model.hintAdjacent(member, consumer);

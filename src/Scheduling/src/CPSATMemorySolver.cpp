@@ -11,6 +11,9 @@
  * Constraints:
  * (1) one node per step, and (2) one step per node
  * (3) O[i][j] => T[t][j] for every input t of i
+ * (3b) an empty tensor holds no memory and only orders its producer before
+ *      its users: pos(p(t)) < pos(u), pos(i) = sum of j O[i][j], for the
+ *      users that nothing else orders after p(t)
  * (4a) T[t][j] => T[t][j-1] or O[p(t)][j]: a tensor is made, then kept
  * (4b) O[p(t)][j] => T[t][j]
  * (4c) T[t][j] => T[t][j+1] or a user of t runs at j: freed after its last
@@ -23,7 +26,8 @@
  *
  * Pruning: node i runs in [|anc(i)|, n-1-|des(i)|], and tensor t is held
  * from the earliest step of p(t) to the latest of its users (to the end if
- * live-out).
+ * live-out), surely (a constant) from the latest step of p(t) to the earliest
+ * of the last user to run.
  */
 
 #include "CPSATMemorySolver.h"
@@ -33,6 +37,8 @@
 #include "ortools/sat/cp_model_solver.h"
 #include <chrono>
 #include <iostream>
+#include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 
@@ -65,6 +71,41 @@ struct Window {
     }
 };
 
+/**
+ * @brief The orders (producer, user) that empty tensors add: those that no
+ * tensor with memory gives, and that no other predecessor of the user, a
+ * descendant of the producer, implies
+ */
+std::vector<std::pair<uint64_t, uint64_t>>
+emptyTensorOrders(const hypergraph::HyperGraph &graph) {
+    const auto &producers = graph.getTensorProducers();
+    const auto &users = graph.getTensorUsers();
+    const auto &sizes = graph.getTensorSizes();
+    std::vector<std::vector<uint64_t>> predecessors(graph.getSize());
+    std::set<std::pair<uint64_t, uint64_t>> held;
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+        for (uint64_t user : users[t]) {
+            predecessors[user].push_back(producers[t]);
+            if (sizes[t] != 0)
+                held.insert({producers[t], user});
+        }
+    }
+    std::set<std::pair<uint64_t, uint64_t>> orders;
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++) {
+        if (sizes[t] != 0)
+            continue;
+        uint64_t producer = producers[t];
+        for (uint64_t user : users[t]) {
+            bool implied = held.count({producer, user}) > 0;
+            for (uint64_t pred : predecessors[user])
+                implied |= graph.getAncestors()[pred].count(producer) > 0;
+            if (!implied)
+                orders.insert({producer, user});
+        }
+    }
+    return {orders.begin(), orders.end()};
+}
+
 } // namespace
 
 CPSATMemorySolver::CPSATMemorySolver(const hypergraph::HyperGraph &graph,
@@ -94,10 +135,24 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
         O[i].create(model, graph.getAncestors()[i].size(),
                     n - 1 - graph.getDescendants()[i].size());
     for (uint64_t t = 0; t < m; t++) {
+        if (graph.getTensorSizes()[t] == 0) {
+            T[t].first = 1; // No steps
+            continue;
+        }
         uint64_t last = liveOut[t] ? n - 1 : O[producers[t]].last;
         for (uint64_t user : users[t])
             last = std::max(last, O[user].last);
-        T[t].create(model, O[producers[t]].first, last);
+        // Held for sure once the producer has run and while a user (or the
+        // end, if live-out) still has to
+        uint64_t heldUntil = liveOut[t] ? n - 1 : 0;
+        for (uint64_t user : users[t])
+            heldUntil = std::max(heldUntil, O[user].first);
+        T[t].first = O[producers[t]].first;
+        T[t].last = last;
+        for (uint64_t j = T[t].first; j <= last; j++)
+            T[t].at.push_back(O[producers[t]].last <= j && j <= heldUntil
+                                  ? model.TrueVar()
+                                  : model.NewBoolVar());
     }
     // (5b)
     for (uint64_t l = 0; l < liveIns.size(); l++) {
@@ -135,6 +190,8 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
     for (uint64_t i = 0; i < n; i++) {
         for (uint64_t j = O[i].first; j <= O[i].last; j++) {
             for (uint64_t t : graph.getInputTensors()[i]) {
+                if (graph.getTensorSizes()[t] == 0)
+                    continue;
                 if (T[t].has(j))
                     model.AddImplication(O[i][j], T[t][j]);
                 else
@@ -142,6 +199,23 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
             }
         }
     }
+
+    // (3b)
+    std::vector<std::optional<sat::IntVar>> positions(n);
+    auto position = [&](uint64_t i) {
+        if (!positions[i]) {
+            positions[i] = model.NewIntVar({static_cast<int64_t>(O[i].first),
+                                            static_cast<int64_t>(O[i].last)});
+            sat::LinearExpr step;
+            for (uint64_t j = O[i].first; j <= O[i].last; j++)
+                step += O[i][j] * static_cast<int64_t>(j);
+            model.AddEquality(*positions[i], step);
+            model.AddHint(*positions[i], static_cast<int64_t>(hintStep[i]));
+        }
+        return *positions[i];
+    };
+    for (const auto &[producer, user] : emptyTensorOrders(graph))
+        model.AddLessThan(position(producer), position(user));
 
     // (4a)
     for (uint64_t t = 0; t < m; t++) {
@@ -229,8 +303,10 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
         uint64_t death = liveOut[t] ? n - 1 : birth;
         for (uint64_t user : users[t])
             death = std::max(death, hintStep[user]);
-        for (uint64_t j = T[t].first; j <= T[t].last; j++)
-            model.AddHint(T[t][j], birth <= j && j <= death);
+        for (uint64_t j = T[t].first; j <= T[t].last; j++) {
+            if (!(T[t][j] == model.TrueVar()))
+                model.AddHint(T[t][j], birth <= j && j <= death);
+        }
     }
     for (uint64_t l = 0; l < L.size(); l++) {
         uint64_t last = 0;
