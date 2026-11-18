@@ -1,4 +1,5 @@
 add_library(Graph OBJECT
+        src/DotFile.cpp
         src/Graph.cpp
 )
 
