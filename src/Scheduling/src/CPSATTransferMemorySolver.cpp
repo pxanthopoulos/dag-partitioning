@@ -6,7 +6,6 @@
 
 #include "CPSATTransferMemorySolver.h"
 #include "CPSAT.h"
-#include "RPOScheduler.h"
 
 #include "ortools/sat/cp_model_solver.h"
 #include <cassert>
@@ -504,8 +503,12 @@ std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
 CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
                                  bool deterministic) const {
-    std::vector<uint64_t> hint =
-        heuristic::RPOScheduler(graph, debug).solve().first;
+    std::vector<uint64_t> hint = warmStart(
+        graph,
+        [&](const std::vector<uint64_t> &order) {
+            return graph.computeTransfers(order);
+        },
+        debug);
 
     Result result = solveOnce(Goal::Transfers, memoryLimit, hint,
                               timeLimitSeconds, numWorkers, deterministic);

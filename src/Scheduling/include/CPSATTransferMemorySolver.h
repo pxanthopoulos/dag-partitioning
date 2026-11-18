@@ -85,7 +85,7 @@ class CPSATTransferMemorySolver {
 
     /**
      * @brief Solves the scheduling problem using CP-SAT, warm-started with
-     * the RPO heuristic
+     * the RPO order or the node id order (cpsat::warmStart)
      *
      * @param timeLimitSeconds Time limit for each solve in seconds
      * @param numWorkers Number of parallel workers for the solver

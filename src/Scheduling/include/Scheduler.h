@@ -25,7 +25,7 @@ namespace scheduling {
  * @brief Solver that orders the partitions
  */
 enum class Solver {
-    CPSAT, // CP-SAT, warm-started with the RPO heuristic
+    CPSAT, // CP-SAT, warm-started with the RPO or the node id order
     RPO,   // The RPO heuristic alone
 };
 

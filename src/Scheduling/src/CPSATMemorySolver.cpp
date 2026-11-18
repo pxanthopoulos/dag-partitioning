@@ -32,7 +32,6 @@
 
 #include "CPSATMemorySolver.h"
 #include "CPSAT.h"
-#include "RPOScheduler.h"
 
 #include "ortools/sat/cp_model_solver.h"
 #include <chrono>
@@ -124,7 +123,13 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
     const auto &liveOut = graph.getLiveOut();
     const auto &liveIns = graph.getLiveIns();
 
-    auto [hint, hintPeak] = heuristic::RPOScheduler(graph, debug).solve();
+    std::vector<uint64_t> hint = warmStart(
+        graph,
+        [&](const std::vector<uint64_t> &order) {
+            return graph.computePeakMemory(order);
+        },
+        debug);
+    uint64_t hintPeak = graph.computePeakMemory(hint);
     std::vector<uint64_t> hintStep(n);
     for (uint64_t step = 0; step < n; step++)
         hintStep[hint[step]] = step;
@@ -292,7 +297,7 @@ CPSATMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
     }
     model.Minimize(mem);
 
-    // Warm start from the RPO order: a tensor is held from its producer to
+    // Warm start: a tensor is held from its producer to
     // its last user (to the end if live-out)
     for (uint64_t i = 0; i < n; i++) {
         for (uint64_t j = O[i].first; j <= O[i].last; j++)

@@ -203,7 +203,7 @@ The memory scheduler works as follows:
 
 1. **Coarse graph construction**: Builds a hyper graph where each node represents a partition. Node weights capture the peak memory used within each partition (computed via best-fit tensor packing of the buffers that never leave it). A partition can produce multiple output tensors: one per buffer that escapes it, with its true size and its own consuming partitions, so each tensor is freed after its own last use. Ops with weight 0 are treated as writing in place into one of their inputs, so their results share that input's buffer and lifetime.
 2. **CP-SAT formulation**: The partition execution order is found by solving a constraint programming problem using Google OR-Tools' CP-SAT solver. The formulation is an adaptation to CP-SAT of an ILP formulation from [Zhong et.al.](https://arxiv.org/abs/2308.13898), with one liveness variable per tensor and step, and one memory constraint per step.
-3. **Warm start**: An RPO (Reverse Post-Order) heuristic provides an initial feasible schedule that seeds the CP-SAT solver, accelerating convergence.
+3. **Warm start**: the cheaper of an RPO (Reverse Post-Order) order and the node id order (when the ids are topological, as a compiler numbers its ops) seeds the CP-SAT solver and bounds its objective.
 
 The scheduler is invoked by passing `1` as the enable-scheduling argument to `dag-test` (see Usage above), optionally followed by the objective. It reports the time taken by the solver. With verification on, as in `dag-test`, a brute-force search over all orders checks that the solver's schedule is optimal for either objective.
 

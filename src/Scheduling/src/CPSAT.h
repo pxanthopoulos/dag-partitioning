@@ -6,8 +6,12 @@
 #ifndef DAG_PARTITIONING_SCHEDULING_CPSAT_H
 #define DAG_PARTITIONING_SCHEDULING_CPSAT_H
 
+#include "HyperGraph.h"
+
 #include "ortools/sat/cp_model.h"
 #include <cstdint>
+#include <functional>
+#include <vector>
 
 namespace dag_partitioning {
 
@@ -29,6 +33,16 @@ namespace cpsat {
 solveModel(const operations_research::sat::CpModelProto &model,
            uint64_t timeLimitSeconds, int32_t numWorkers, bool deterministic,
            bool debug);
+
+/**
+ * @brief The order to warm-start from: the cheaper of the RPO order and the
+ * node id order, if the ids are a topological order (as a compiler numbers
+ * ops, in program order); RPO on ties
+ */
+[[nodiscard]] std::vector<uint64_t>
+warmStart(const hypergraph::HyperGraph &graph,
+          const std::function<uint64_t(const std::vector<uint64_t> &)> &cost,
+          bool debug);
 
 } // namespace cpsat
 

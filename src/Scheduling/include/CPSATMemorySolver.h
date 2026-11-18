@@ -22,7 +22,7 @@ namespace cpsat {
 /**
  * @brief Finds the order of the nodes with the lowest peak memory
  * (hypergraph::HyperGraph::computePeakMemory), warm-started with the RPO
- * heuristic
+ * order or the node id order, the better one
  *
  * The model is an adaptation of the ILP of Zhong et al.
  * (arXiv:2308.13898): a boolean per node and step that runs it, and per
@@ -47,7 +47,7 @@ class CPSATMemorySolver {
           bool deterministic = true);
 
     /**
-     * @brief Seconds the last solve spent building the model (RPO warm start
+     * @brief Seconds the last solve spent building the model (warm start
      * included) and solving it
      */
     [[nodiscard]] double constructionSeconds() const {
