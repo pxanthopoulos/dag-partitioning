@@ -72,6 +72,49 @@ TEST_F(DotFile, NumbersNamedNodesInOrderAndWritesTheMapping) {
     EXPECT_NE(text.find("a -> 1\n"), std::string::npos);
 }
 
+TEST_F(DotFile, SkipsComments) {
+    Graph graph = read("// size=2\n"
+                       "digraph cfg {\n"
+                       "0[weight=1];\n"
+                       "  // 1[weight=5];\n"
+                       "1[weight=2];\n"
+                       "0->1[weight=3];\n"
+                       "}\n");
+    EXPECT_EQ(graph.nodeWeights, (std::vector<uint64_t>{1, 2}));
+}
+
+TEST_F(DotFile, SkipsLinesThatAreNeitherNodesNorEdges) {
+    // Blank lines, graph attributes and a line without a weight
+    Graph graph = read("digraph cfg {\n"
+                       "   \n"
+                       "\t\n"
+                       "graph [rankdir=LR];\n"
+                       "0[weight=1];\n"
+                       "x;\n"
+                       "1[weight=2];\n"
+                       "0->1[weight=3];\n"
+                       "}\n");
+    EXPECT_EQ(graph.nodeWeights, (std::vector<uint64_t>{1, 2}));
+}
+
+TEST_F(DotFile, EdgesMayComeBeforeTheirNodes) {
+    Graph graph = read("digraph cfg {\n"
+                       "a->b[weight=3];\n"
+                       "a[weight=1];\n"
+                       "b[weight=2];\n"
+                       "}\n");
+    EXPECT_EQ(graph.adj[0],
+              (std::vector<std::pair<uint64_t, uint64_t>>{{1, 3}}));
+}
+
+TEST_F(DotFile, UndeclaredNodesThrow) {
+    EXPECT_THROW(read("digraph cfg {\n"
+                      "a[weight=1];\n"
+                      "a->b[weight=3];\n"
+                      "}\n"),
+                 std::runtime_error);
+}
+
 TEST_F(DotFile, ReadsWhatPrintToDotWrites) {
     Graph graph(3);
     graph.addNode(0, 5);

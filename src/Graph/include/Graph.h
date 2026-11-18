@@ -158,9 +158,16 @@ class Graph {
 
 /**
  * @brief Reads a graph from a DOT file and creates node ID mapping
+ *
+ * Nodes are lines "name[weight=123];", numbered in the order they appear, and
+ * edges are lines "from->to[weight=123];"; blank lines, comments and other
+ * lines are skipped.
+ *
  * @param dotFilename Input DOT file path
  * @param mappingFilename Output file for node name to ID mapping
  * @return Constructed Graph object
+ * @throws std::runtime_error If the file can't be opened or an edge names an
+ * undeclared node
  */
 Graph readDotFile(const std::string &dotFilename,
                   const std::string &mappingFilename);
