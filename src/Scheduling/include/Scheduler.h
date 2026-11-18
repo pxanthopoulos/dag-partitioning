@@ -67,7 +67,6 @@ class Scheduler {
 
   public:
     /**
-     * @brief Constructor
      * @param originalGraph Graph to schedule
      * @param partitionMapping Vector mapping each node to its partition
      * @param debug Enable debug output
@@ -93,15 +92,7 @@ class Scheduler {
               std::vector<LiveIn> liveIns = {});
 
     /**
-     * @brief Virtual destructor for proper cleanup
-     */
-    virtual ~Scheduler() = default;
-
-    /**
-     * @brief Executes the scheduling algorithm
-     *
-     * Builds the coarse graph with partition weights computed via memory
-     * packing and inter-partition edge weights.
+     * @brief Builds the coarse graph and orders its nodes, the partitions
      *
      * @param timeLimitSeconds Time limit for solver in seconds (CP-SAT only)
      * @param numWorkers Number of parallel workers for the solver (CP-SAT
@@ -113,9 +104,8 @@ class Scheduler {
      * Objective::TransferMemory; UINT64_MAX means no limit
      * @param deterministic Same result for any number of workers, unless the
      * time limit is hit (CP-SAT only)
-     * @return Pair of a vector with partition numbers ordered by their
-     * scheduled execution and the cost of the schedule (peak memory usage or
-     * transferred bytes)
+     * @return The partitions in execution order, and the cost of that order
+     * (peak memory or transferred bytes)
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t>
     run(uint64_t timeLimitSeconds = 600, int32_t numWorkers = 1,

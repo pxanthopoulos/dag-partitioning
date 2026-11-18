@@ -1,7 +1,6 @@
 /**
  * @file HyperGraph.cpp
- * @brief Implementation of hyper graph representation for memory-aware
- * scheduling
+ * @brief Hyper graph of nodes and the tensors between them, for scheduling
  */
 
 #include "HyperGraph.h"
@@ -19,92 +18,51 @@ HyperGraph::HyperGraph(std::vector<uint64_t> extraSizes,
                        const std::vector<Tensor> &tensors,
                        std::vector<LiveIn> liveIns)
     : size(extraSizes.size()), liveIns(std::move(liveIns)),
-      extraSizes(std::move(extraSizes)) {
-    outputTensors.resize(size);
-    inputTensors.resize(size);
-    tensorUsers.resize(tensors.size());
-
+      extraSizes(std::move(extraSizes)), ancestors(size), descendants(size),
+      inputTensors(size), tensorUsers(tensors.size()) {
     for (uint64_t t = 0; t < tensors.size(); ++t) {
         tensorSizes.push_back(tensors[t].size);
         tensorProducers.push_back(tensors[t].producer);
         liveOut.push_back(tensors[t].liveOut);
-        outputTensors[tensors[t].producer].push_back(t);
         for (uint64_t user : tensors[t].users) {
             tensorUsers[t].insert(user);
             inputTensors[user].insert(t);
         }
     }
 
-    computeTopology();
-}
-
-void HyperGraph::computeTopology() {
-    computeAncestors();
-    computeDescendants();
-}
-
-void HyperGraph::computeAncestors() {
-    ancestors.clear();
-    ancestors.resize(size);
-
-    // Predecessors (producers of input tensors) and successors of every node
+    // Ancestors in topological order (Kahn's algorithm): the predecessors
+    // of a node and their ancestors
     std::vector<robin_hood::unordered_set<uint64_t>> predecessors(size);
     std::vector<std::vector<uint64_t>> successors(size);
     for (uint64_t i = 0; i < size; i++) {
         for (uint64_t t : inputTensors[i]) {
-            uint64_t producer = tensorProducers[t];
-            if (predecessors[i].insert(producer).second)
-                successors[producer].push_back(i);
+            if (predecessors[i].insert(tensorProducers[t]).second)
+                successors[tensorProducers[t]].push_back(i);
         }
     }
-
-    // Compute in-degree for topological sort
-    std::vector<uint64_t> inDegree(size, 0);
+    std::vector<uint64_t> inDegree(size);
+    std::queue<uint64_t> ready;
     for (uint64_t i = 0; i < size; i++) {
         inDegree[i] = predecessors[i].size();
+        if (inDegree[i] == 0)
+            ready.push(i);
     }
-
-    // Topological sort using Kahn's algorithm
-    std::queue<uint64_t> queue;
-    for (uint64_t i = 0; i < size; i++) {
-        if (inDegree[i] == 0) {
-            queue.push(i);
-        }
-    }
-
-    while (!queue.empty()) {
-        uint64_t node = queue.front();
-        queue.pop();
-
-        // For this node, its ancestors are the union of:
-        // 1. Its direct predecessors
-        // 2. All ancestors of its predecessors
+    while (!ready.empty()) {
+        uint64_t node = ready.front();
+        ready.pop();
         for (uint64_t pred : predecessors[node]) {
             ancestors[node].insert(pred);
             ancestors[node].insert(ancestors[pred].begin(),
                                    ancestors[pred].end());
         }
-
-        // Update in-degrees and enqueue nodes
         for (uint64_t succ : successors[node]) {
-            inDegree[succ]--;
-            if (inDegree[succ] == 0) {
-                queue.push(succ);
-            }
+            if (--inDegree[succ] == 0)
+                ready.push(succ);
         }
     }
-}
-
-void HyperGraph::computeDescendants() {
-    descendants.clear();
-    descendants.resize(size);
-
-    // Build descendants from ancestors: if j is ancestor of i, then i is
-    // descendant of j
     for (uint64_t i = 0; i < size; i++) {
-        for (uint64_t ancestor : ancestors[i]) {
+        for (uint64_t ancestor : ancestors[i])
             descendants[ancestor].insert(i);
-        }
     }
 }
 
@@ -175,100 +133,27 @@ HyperGraph::computeTransfers(const std::vector<uint64_t> &order) const {
     return transfers;
 }
 
-void HyperGraph::print(std::ostream &os) const {
-    os << "Nodes: " << size << ", tensors: " << tensorSizes.size() << std::endl;
-
-    for (uint64_t i = 0; i < size; i++) {
-        os << "\nNode: " << i << std::endl;
-        os << "    extraSizes=" << extraSizes[i] << std::endl;
-
-        os << "    inputs={";
-        for (auto it = inputTensors[i].begin(); it != inputTensors[i].end();
-             ++it) {
-            if (it != inputTensors[i].begin())
-                os << ", ";
-            os << *it;
-        }
-        os << "}, outputs={";
-        for (uint64_t k = 0; k < outputTensors[i].size(); ++k) {
-            uint64_t t = outputTensors[i][k];
-            if (k != 0)
-                os << ", ";
-            os << t << ":" << tensorSizes[t] << (liveOut[t] ? "(out)" : "")
-               << "->[";
-            for (auto it = tensorUsers[t].begin(); it != tensorUsers[t].end();
-                 ++it) {
-                if (it != tensorUsers[t].begin())
-                    os << " ";
-                os << *it;
-            }
-            os << "]";
-        }
-        os << "}" << std::endl;
-
-        os << "    anc={";
-        for (auto it = ancestors[i].begin(); it != ancestors[i].end(); ++it) {
-            if (it != ancestors[i].begin())
-                os << ", ";
-            os << *it;
-        }
-        os << "}, des={";
-        for (auto it = descendants[i].begin(); it != descendants[i].end();
-             ++it) {
-            if (it != descendants[i].begin())
-                os << ", ";
-            os << *it;
-        }
-        os << "}" << std::endl;
-    }
-}
-
-uint64_t HyperGraph::getSize() const { return size; }
-
-uint64_t HyperGraph::getNumTensors() const { return tensorSizes.size(); }
-
-const std::vector<uint64_t> &HyperGraph::getTensorProducers() const {
-    return tensorProducers;
-}
-
-const std::vector<bool> &HyperGraph::getLiveOut() const { return liveOut; }
-
-const std::vector<LiveIn> &HyperGraph::getLiveIns() const { return liveIns; }
-
-const std::vector<std::vector<uint64_t>> &HyperGraph::getOutputTensors() const {
-    return outputTensors;
-}
-
-const std::vector<robin_hood::unordered_set<uint64_t>> &
-HyperGraph::getAncestors() const {
-    return ancestors;
-}
-
-const std::vector<robin_hood::unordered_set<uint64_t>> &
-HyperGraph::getDescendants() const {
-    return descendants;
-}
-
-const std::vector<robin_hood::unordered_set<uint64_t>> &
-HyperGraph::getTensorUsers() const {
-    return tensorUsers;
-}
-
-const std::vector<uint64_t> &HyperGraph::getTensorSizes() const {
-    return tensorSizes;
-}
-
-const std::vector<uint64_t> &HyperGraph::getExtraSizes() const {
-    return extraSizes;
-}
-
-const std::vector<robin_hood::unordered_set<uint64_t>> &
-HyperGraph::getInputTensors() const {
-    return inputTensors;
-}
-
 std::ostream &operator<<(std::ostream &os, const HyperGraph &graph) {
-    graph.print(os);
+    os << graph.size << " nodes, extra sizes:";
+    for (uint64_t extra : graph.extraSizes)
+        os << " " << extra;
+    os << "\n";
+    for (uint64_t t = 0; t < graph.tensorSizes.size(); t++) {
+        std::vector<uint64_t> users(graph.tensorUsers[t].begin(),
+                                    graph.tensorUsers[t].end());
+        std::sort(users.begin(), users.end());
+        os << "tensor " << t << ": " << graph.tensorSizes[t] << " bytes, "
+           << graph.tensorProducers[t] << " ->";
+        for (uint64_t user : users)
+            os << " " << user;
+        os << (graph.liveOut[t] ? " (live-out)\n" : "\n");
+    }
+    for (const LiveIn &liveIn : graph.liveIns) {
+        os << "live-in: " << liveIn.size << " bytes ->";
+        for (uint64_t user : liveIn.users)
+            os << " " << user;
+        os << "\n";
+    }
     return os;
 }
 

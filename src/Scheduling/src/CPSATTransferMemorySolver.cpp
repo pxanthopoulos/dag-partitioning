@@ -434,15 +434,12 @@ CPSATTransferMemorySolver::Result CPSATTransferMemorySolver::solveOnce(
     auto solveEnd = std::chrono::steady_clock::now();
 
     if (debug) {
-        std::cerr << "Solver status: " << CpSolverResponseStats(response)
-                  << std::endl;
-        std::cerr << "CP-SAT model construction time: "
-                  << std::chrono::duration<double>(solveStart -
-                                                   constructionStart)
-                         .count()
-                  << " seconds" << std::endl;
         std::cerr
-            << "CP-SAT solve time: "
+            << "Solver status: " << CpSolverResponseStats(response)
+            << "\nCP-SAT model construction time: "
+            << std::chrono::duration<double>(solveStart - constructionStart)
+                   .count()
+            << " seconds\nCP-SAT solve time: "
             << std::chrono::duration<double>(solveEnd - solveStart).count()
             << " seconds" << std::endl;
     }
@@ -478,8 +475,8 @@ std::tuple<operations_research::sat::CpSolverStatus, std::vector<uint64_t>,
            uint64_t>
 CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
                                  bool deterministic) const {
-    heuristic::RPOScheduler rpoScheduler(graph, debug);
-    std::vector<uint64_t> hint = rpoScheduler.solve().first;
+    std::vector<uint64_t> hint =
+        heuristic::RPOScheduler(graph, debug).solve().first;
 
     Result result = solveOnce(Goal::Transfers, memoryLimit, hint,
                               timeLimitSeconds, numWorkers, deterministic);
@@ -505,8 +502,8 @@ CPSATTransferMemorySolver::solve(uint64_t timeLimitSeconds, int32_t numWorkers,
                                                                : lowest.status;
     }
     if (debug) {
-        std::cerr << "Transferred bytes: " << result.cost << std::endl;
-        std::cerr << "Peak footprint: " << footprints.peak(result.schedule)
+        std::cerr << "Transferred bytes: " << result.cost
+                  << "\nPeak footprint: " << footprints.peak(result.schedule)
                   << std::endl;
     }
     return {status, result.schedule, result.cost};
