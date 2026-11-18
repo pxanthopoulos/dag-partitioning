@@ -133,6 +133,20 @@ Use the `rand-dag` tool to generate test graphs:
 ./bin/rand-dag
 ```
 
+### Running the Tests
+
+The tests are built with `DAG_PARTITIONING_BUILD_TESTS=ON` (it downloads GoogleTest). Overriding the release flags keeps the asserts, which check the CP-SAT solutions:
+
+```bash
+cmake -DDAG_PARTITIONING_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS_RELEASE=-O2 ..
+make
+ctest
+```
+
+- `unit-tests` ([test/unit](test/unit)): the scheduler's parts on small problems with known answers, and the DOT reader.
+- `scheduler-fuzz` ([test/e2e](test/e2e)): random partitioned graphs with tied ops, live-ins, live-outs and alignments, every objective and solver, CP-SAT verified against brute force. It prints every schedule, so the outputs of two builds can be compared.
+- `fuzz` and `fuzz2` ([test/e2e](test/e2e)): `dag-test` with the transfer objective on random DAGs, from no limit to a 1-byte one; `dag-test` verifies against brute force.
+
 ### Library Usage
 
 For programmatic usage, check the dag-test executable source in [test/test.cpp](test/test.cpp).

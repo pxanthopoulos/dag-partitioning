@@ -61,6 +61,7 @@ option(SCOTCH_USE_LZMA "Use LZMA compression format if found" ON)
 option(SCOTCH_USE_BZ2 "Use BZ2 compression format if found" ON)
 option(SCOTCH_ENABLE_TESTS "Enable SCOTCH testing" ON)
 option(DAG_PARTITIONING_OPENMP "Enable OpenMP support" OFF)
+option(DAG_PARTITIONING_BUILD_TESTS "Build the unit and end-to-end tests" OFF)
 set(SCOTCH_DETERMINISTIC "FIXED_SEED" CACHE STRING "Level of determinism in Scotch (NONE/FIXED_SEED/FULL)")
 set(SCOTCH_IDXSIZE "" CACHE STRING "Index size: empty string stands for C compiler int type size")
 set(SCOTCH_NAME_SUFFIX "" CACHE STRING "Suffix to add to every symbol in the Scotch/PT-Scotch libraries")
@@ -111,6 +112,11 @@ target_link_libraries(dag-test
         dag_partitioning
         robin_hood::robin_hood
 )
+
+if(DAG_PARTITIONING_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
 
 # Installation
 include(cmake/Install.cmake)
