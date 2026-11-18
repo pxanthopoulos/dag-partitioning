@@ -301,12 +301,28 @@ void verifySchedule(const hypergraph::HyperGraph &graph,
                                           memoryLimit);
     auto [bfSchedule, bfCost] = bfSolver.solve();
 
+    // The schedule must be an order of all nodes with the cost reported
+    uint64_t n = graph.getSize();
+    std::vector<uint64_t> pos(n, n);
+    for (uint64_t step = 0; step < schedule.size(); step++) {
+        if (schedule[step] < n)
+            pos[schedule[step]] = step;
+    }
+    bool valid = schedule.size() == n &&
+                 std::find(pos.begin(), pos.end(), n) == pos.end();
+    for (uint64_t t = 0; valid && t < graph.getNumTensors(); t++) {
+        for (uint64_t user : graph.getTensorUsers()[t])
+            valid &= pos[graph.getTensorProducers()[t]] < pos[user];
+    }
+    valid &= cost == (objective == Objective::Memory
+                          ? graph.computePeakMemory(schedule)
+                          : graph.computeTransfers(schedule));
     // Both must also stay within the limit, or the lowest peak above it
     bool peakOk = objective != Objective::TransferMemory ||
                   memoryLimit == UINT64_MAX ||
                   footprints.peak(schedule) <=
                       std::max(memoryLimit, footprints.peak(bfSchedule));
-    if (cost == bfCost && peakOk)
+    if (valid && cost == bfCost && peakOk)
         return;
 
     std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n" << std::endl;
@@ -320,9 +336,11 @@ void verifySchedule(const hypergraph::HyperGraph &graph,
               << std::endl;
     std::cerr << "\n=== VERIFICATION FAILED: DUMP END ===\n" << std::endl;
 
-    throw std::runtime_error("Verification failed: CP-SAT cost (" +
-                             std::to_string(cost) + ") != brute-force cost (" +
-                             std::to_string(bfCost) + ")");
+    throw std::runtime_error(
+        "Verification failed: CP-SAT cost (" + std::to_string(cost) +
+        ") != brute-force cost (" + std::to_string(bfCost) + ")" +
+        (valid ? "" : ", or not the cost of a valid order") +
+        (peakOk ? "" : ", or over the limit"));
 }
 
 } // namespace

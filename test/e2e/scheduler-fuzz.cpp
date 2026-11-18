@@ -1,9 +1,11 @@
 // End-to-end check of the scheduler on random partitioned graphs, with tied
 // ops, live-outs, live-ins and alignments: every CP-SAT schedule is verified
 // against brute force (Scheduler's verify), meets its memory limit, and
-// moves no less than the unconstrained one.
+// moves no less than the unconstrained one. Also the memory solver alone on
+// random op graphs (several tensors per node, empty and live-out tensors,
+// extra memory, live-ins), against brute force.
 //
-// Usage: scheduler-fuzz <seed> <instances> [workers]
+// Usage: scheduler-fuzz <seed> <instances> [workers] [max partitions]
 // Prints one line per schedule (instance, solver, limit, cost, peak, order),
 // so that the outputs of two builds can be compared.
 #include "Graph.h"
@@ -31,7 +33,7 @@ struct Instance {
     uint64_t offsetAlignment, rangeAlignment;
 };
 
-static Instance generate(std::mt19937_64 &rng) {
+static Instance generate(std::mt19937_64 &rng, uint64_t maxParts) {
     auto pick = [&](uint64_t lo, uint64_t hi) {
         return std::uniform_int_distribution<uint64_t>(lo, hi)(rng);
     };
@@ -98,7 +100,7 @@ static Instance generate(std::mt19937_64 &rng) {
             if (--indeg[s] == 0)
                 ready.push_back(s);
     }
-    uint64_t parts = pick(2, std::min<uint64_t>(7, n));
+    uint64_t parts = pick(2, std::min(maxParts, n));
     std::vector<uint64_t> cuts;
     for (uint64_t i = 1; i < n; i++)
         cuts.push_back(i);
@@ -140,6 +142,56 @@ static Instance generate(std::mt19937_64 &rng) {
     return inst;
 }
 
+// An op graph as IREE's intra-region scheduler builds it: any number of
+// tensors per node (some empty, some live-out), extra memory and live-ins
+static scheduling::hypergraph::HyperGraph
+generateHyperGraph(std::mt19937_64 &rng) {
+    auto pick = [&](uint64_t lo, uint64_t hi) {
+        return std::uniform_int_distribution<uint64_t>(lo, hi)(rng);
+    };
+    const uint64_t sizes[] = {0, 16, 64, 256, 1024, 4096};
+    uint64_t n = pick(2, 9);
+    std::vector<uint64_t> extra(n);
+    for (auto &e : extra)
+        e = pick(0, 2) ? 0 : sizes[pick(1, 4)];
+    std::vector<scheduling::hypergraph::Tensor> tensors;
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t k = pick(i + 1 < n ? 1 : 0, 3); k > 0; k--) {
+            scheduling::hypergraph::Tensor t{i, sizes[pick(0, 5)], {}, false};
+            for (uint64_t u = i + 1; u < n; u++)
+                if (pick(0, 2) == 0 || (u == i + 1 && pick(0, 1)))
+                    t.users.push_back(u);
+            t.liveOut = pick(0, 6) == 0;
+            tensors.push_back(t);
+        }
+    }
+    std::vector<scheduling::hypergraph::LiveIn> liveIns;
+    for (uint64_t l = pick(0, 2); l > 0; l--) {
+        scheduling::hypergraph::LiveIn liveIn{sizes[pick(1, 5)], {}};
+        for (uint64_t u = 0; u < n; u++)
+            if (pick(0, 3) == 0)
+                liveIn.users.push_back(u);
+        liveIns.push_back(liveIn);
+    }
+    return scheduling::hypergraph::HyperGraph(extra, tensors, liveIns);
+}
+
+static bool isOrderOf(const scheduling::hypergraph::HyperGraph &graph,
+                      const std::vector<uint64_t> &order) {
+    uint64_t n = graph.getSize();
+    std::vector<uint64_t> pos(n, n);
+    for (uint64_t step = 0; step < order.size(); step++)
+        if (order[step] < n)
+            pos[order[step]] = step;
+    if (order.size() != n || std::count(pos.begin(), pos.end(), n))
+        return false;
+    for (uint64_t t = 0; t < graph.getNumTensors(); t++)
+        for (uint64_t user : graph.getTensorUsers()[t])
+            if (pos[graph.getTensorProducers()[t]] >= pos[user])
+                return false;
+    return true;
+}
+
 static void report(uint64_t c, const char *what, uint64_t limit,
                    const std::vector<uint64_t> &schedule, uint64_t cost,
                    uint64_t peak) {
@@ -153,13 +205,15 @@ static void report(uint64_t c, const char *what, uint64_t limit,
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3 || argc > 4) {
-        std::cerr << "Usage: " << argv[0] << " <seed> <instances> [workers]\n";
+    if (argc < 3 || argc > 5) {
+        std::cerr << "Usage: " << argv[0]
+                  << " <seed> <instances> [workers] [max partitions]\n";
         return 2;
     }
     uint64_t seed = std::strtoull(argv[1], nullptr, 10);
     uint64_t count = std::strtoull(argv[2], nullptr, 10);
     int workers = argc > 3 ? std::atoi(argv[3]) : 4;
+    uint64_t maxParts = argc > 4 ? std::strtoull(argv[4], nullptr, 10) : 7;
     std::mt19937_64 rng(seed);
     uint64_t failures = 0;
     auto fail = [&](uint64_t c, const std::string &why) {
@@ -167,7 +221,7 @@ int main(int argc, char **argv) {
         failures++;
     };
     for (uint64_t c = 0; c < count; c++) {
-        Instance inst = generate(rng);
+        Instance inst = generate(rng, maxParts);
         // Cost and peak of a schedule
         auto run = [&](const char *what, Solver solver, Objective objective,
                        uint64_t limit) -> std::pair<uint64_t, uint64_t> {
@@ -211,6 +265,30 @@ int main(int argc, char **argv) {
             }
         } catch (const std::exception &e) {
             fail(c, e.what());
+        }
+
+        // The memory solver alone, on an op graph
+        scheduling::hypergraph::HyperGraph graph = generateHyperGraph(rng);
+        try {
+            uint64_t best =
+                scheduling::bruteforce::BruteForceSolver(graph).solve().second;
+            scheduling::cpsat::CPSATMemorySolver solver(graph);
+            auto [status, schedule, peak] = solver.solve(600, workers, true);
+            report(c, "graph-cpsat", UINT64_MAX, schedule, peak, best);
+            if (status != operations_research::sat::CpSolverStatus::OPTIMAL)
+                fail(c, "graph: not optimal");
+            if (!isOrderOf(graph, schedule) ||
+                graph.computePeakMemory(schedule) != peak)
+                fail(c, "graph: not the peak of a valid order");
+            if (peak != best)
+                fail(c, "graph: peak " + std::to_string(peak) +
+                            " but brute force " + std::to_string(best));
+            auto rpo = scheduling::heuristic::RPOScheduler(graph).solve();
+            if (!isOrderOf(graph, rpo.first) || rpo.second < best ||
+                graph.computePeakMemory(rpo.first) != rpo.second)
+                fail(c, "graph: RPO gives no valid order or its peak");
+        } catch (const std::exception &e) {
+            fail(c, std::string("graph: ") + e.what());
         }
     }
     std::cerr << count << " instances, " << failures << " failures\n";
