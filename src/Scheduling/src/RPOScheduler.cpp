@@ -6,8 +6,6 @@
 #include "RPOScheduler.h"
 
 #include <iostream>
-#include <stack>
-#include <tuple>
 
 namespace dag_partitioning {
 
@@ -20,88 +18,42 @@ RPOScheduler::RPOScheduler(const hypergraph::HyperGraph &graph, bool debug)
 
 std::pair<std::vector<uint64_t>, uint64_t> RPOScheduler::solve() const {
     uint64_t n = graph.getSize();
-    std::vector<uint64_t> schedule;
-    schedule.reserve(n);
-
-    // Build adjacency list for DFS (node -> children/successors)
     std::vector<std::vector<uint64_t>> children(n);
     for (uint64_t i = 0; i < n; i++) {
-        for (uint64_t input : graph.getInputTensors()[i]) {
+        for (uint64_t input : graph.getInputTensors()[i])
             children[graph.getTensorProducers()[input]].push_back(i);
-        }
     }
 
-    // Find root nodes (nodes with no inputs)
-    std::vector<uint64_t> roots;
-    for (uint64_t i = 0; i < n; i++) {
-        if (graph.getInputTensors()[i].empty()) {
-            roots.push_back(i);
-        }
-    }
-
-    // DFS to compute reverse post-order
+    // Iterative depth-first search from every node without inputs; a stack
+    // entry is a node and the index of its next child
     std::vector<bool> visited(n, false);
     std::vector<uint64_t> postOrder;
-    postOrder.reserve(n);
-
-    // Iterative DFS using explicit stack to avoid stack overflow
-    std::stack<std::tuple<uint64_t, size_t, bool>> dfsStack;
-
-    for (uint64_t root : roots) {
-        if (visited[root])
+    std::vector<std::pair<uint64_t, size_t>> stack;
+    for (uint64_t root = 0; root < n; root++) {
+        if (!graph.getInputTensors()[root].empty() || visited[root])
             continue;
-
-        dfsStack.push({root, 0, false});
-
-        while (!dfsStack.empty()) {
-            auto &[node, childIdx, postVisit] = dfsStack.top();
-
-            if (postVisit) {
+        visited[root] = true;
+        stack.push_back({root, 0});
+        while (!stack.empty()) {
+            auto &[node, next] = stack.back();
+            const auto &nodeChildren = children[node];
+            while (next < nodeChildren.size() && visited[nodeChildren[next]])
+                next++;
+            if (next == nodeChildren.size()) {
                 postOrder.push_back(node);
-                dfsStack.pop();
-                continue;
-            }
-
-            if (!visited[node]) {
-                visited[node] = true;
-            }
-
-            // Find next unvisited child
-            while (childIdx < children[node].size() &&
-                   visited[children[node][childIdx]]) {
-                childIdx++;
-            }
-
-            if (childIdx < children[node].size()) {
-                uint64_t child = children[node][childIdx];
-                childIdx++;
-                dfsStack.push({child, 0, false});
+                stack.pop_back();
             } else {
-                postVisit = true;
+                uint64_t child = nodeChildren[next++];
+                visited[child] = true;
+                stack.push_back({child, 0});
             }
         }
     }
 
-    // Reverse post-order
-    for (auto it = postOrder.rbegin(); it != postOrder.rend(); ++it) {
-        schedule.push_back(*it);
-    }
-
-    if (debug) {
-        std::cerr << "\nRPO schedule: ";
-        for (uint64_t op : schedule) {
-            std::cerr << op << " ";
-        }
-        std::cerr << std::endl;
-    }
-
-    // Compute peak memory
+    std::vector<uint64_t> schedule(postOrder.rbegin(), postOrder.rend());
     uint64_t peakMemory = graph.computePeakMemory(schedule);
-
-    if (debug) {
+    if (debug)
         std::cerr << "RPO peak memory: " << peakMemory << std::endl;
-    }
-
     return {schedule, peakMemory};
 }
 

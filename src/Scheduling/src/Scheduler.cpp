@@ -16,6 +16,7 @@
 #include <map>
 #include <numeric>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -277,31 +278,20 @@ partitionLiveIns(const std::vector<Scheduler::LiveIn> &liveIns,
     return result;
 }
 
-void printSchedule(const char *title, uint64_t cost,
-                   const std::vector<uint64_t> &schedule) {
-    std::cerr << "=== " << title << " ===\n";
-    std::cerr << "Cost: " << cost << std::endl;
-    std::cerr << "Schedule: ";
-    for (uint64_t partition : schedule)
-        std::cerr << partition << " ";
-    std::cerr << "\n" << std::endl;
-}
-
 /**
- * @brief Checks a schedule against the brute-force solver; dumps both and
- * throws if the costs differ, or if the schedule's peak is above both the
- * limit and the brute-force schedule's peak
+ * @brief Checks a schedule from CP-SAT against brute force: it must be an
+ * order of all nodes with the reported cost, that cost must be the optimum,
+ * and under Objective::TransferMemory its peak must meet the limit, or the
+ * lowest peak above it. Dumps both orders and throws if not
  */
 void verifySchedule(const hypergraph::HyperGraph &graph,
-                    const PartitionFootprints &footprints, bool debug,
-                    operations_research::sat::CpSolverStatus status,
+                    const PartitionFootprints &footprints,
                     const std::vector<uint64_t> &schedule, uint64_t cost,
                     Objective objective, uint64_t memoryLimit) {
-    bruteforce::BruteForceSolver bfSolver(graph, debug, objective, &footprints,
-                                          memoryLimit);
-    auto [bfSchedule, bfCost] = bfSolver.solve();
+    auto [bfSchedule, bfCost] =
+        bruteforce::BruteForceSolver(graph, objective, &footprints, memoryLimit)
+            .solve();
 
-    // The schedule must be an order of all nodes with the cost reported
     uint64_t n = graph.getSize();
     std::vector<uint64_t> pos(n, n);
     for (uint64_t step = 0; step < schedule.size(); step++) {
@@ -314,28 +304,25 @@ void verifySchedule(const hypergraph::HyperGraph &graph,
         for (uint64_t user : graph.getTensorUsers()[t])
             valid &= pos[graph.getTensorProducers()[t]] < pos[user];
     }
-    valid &= cost == (objective == Objective::Memory
-                          ? graph.computePeakMemory(schedule)
-                          : graph.computeTransfers(schedule));
-    // Both must also stay within the limit, or the lowest peak above it
-    bool peakOk = objective != Objective::TransferMemory ||
-                  memoryLimit == UINT64_MAX ||
+    valid = valid && cost == (objective == Objective::Memory
+                                  ? graph.computePeakMemory(schedule)
+                                  : graph.computeTransfers(schedule));
+    bool peakOk = objective == Objective::Memory || memoryLimit == UINT64_MAX ||
                   footprints.peak(schedule) <=
                       std::max(memoryLimit, footprints.peak(bfSchedule));
     if (valid && cost == bfCost && peakOk)
         return;
 
-    std::cerr << "\n=== VERIFICATION FAILED: DUMP START ===\n" << std::endl;
-    std::cerr << "=== HyperGraph ===\n";
-    std::cerr << graph;
-    std::cerr << std::endl;
-    printSchedule("CP-SAT Solution", cost, schedule);
-    printSchedule("Brute-Force Solution", bfCost, bfSchedule);
-    std::cerr << "\nStatus: "
-              << operations_research::sat::CpSolverStatus_Name(status)
-              << std::endl;
-    std::cerr << "\n=== VERIFICATION FAILED: DUMP END ===\n" << std::endl;
-
+    auto print = [](const std::vector<uint64_t> &order) {
+        std::ostringstream text;
+        for (uint64_t node : order)
+            text << " " << node;
+        return text.str();
+    };
+    std::cerr << "Verification failed on:\n"
+              << graph << "\nCP-SAT order (cost " << cost
+              << "):" << print(schedule) << "\nBrute-force order (cost "
+              << bfCost << "):" << print(bfSchedule) << std::endl;
     throw std::runtime_error(
         "Verification failed: CP-SAT cost (" + std::to_string(cost) +
         ") != brute-force cost (" + std::to_string(bfCost) + ")" +
@@ -417,62 +404,50 @@ void Scheduler::buildCoarseGraph() {
 std::pair<std::vector<uint64_t>, uint64_t>
 Scheduler::run(uint64_t timeLimitSeconds, int32_t numWorkers, Solver solver,
                Objective objective, uint64_t memoryLimit, bool deterministic) {
-    auto buildStart = std::chrono::steady_clock::now();
+    using Clock = std::chrono::steady_clock;
+    auto secondsSince = [](Clock::time_point start) {
+        return std::chrono::duration<double>(Clock::now() - start).count();
+    };
+    auto start = Clock::now();
     buildCoarseGraph();
-    auto buildEnd = std::chrono::steady_clock::now();
     if (debug) {
-        std::cerr
-            << "Coarse graph construction time: "
-            << std::chrono::duration<double>(buildEnd - buildStart).count()
-            << " seconds" << std::endl;
+        std::cerr << "Coarse graph construction time: " << secondsSince(start)
+                  << " seconds" << std::endl;
     }
-    const hypergraph::HyperGraph &hyperGraph = *coarseGraph;
+    const hypergraph::HyperGraph &graph = *coarseGraph;
 
+    std::vector<uint64_t> schedule;
+    uint64_t cost;
     if (solver == Solver::RPO) {
-        auto solveStart = std::chrono::steady_clock::now();
-        heuristic::RPOScheduler rpoScheduler(hyperGraph, debug);
-        auto [schedule, peakMemory] = rpoScheduler.solve();
-        uint64_t cost;
-        const char *costLabel;
-        if (objective == Objective::Memory) {
-            cost = peakMemory;
-            costLabel = "Peak memory: ";
-        } else if (objective == Objective::TransferMemory) {
-            cost = hyperGraph.computeTransfers(schedule);
-            costLabel = "Transferred bytes: ";
-        } else {
-            throw std::invalid_argument("Unknown scheduling objective");
-        }
-        auto solveEnd = std::chrono::steady_clock::now();
+        start = Clock::now();
+        schedule = heuristic::RPOScheduler(graph, debug).solve().first;
+        cost = objective == Objective::Memory
+                   ? graph.computePeakMemory(schedule)
+                   : graph.computeTransfers(schedule);
         if (debug) {
-            std::cerr
-                << "RPO solve time: "
-                << std::chrono::duration<double>(solveEnd - solveStart).count()
-                << " seconds" << std::endl;
-            std::cerr << costLabel << cost << std::endl;
+            std::cerr << "RPO solve time: " << secondsSince(start)
+                      << " seconds\n"
+                      << (objective == Objective::Memory
+                              ? "Peak memory: "
+                              : "Transferred bytes: ")
+                      << cost << std::endl;
         }
         return {schedule, cost};
     }
 
-    operations_research::sat::CpSolverStatus status;
-    std::vector<uint64_t> schedule;
-    uint64_t cost;
     if (objective == Objective::Memory) {
-        cpsat::CPSATMemorySolver memorySolver(hyperGraph, debug);
-        std::tie(status, schedule, cost) =
-            memorySolver.solve(timeLimitSeconds, numWorkers, deterministic);
-    } else if (objective == Objective::TransferMemory) {
-        cpsat::CPSATTransferMemorySolver transferSolver(hyperGraph, *footprints,
-                                                        memoryLimit, debug);
-        std::tie(status, schedule, cost) =
-            transferSolver.solve(timeLimitSeconds, numWorkers, deterministic);
+        std::tie(std::ignore, schedule, cost) =
+            cpsat::CPSATMemorySolver(graph, debug)
+                .solve(timeLimitSeconds, numWorkers, deterministic);
     } else {
-        throw std::invalid_argument("Unknown scheduling objective");
+        std::tie(std::ignore, schedule, cost) =
+            cpsat::CPSATTransferMemorySolver(graph, *footprints, memoryLimit,
+                                             debug)
+                .solve(timeLimitSeconds, numWorkers, deterministic);
     }
-
     if (verify)
-        verifySchedule(hyperGraph, *footprints, debug, status, schedule, cost,
-                       objective, memoryLimit);
+        verifySchedule(graph, *footprints, schedule, cost, objective,
+                       memoryLimit);
     return {schedule, cost};
 }
 

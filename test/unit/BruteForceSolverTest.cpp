@@ -17,7 +17,7 @@ TEST(BruteForceSolver, LowestPeak) {
 TEST(BruteForceSolver, FewestTransfersWithoutALimit) {
     Minimal minimal;
     auto [schedule, transfers] =
-        BruteForceSolver(minimal.graph, false, Objective::TransferMemory,
+        BruteForceSolver(minimal.graph, Objective::TransferMemory,
                          &minimal.footprints)
             .solve();
     EXPECT_EQ(schedule, (std::vector<uint64_t>{0, 1, 2}));
@@ -27,7 +27,7 @@ TEST(BruteForceSolver, FewestTransfersWithoutALimit) {
 TEST(BruteForceSolver, FewestTransfersUnderALimit) {
     Minimal minimal;
     auto [schedule, transfers] =
-        BruteForceSolver(minimal.graph, false, Objective::TransferMemory,
+        BruteForceSolver(minimal.graph, Objective::TransferMemory,
                          &minimal.footprints, 11)
             .solve();
     EXPECT_EQ(schedule, (std::vector<uint64_t>{1, 0, 2}));
@@ -37,7 +37,7 @@ TEST(BruteForceSolver, FewestTransfersUnderALimit) {
 TEST(BruteForceSolver, BelowEveryOrderTakesTheLowestPeak) {
     Minimal minimal(true);
     auto [schedule, transfers] =
-        BruteForceSolver(minimal.graph, false, Objective::TransferMemory,
+        BruteForceSolver(minimal.graph, Objective::TransferMemory,
                          &minimal.footprints, 1)
             .solve();
     EXPECT_EQ(schedule, (std::vector<uint64_t>{1, 0, 2}));

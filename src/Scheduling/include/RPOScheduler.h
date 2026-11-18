@@ -19,32 +19,23 @@ namespace scheduling {
 namespace heuristic {
 
 /**
- * @brief RPO (Reverse Post-Order) heuristic scheduler
- *
- * Computes a schedule using reverse post-order traversal of the DAG.
- * RPO tends to complete subtrees before moving to siblings, which
- * reduces the number of simultaneously live tensors.
+ * @brief Orders the nodes in reverse post-order of a depth-first search,
+ * which tends to finish a subgraph before it starts the next, so that few
+ * tensors are live at once
  */
 class RPOScheduler {
-  protected:
-    const hypergraph::HyperGraph &graph;
-    bool debug = false;
-
   public:
-    /**
-     * @brief Constructor
-     * @param graph Hyper graph representation
-     * @param debug Enable debug output
-     */
-    RPOScheduler(const hypergraph::HyperGraph &graph, bool debug = false);
-
-    virtual ~RPOScheduler() = default;
+    explicit RPOScheduler(const hypergraph::HyperGraph &graph,
+                          bool debug = false);
 
     /**
-     * @brief Computes the RPO schedule
-     * @return Pair of (schedule, peak memory)
+     * @return The order and its peak memory
      */
     [[nodiscard]] std::pair<std::vector<uint64_t>, uint64_t> solve() const;
+
+  private:
+    const hypergraph::HyperGraph &graph;
+    bool debug;
 };
 
 } // namespace heuristic
