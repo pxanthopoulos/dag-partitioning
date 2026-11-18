@@ -47,6 +47,12 @@ struct Tensor {
                                    uint64_t rangeAlignment = 1);
 
 /**
+ * @brief Sorts tensors by birth, then death, the order a SlabPacker gets
+ * them in
+ */
+void sortByLifetime(std::vector<Tensor> &tensors);
+
+/**
  * @brief Packs the tensors of one partition into a slab
  *
  * Gets the partition's tensors sorted by birth, then death. Assigns each an

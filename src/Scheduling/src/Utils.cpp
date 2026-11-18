@@ -15,6 +15,15 @@ namespace scheduling {
 
 namespace utils {
 
+void sortByLifetime(std::vector<Tensor> &tensors) {
+    std::sort(tensors.begin(), tensors.end(),
+              [](const Tensor &a, const Tensor &b) {
+                  if (a.birth != b.birth)
+                      return a.birth < b.birth;
+                  return a.death < b.death;
+              });
+}
+
 uint64_t packBestFit(std::vector<Tensor> &tensors, uint64_t offsetAlignment,
                      uint64_t rangeAlignment) {
     auto align = [](uint64_t value, uint64_t alignment) {

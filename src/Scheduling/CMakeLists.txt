@@ -1,7 +1,13 @@
 add_library(Scheduling OBJECT
-        src/Scheduling.cpp
-        src/Utils.cpp
+        src/BruteForceSolver.cpp
+        src/CPSAT.cpp
+        src/CPSATMemorySolver.cpp
+        src/CPSATTransferMemorySolver.cpp
         src/HyperGraph.cpp
+        src/PartitionFootprints.cpp
+        src/RPOScheduler.cpp
+        src/Scheduler.cpp
+        src/Utils.cpp
 )
 
 target_include_directories(Scheduling
